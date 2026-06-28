@@ -15,6 +15,7 @@ import {
   applyPreset,
   mcpAddFormTypeStore,
   modelsStore,
+  setModelRate,
   toProviderConfig,
   updateSettings,
   useSettings,
@@ -33,6 +34,8 @@ export function SettingsPanel({ onClose }: { onClose: () => void }): React.React
   const [newCommand, setNewCommand] = useState("");
   const [newArgs, setNewArgs] = useState("");
   const [newUrl, setNewUrl] = useState("");
+
+  const currentModelRate = settings.modelRates?.[settings.model.trim().toLowerCase()];
 
   const refreshMcp = useCallback(async () => {
     try {
@@ -401,6 +404,57 @@ export function SettingsPanel({ onClose }: { onClose: () => void }): React.React
               the meter stays hidden. The value is yours to set, so it never drifts against the model
               you actually picked.
             </p>
+          </section>
+
+          <section className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Model pricing</h3>
+            {settings.model ? (
+              <>
+                <p className="text-xs text-neutral-500">
+                  USD per 1,000,000 tokens for <span className="text-neutral-300">{settings.model}</span>.
+                  Overrides the built-in estimate so the header cost is exact. Leave both at 0 to use the
+                  built-in rate.
+                </p>
+                <div className="flex gap-2">
+                  <label className="block flex-1">
+                    <span className="mb-1 block text-neutral-400">Input $ / 1M</span>
+                    <input
+                      className="w-full rounded bg-neutral-800 px-2 py-1"
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      placeholder="0 = built-in"
+                      value={currentModelRate?.inputPer1M || ""}
+                      onChange={(e) =>
+                        setModelRate(settings.model, {
+                          inputPer1M: Math.max(0, Number(e.target.value) || 0),
+                          outputPer1M: currentModelRate?.outputPer1M ?? 0,
+                        })
+                      }
+                    />
+                  </label>
+                  <label className="block flex-1">
+                    <span className="mb-1 block text-neutral-400">Output $ / 1M</span>
+                    <input
+                      className="w-full rounded bg-neutral-800 px-2 py-1"
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      placeholder="0 = built-in"
+                      value={currentModelRate?.outputPer1M || ""}
+                      onChange={(e) =>
+                        setModelRate(settings.model, {
+                          inputPer1M: currentModelRate?.inputPer1M ?? 0,
+                          outputPer1M: Math.max(0, Number(e.target.value) || 0),
+                        })
+                      }
+                    />
+                  </label>
+                </div>
+              </>
+            ) : (
+              <p className="text-xs text-neutral-500">Pick a model above to set its pricing.</p>
+            )}
           </section>
 
           <section className="space-y-2">

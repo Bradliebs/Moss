@@ -30,17 +30,25 @@ const RATE_TABLE: { match: string; rate: ModelRate }[] = [
   { match: "claude-3.7-sonnet", rate: { inputPer1M: 3, outputPer1M: 15 } },
 ];
 
-/** Look up the built-in rate for a model id, or null when it is unknown. */
-export function modelRate(model: string): ModelRate | null {
+/** Look up the rate for a model id. A user-supplied overrides map (keyed by
+ *  lowercased model id) wins over the built-in table, so configured rates never
+ *  drift against bundled estimates. Returns null when nothing matches. */
+export function modelRate(model: string, overrides?: Record<string, ModelRate>): ModelRate | null {
   const id = model.trim().toLowerCase();
   if (!id) return null;
+  const override = overrides?.[id];
+  if (override) return override;
   return RATE_TABLE.find((e) => id.includes(e.match))?.rate ?? null;
 }
 
 /** Estimate the USD cost of the given token usage for a model, or null when the
- *  model has no built-in rate. */
-export function estimateCost(usage: TokenUsage, model: string): number | null {
-  const rate = modelRate(model);
+ *  model has no override and no built-in rate. */
+export function estimateCost(
+  usage: TokenUsage,
+  model: string,
+  overrides?: Record<string, ModelRate>,
+): number | null {
+  const rate = modelRate(model, overrides);
   if (!rate) return null;
   const input = ((usage.inputTokens ?? 0) / 1_000_000) * rate.inputPer1M;
   const output = ((usage.outputTokens ?? 0) / 1_000_000) * rate.outputPer1M;

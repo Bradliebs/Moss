@@ -7,6 +7,7 @@
 import type { ProviderConfig, ProviderKind } from "@common/types";
 import { DEFAULT_PERSONALITY_ID } from "@common/personalities";
 
+import type { ModelRate } from "./pricing";
 import { createPersistentStore } from "./persistentStore";
 
 export interface ProviderPreset {
@@ -47,6 +48,9 @@ export interface MossSettings {
   /** optional context-window size for the chosen model; 0 hides the meter.
    *  User-supplied so it never drifts against a bundled per-model table. */
   contextLimit: number;
+  /** user-supplied USD-per-million-token rates, keyed by lowercased model id.
+   *  Overrides the built-in pricing estimates so cost readouts can be exact. */
+  modelRates?: Record<string, ModelRate>;
 }
 
 const DEFAULT_SETTINGS: MossSettings = {
@@ -64,6 +68,7 @@ const DEFAULT_SETTINGS: MossSettings = {
   sttBaseUrl: "",
   sttModel: "whisper-1",
   contextLimit: 0,
+  modelRates: {},
 };
 
 export const settingsStore = createPersistentStore<MossSettings>("moss.settings", DEFAULT_SETTINGS);
@@ -85,6 +90,20 @@ export function useSettings(): MossSettings {
 
 export function updateSettings(patch: Partial<MossSettings>): void {
   settingsStore.update((prev) => ({ ...prev, ...patch }));
+}
+
+/** Set or clear the user's pricing override for a model. Passing null (or a rate
+ *  of all zeros) removes the override so the built-in estimate applies again.
+ *  Keys are normalized to a lowercased, trimmed model id. */
+export function setModelRate(model: string, rate: ModelRate | null): void {
+  const id = model.trim().toLowerCase();
+  if (!id) return;
+  settingsStore.update((prev) => {
+    const next = { ...(prev.modelRates ?? {}) };
+    if (!rate || (rate.inputPer1M <= 0 && rate.outputPer1M <= 0)) delete next[id];
+    else next[id] = { inputPer1M: rate.inputPer1M, outputPer1M: rate.outputPer1M };
+    return { ...prev, modelRates: next };
+  });
 }
 
 /** Apply a preset, resetting the cached model list since models are provider-specific. */

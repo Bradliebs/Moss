@@ -19,6 +19,21 @@ describe("modelRate", () => {
     expect(modelRate("some-local-model")).toBeNull();
     expect(modelRate("")).toBeNull();
   });
+
+  it("prefers a user override over the built-in table", () => {
+    const overrides = { "gpt-4o": { inputPer1M: 1, outputPer1M: 2 } };
+    expect(modelRate("gpt-4o", overrides)).toEqual({ inputPer1M: 1, outputPer1M: 2 });
+  });
+
+  it("matches an override case-insensitively and gives an unknown model a rate", () => {
+    const overrides = { "my-local": { inputPer1M: 0.5, outputPer1M: 0.5 } };
+    expect(modelRate("My-Local", overrides)).toEqual({ inputPer1M: 0.5, outputPer1M: 0.5 });
+  });
+
+  it("falls back to the built-in table when no override matches", () => {
+    const overrides = { "other": { inputPer1M: 9, outputPer1M: 9 } };
+    expect(modelRate("gpt-4o", overrides)).toEqual({ inputPer1M: 2.5, outputPer1M: 10 });
+  });
 });
 
 describe("estimateCost", () => {
@@ -34,6 +49,17 @@ describe("estimateCost", () => {
 
   it("treats missing token counts as zero", () => {
     expect(estimateCost({}, "gpt-4o")).toBe(0);
+  });
+
+  it("uses an override rate when one is supplied", () => {
+    // 1M input @ $1 + 1M output @ $2 = 3, beating the built-in gpt-4o rate.
+    const overrides = { "gpt-4o": { inputPer1M: 1, outputPer1M: 2 } };
+    expect(estimateCost({ inputTokens: 1_000_000, outputTokens: 1_000_000 }, "gpt-4o", overrides)).toBeCloseTo(3, 6);
+  });
+
+  it("prices an otherwise-unknown model from an override", () => {
+    const overrides = { "mystery": { inputPer1M: 4, outputPer1M: 4 } };
+    expect(estimateCost({ inputTokens: 1_000_000, outputTokens: 0 }, "mystery", overrides)).toBeCloseTo(4, 6);
   });
 });
 

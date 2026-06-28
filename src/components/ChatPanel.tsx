@@ -360,7 +360,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
   const current = currentSession(sessions);
   const history = current?.messages ?? [];
   const usage = sessionTokenUsage(history);
-  const cost = estimateCost(usage, settings.model);
+  const cost = estimateCost(usage, settings.model, settings.modelRates);
   const tools = sessionToolUsage(history);
   const contextUsed = contextWindowTokens(history);
   const contextDetail = contextWindowUsage(history);

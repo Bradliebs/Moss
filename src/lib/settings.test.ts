@@ -11,6 +11,7 @@ import {
   applyPreset,
   modelsStore,
   PROVIDER_PRESETS,
+  setModelRate,
   settingsStore,
   toProviderConfig,
   updateSettings,
@@ -75,5 +76,26 @@ describe("updateSettings", () => {
     expect(s.model).toBe("llama3");
     expect(s.enableTools).toBe(false);
     expect(s.baseUrl).toBe(baseline.baseUrl);
+  });
+});
+
+describe("setModelRate", () => {
+  it("stores a rate under a normalized lowercased model key", () => {
+    setModelRate("GPT-4o", { inputPer1M: 1, outputPer1M: 2 });
+    expect(settingsStore.get().modelRates).toEqual({ "gpt-4o": { inputPer1M: 1, outputPer1M: 2 } });
+  });
+
+  it("removes the override when both rates are zero", () => {
+    setModelRate("gpt-4o", { inputPer1M: 1, outputPer1M: 2 });
+    setModelRate("gpt-4o", { inputPer1M: 0, outputPer1M: 0 });
+    expect(settingsStore.get().modelRates).toEqual({});
+  });
+
+  it("removes the override when passed null and ignores an empty model", () => {
+    setModelRate("gpt-4o", { inputPer1M: 1, outputPer1M: 2 });
+    setModelRate("gpt-4o", null);
+    expect(settingsStore.get().modelRates).toEqual({});
+    setModelRate("  ", { inputPer1M: 5, outputPer1M: 5 });
+    expect(settingsStore.get().modelRates).toEqual({});
   });
 });
