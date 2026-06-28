@@ -6,6 +6,7 @@
 
 import type { AgentMessage, MossEvent, SttConfig, TokenUsage, ToolCall, ToolDefinition } from "../../../common/types";
 import { resolvePermission } from "./permission";
+import type { CommandRisk } from "./permission";
 import { ProviderError } from "./providers/types";
 import type { ChatProvider } from "./providers/types";
 import type { Tool, ToolResult } from "./tools";
@@ -127,12 +128,13 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
 
       for (const call of calls) {
         onEvent({ type: "tool-call", callId: call.id, name: call.name, arguments: call.arguments });
-        const { result, autoApproved } = await executeCall(call, opts);
+        const { result, autoApproved, risk } = await executeCall(call, opts);
         const toolMsg: AgentMessage = {
           role: "tool",
           content: result.content,
           toolCallId: call.id,
           ...(autoApproved ? { autoApproved: true } : {}),
+          ...(risk ? { risk } : {}),
         };
         newMessages.push(toolMsg);
         // The model-facing history caps each tool result so one large output
@@ -146,6 +148,7 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
           ok: result.ok,
           content: result.content,
           autoApproved,
+          ...(risk ? { risk } : {}),
         });
       }
     }
@@ -170,6 +173,9 @@ interface ExecOutcome {
   /** true only for a mutating ("ask") tool that ran without a prompt because
    *  auto-approve was on -- the one case where the user did not see the call */
   autoApproved: boolean;
+  /** content-risk tier the policy resolved, when it recorded one (readonly
+   *  allow-listed tools and pre-policy failures carry none) */
+  risk?: CommandRisk;
 }
 
 async function executeCall(call: ToolCall, opts: RunTurnOptions): Promise<ExecOutcome> {
@@ -214,11 +220,12 @@ async function executeCall(call: ToolCall, opts: RunTurnOptions): Promise<ExecOu
       opts.toolTimeoutMs ?? TOOL_TIMEOUT_MS,
       call.name,
     );
-    return { result, autoApproved: decision.autoApproved };
+    return { result, autoApproved: decision.autoApproved, risk: decision.risk };
   } catch (err) {
     return {
       result: { ok: false, content: err instanceof Error ? err.message : String(err) },
       autoApproved: decision.autoApproved,
+      risk: decision.risk,
     };
   }
 }

@@ -313,6 +313,25 @@ describe("sessionToolAudit", () => {
     expect(audit).toEqual([{ callId: "ghost", name: "unknown", risk: "mutating", autoApproved: false }]);
   });
 
+  it("prefers the persisted risk tier over the name-derived one", () => {
+    const audit = sessions.sessionToolAudit([
+      {
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          { id: "c1", name: "run_command", arguments: "{}" },
+          { id: "c2", name: "read_file", arguments: "{}" },
+        ],
+      },
+      { role: "tool", content: "ok", toolCallId: "c1", risk: "destructive" },
+      { role: "tool", content: "ok", toolCallId: "c2" },
+    ]);
+    expect(audit).toEqual([
+      { callId: "c1", name: "run_command", risk: "destructive", autoApproved: false },
+      { callId: "c2", name: "read_file", risk: "readonly", autoApproved: false },
+    ]);
+  });
+
   it("classifies tool names with toolRiskTier", () => {
     expect(sessions.toolRiskTier("list_dir")).toBe("readonly");
     expect(sessions.toolRiskTier("run_command")).toBe("mutating");

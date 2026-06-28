@@ -135,6 +135,8 @@ describe("runTurn", () => {
     expect(h.approvals).toEqual([]);
     const res = h.events.find((e) => e.type === "tool-result") as Extract<MossEvent, { type: "tool-result" }>;
     expect(res).toMatchObject({ callId: "c1", name: "read_file", ok: true, content: "FILE BODY" });
+    // Allow-listed readonly tools carry no recorded tier; the audit derives one.
+    expect(res.risk).toBeUndefined();
   });
 
   it("requests approval for an ask-gated tool and runs it when approved", async () => {
@@ -164,6 +166,17 @@ describe("runTurn", () => {
     expect(h.approvals).toEqual([]);
     const res = h.events.find((e) => e.type === "tool-result") as Extract<MossEvent, { type: "tool-result" }>;
     expect(res).toMatchObject({ callId: "c1", name: "write_file", ok: true, content: "WROTE" });
+  });
+
+  it("records the resolved risk tier on the tool result event and the persisted message", async () => {
+    const provider = scriptedProvider([[call("c1", "write_file")], [{ type: "text-delta", text: "ok" }]]);
+    const h = await run(provider, [tool("write_file", { ok: true, content: "WROTE" })], { autoApprove: true });
+
+    const res = h.events.find((e) => e.type === "tool-result") as Extract<MossEvent, { type: "tool-result" }>;
+    expect(res.risk).toBe("mutating");
+    const done = h.events.find((e) => e.type === "turn-complete") as Extract<MossEvent, { type: "turn-complete" }>;
+    const toolMsg = done.messages.find((m) => m.role === "tool" && m.toolCallId === "c1");
+    expect(toolMsg?.risk).toBe("mutating");
   });
 
   it("reports an unknown tool without throwing", async () => {

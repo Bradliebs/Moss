@@ -4,7 +4,7 @@
 // session store yet). Each session holds its own message history so the left
 // nav can switch between conversations and they survive a reload.
 
-import type { AgentMessage, TokenUsage } from "@common/types";
+import type { AgentMessage, TokenUsage, ToolRisk } from "@common/types";
 
 import type { ModelRate } from "./pricing";
 import { estimateCost, formatUsd } from "./pricing";
@@ -245,9 +245,9 @@ export function sessionToolUsage(messages: AgentMessage[]): ToolUsageSummary {
 }
 
 /** Tools that only read; mirrors the read-only set the backend auto-allows.
- *  Everything else is treated as mutating for the after-the-fact audit, since
- *  the authoritative content risk (e.g. a destructive command) is decided at
- *  execution time and is not persisted with the message. */
+ *  Used as a fallback risk tier when a tool message has no persisted risk
+ *  (older history, or readonly allow-listed tools the policy runs without
+ *  recording a tier). Everything else falls back to mutating. */
 const READONLY_TOOLS = new Set<string>([
   "read_file",
   "list_dir",
@@ -269,13 +269,15 @@ export interface ToolAuditEntry {
   callId: string;
   /** the tool's name, resolved from the assistant call that triggered it */
   name: string;
-  risk: ToolRiskTier;
+  risk: ToolRisk;
   autoApproved: boolean;
 }
 
 /** Build a per-conversation audit of every executed tool call, pairing each
- *  result with the name of the call that triggered it, a name-derived risk tier,
- *  and whether it ran without a prompt. Order matches execution order. */
+ *  result with the name of the call that triggered it, the real risk tier the
+ *  permission policy recorded at execution time (falling back to a name-derived
+ *  tier for messages without one), and whether it ran without a prompt. Order
+ *  matches execution order. */
 export function sessionToolAudit(messages: AgentMessage[]): ToolAuditEntry[] {
   const names = new Map<string, string>();
   for (const m of messages) {
@@ -285,7 +287,7 @@ export function sessionToolAudit(messages: AgentMessage[]): ToolAuditEntry[] {
   for (const m of messages) {
     if (m.role === "tool" && m.toolCallId) {
       const name = names.get(m.toolCallId) ?? "unknown";
-      entries.push({ callId: m.toolCallId, name, risk: toolRiskTier(name), autoApproved: Boolean(m.autoApproved) });
+      entries.push({ callId: m.toolCallId, name, risk: m.risk ?? toolRiskTier(name), autoApproved: Boolean(m.autoApproved) });
     }
   }
   return entries;

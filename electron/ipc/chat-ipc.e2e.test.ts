@@ -165,6 +165,7 @@ describe("chat IPC turn (e2e)", () => {
     const result = sent.find((p) => p.event.type === "tool-result");
     expect(result).toBeDefined();
     expect((result!.event as { autoApproved: boolean }).autoApproved).toBe(true);
+    expect((result!.event as { risk?: string }).risk).toBe("mutating");
   });
 
   it("propagates a provider failure as turn-error over IPC", async () => {

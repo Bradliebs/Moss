@@ -31,6 +31,9 @@ export interface ToolCall {
   arguments: string;
 }
 
+/** Content-risk tier the permission policy resolves for a tool call. */
+export type ToolRisk = "readonly" | "mutating" | "destructive";
+
 /** The neutral conversation unit. Providers translate to/from their own wire
  *  formats (OpenAI tool_calls / Anthropic tool_use + tool_result). */
 export interface AgentMessage {
@@ -43,6 +46,11 @@ export interface AgentMessage {
   /** present on tool-result turns that ran under auto-approve without a prompt;
    *  persisted so reloaded history stays truthful about what ran unattended */
   autoApproved?: boolean;
+  /** real content-risk tier the permission policy resolved when this tool ran;
+   *  persisted so an after-the-fact audit reflects what actually ran rather than
+   *  a name-based guess. Absent on readonly allow-listed tools the policy runs
+   *  without recording a tier. */
+  risk?: ToolRisk;
   /** present on an assistant turn cut off by an error mid-stream; persisted so
    *  reloaded history shows it was interrupted rather than a complete reply */
   interrupted?: boolean;
@@ -71,8 +79,8 @@ export type MossEvent =
   | { type: "text-delta"; text: string }
   | { type: "token-usage"; usage: TokenUsage }
   | { type: "tool-call"; callId: string; name: string; arguments: string }
-  | { type: "tool-approval-request"; callId: string; name: string; arguments: string; risk?: "readonly" | "mutating" | "destructive" }
-  | { type: "tool-result"; callId: string; name: string; ok: boolean; content: string; autoApproved: boolean }
+  | { type: "tool-approval-request"; callId: string; name: string; arguments: string; risk?: ToolRisk }
+  | { type: "tool-result"; callId: string; name: string; ok: boolean; content: string; autoApproved: boolean; risk?: ToolRisk }
   | { type: "notice"; level: "info" | "warn"; message: string }
   | { type: "turn-complete"; messages: AgentMessage[] }
   | { type: "turn-aborted"; messages: AgentMessage[] }

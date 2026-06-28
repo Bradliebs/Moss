@@ -705,9 +705,11 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
                       <span className="flex-1 truncate font-mono text-neutral-200">{e.name}</span>
                       <span
                         className={
-                          e.risk === "mutating"
-                            ? "rounded bg-amber-900/60 px-1 text-[10px] uppercase text-amber-300"
-                            : "rounded bg-neutral-800 px-1 text-[10px] uppercase text-neutral-400"
+                          e.risk === "destructive"
+                            ? "rounded bg-red-900/60 px-1 text-[10px] uppercase text-red-300"
+                            : e.risk === "mutating"
+                              ? "rounded bg-amber-900/60 px-1 text-[10px] uppercase text-amber-300"
+                              : "rounded bg-neutral-800 px-1 text-[10px] uppercase text-neutral-400"
                         }
                       >
                         {e.risk}
