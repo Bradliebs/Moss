@@ -376,8 +376,18 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
   const [mcpToolCount, setMcpToolCount] = useState(0);
   const [mcpDownCount, setMcpDownCount] = useState(0);
   const [showToolAudit, setShowToolAudit] = useState(false);
+  const [auditHideReadonly, setAuditHideReadonly] = useState(false);
+  const [auditSortByRisk, setAuditSortByRisk] = useState(false);
   const dictation = useDictation((text) =>
     setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text)),
+  );
+
+  // The audit popover view: optionally drop readonly rows and order by risk
+  // (destructive first) so a long tool history stays scannable. The sort copy
+  // is stable, so calls of equal risk keep their execution order.
+  const riskRank = (r: string) => (r === "destructive" ? 0 : r === "mutating" ? 1 : 2);
+  const visibleToolAudit = (auditHideReadonly ? toolAudit.filter((e) => e.risk !== "readonly") : toolAudit.slice()).sort(
+    (a, b) => (auditSortByRisk ? riskRank(a.risk) - riskRank(b.risk) : 0),
   );
 
   const turnIdRef = useRef<string | null>(null);
@@ -698,9 +708,37 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
             </button>
             {showToolAudit ? (
               <div className="absolute left-0 top-5 z-20 max-h-64 w-72 overflow-y-auto rounded border border-neutral-700 bg-neutral-900 p-2 shadow-lg">
-                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">Tool activity</p>
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">Tool activity</p>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setAuditHideReadonly((v) => !v)}
+                      aria-pressed={auditHideReadonly}
+                      className={
+                        auditHideReadonly
+                          ? "rounded bg-neutral-700 px-1 text-[10px] uppercase text-neutral-200"
+                          : "rounded bg-neutral-800 px-1 text-[10px] uppercase text-neutral-400 hover:text-neutral-200"
+                      }
+                    >
+                      Hide readonly
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAuditSortByRisk((v) => !v)}
+                      aria-pressed={auditSortByRisk}
+                      className={
+                        auditSortByRisk
+                          ? "rounded bg-neutral-700 px-1 text-[10px] uppercase text-neutral-200"
+                          : "rounded bg-neutral-800 px-1 text-[10px] uppercase text-neutral-400 hover:text-neutral-200"
+                      }
+                    >
+                      By risk
+                    </button>
+                  </div>
+                </div>
                 <ul className="space-y-1">
-                  {toolAudit.map((e, i) => (
+                  {visibleToolAudit.map((e, i) => (
                     <li key={`${e.callId}-${i}`} className="flex items-center gap-2 text-xs">
                       <span className="flex-1 truncate font-mono text-neutral-200">{e.name}</span>
                       <span

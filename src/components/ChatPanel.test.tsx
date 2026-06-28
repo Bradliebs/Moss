@@ -632,6 +632,30 @@ describe("ChatPanel", () => {
     expect(screen.getByText("auto")).toBeDefined();
   });
 
+  it("filters readonly rows and sorts by risk in the audit popover", () => {
+    mockToolState.usage = { total: 3, autoApproved: 0 };
+    mockToolState.audit = [
+      { callId: "c1", name: "read_file", risk: "readonly", autoApproved: false },
+      { callId: "c2", name: "write_file", risk: "mutating", autoApproved: false },
+      { callId: "c3", name: "run_command", risk: "destructive", autoApproved: false },
+    ];
+    render(<Harness />);
+
+    fireEvent.click(screen.getByText(/3 tools/));
+    expect(screen.getByText("read_file")).toBeDefined();
+
+    // Hiding readonly rows drops the read_file call.
+    fireEvent.click(screen.getByText("Hide readonly"));
+    expect(screen.queryByText("read_file")).toBeNull();
+    expect(screen.getByText("write_file")).toBeDefined();
+    expect(screen.getByText("run_command")).toBeDefined();
+
+    // Sorting by risk orders the remaining calls destructive-first.
+    fireEvent.click(screen.getByText("By risk"));
+    const order = screen.getAllByText(/^(write_file|run_command)$/).map((n) => n.textContent);
+    expect(order).toEqual(["run_command", "write_file"]);
+  });
+
   it("commits messages and clears busy on turn-complete", () => {
     render(<Harness />);
     const turnId = startTurn();
