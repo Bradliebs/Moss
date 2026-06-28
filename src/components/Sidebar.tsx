@@ -15,6 +15,7 @@ import {
   useSessions,
   type Session,
 } from "../lib/sessions";
+import { useSettings } from "../lib/settings";
 
 interface SidebarProps {
   busy: boolean;
@@ -40,11 +41,21 @@ function fileNameFor(session: Session): string {
   return `${slug || "conversation"}.md`;
 }
 
+// Copy text to the clipboard, guarding on the async clipboard API so non-browser
+// environments (tests) are a no-op instead of a throw.
+function copyToClipboard(text: string): void {
+  if (typeof navigator === "undefined" || !navigator.clipboard) return;
+  void navigator.clipboard.writeText(text);
+}
+
 export function Sidebar({ busy, onOpenSettings, onOpenLibrary }: SidebarProps): React.ReactElement {
   const { sessions, currentId } = useSessions();
+  const settings = useSettings();
   const [query, setQuery] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+
+  const exportOptions = { includeTools: true, model: settings.model, modelRates: settings.modelRates };
 
   const filter = query.trim().toLowerCase();
   const visible = filter ? sessions.filter((s) => s.title.toLowerCase().includes(filter)) : sessions;
@@ -141,10 +152,17 @@ export function Sidebar({ busy, onOpenSettings, onOpenLibrary }: SidebarProps): 
                     </button>
                     <button
                       className="shrink-0 text-xs text-neutral-500 opacity-0 hover:text-emerald-400 group-hover:opacity-100 disabled:opacity-0"
-                      onClick={() => downloadTextFile(fileNameFor(s), sessionToMarkdown(s))}
+                      onClick={() => downloadTextFile(fileNameFor(s), sessionToMarkdown(s, exportOptions))}
                       title="Export conversation as Markdown"
                     >
                       Export
+                    </button>
+                    <button
+                      className="shrink-0 text-xs text-neutral-500 opacity-0 hover:text-emerald-400 group-hover:opacity-100 disabled:opacity-0"
+                      onClick={() => copyToClipboard(sessionToMarkdown(s, exportOptions))}
+                      title="Copy conversation as Markdown"
+                    >
+                      Copy
                     </button>
                     <button
                       className="shrink-0 text-xs text-neutral-500 opacity-0 hover:text-red-400 group-hover:opacity-100 disabled:opacity-0"

@@ -22,6 +22,10 @@ vi.mock("../lib/sessions", () => ({
   sessionToMarkdown: vi.fn(() => "# md"),
 }));
 
+vi.mock("../lib/settings", () => ({
+  useSettings: () => ({ model: "gpt-4o", modelRates: {} }),
+}));
+
 const noop = (): void => {};
 
 beforeEach(() => {
@@ -132,6 +136,16 @@ describe("Sidebar", () => {
     });
     render(<Sidebar busy={false} onOpenSettings={noop} onOpenLibrary={noop} />);
     fireEvent.click(screen.getByTitle("Export conversation as Markdown"));
+    expect(sessions.sessionToMarkdown).toHaveBeenCalledTimes(1);
+  });
+
+  it("copies a conversation as Markdown", () => {
+    vi.mocked(sessions.useSessions).mockReturnValue({
+      sessions: [{ id: "a", title: "First chat", messages: [], createdAt: 0, updatedAt: 0 }],
+      currentId: "a",
+    });
+    render(<Sidebar busy={false} onOpenSettings={noop} onOpenLibrary={noop} />);
+    fireEvent.click(screen.getByTitle("Copy conversation as Markdown"));
     expect(sessions.sessionToMarkdown).toHaveBeenCalledTimes(1);
   });
 });

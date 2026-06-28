@@ -119,6 +119,46 @@ describe("sessionToMarkdown", () => {
     expect(md).toContain("## User\n\nkept");
     expect(md).not.toContain("## Assistant");
   });
+
+  it("includes tool calls, results, and a usage+cost footer when includeTools is set", () => {
+    const session = {
+      id: "s1",
+      title: "Rich",
+      messages: [
+        userMsg("run it"),
+        {
+          role: "assistant",
+          content: "done",
+          toolCalls: [{ id: "c1", name: "run_command", arguments: "{\"cmd\":\"ls\"}" }],
+          usage: { inputTokens: 1_000_000, outputTokens: 0 },
+        } as AgentMessage,
+        { role: "tool", content: "file.txt", toolCallId: "c1", autoApproved: true } as AgentMessage,
+      ],
+      createdAt: "x",
+      updatedAt: "x",
+    };
+    const md = sessions.sessionToMarkdown(session, { includeTools: true, model: "gpt-4o" });
+    expect(md).toContain("### Tool call: run_command");
+    expect(md).toContain("{\"cmd\":\"ls\"}");
+    expect(md).toContain("### Tool result (auto-approved)");
+    expect(md).toContain("file.txt");
+    expect(md).toContain("## Summary");
+    expect(md).toContain("Tokens: 1000000 (input 1000000, output 0)");
+    expect(md).toContain("Estimated cost: $2.50");
+  });
+
+  it("omits the cost line when the model has no rate", () => {
+    const session = {
+      id: "s1",
+      title: "NoRate",
+      messages: [{ role: "assistant", content: "hi", usage: { inputTokens: 10, outputTokens: 0 } } as AgentMessage],
+      createdAt: "x",
+      updatedAt: "x",
+    };
+    const md = sessions.sessionToMarkdown(session, { includeTools: true, model: "mystery" });
+    expect(md).toContain("## Summary");
+    expect(md).not.toContain("Estimated cost");
+  });
 });
 
 describe("ensureCurrentSession", () => {

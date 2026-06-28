@@ -6,6 +6,8 @@
 
 import type { AgentMessage, TokenUsage } from "@common/types";
 
+import type { ModelRate } from "./pricing";
+import { estimateCost, formatUsd } from "./pricing";
 import { createPersistentStore } from "./persistentStore";
 
 export interface Session {
@@ -160,12 +162,42 @@ export function renameSession(id: string, title: string): void {
 /** Serialize a conversation to a Markdown transcript for export. Only the
  *  human-readable user and assistant turns are included; system and tool-result
  *  messages are omitted so the export reads as a clean conversation. */
-export function sessionToMarkdown(session: Session): string {
+export interface MarkdownExportOptions {
+  /** when true, render each tool call's arguments and each tool result, and
+   *  append a token-usage (and, when priceable, cost) summary footer */
+  includeTools?: boolean;
+  /** model id used to price the summary footer; omit to skip the cost line */
+  model?: string;
+  /** user pricing overrides forwarded to estimateCost */
+  modelRates?: Record<string, ModelRate>;
+}
+
+export function sessionToMarkdown(session: Session, options: MarkdownExportOptions = {}): string {
   const lines: string[] = [`# ${session.title}`, ""];
   for (const m of session.messages) {
-    if (m.role !== "user" && m.role !== "assistant") continue;
-    if (!m.content.trim()) continue;
-    lines.push(m.role === "user" ? "## User" : "## Assistant", "", m.content, "");
+    if (m.role === "user" || m.role === "assistant") {
+      if (m.content.trim()) {
+        lines.push(m.role === "user" ? "## User" : "## Assistant", "", m.content, "");
+      }
+      if (options.includeTools && m.toolCalls?.length) {
+        for (const call of m.toolCalls) {
+          lines.push(`### Tool call: ${call.name}`, "", "```json", call.arguments, "```", "");
+        }
+      }
+    } else if (m.role === "tool" && options.includeTools && m.toolCallId) {
+      lines.push(m.autoApproved ? "### Tool result (auto-approved)" : "### Tool result", "", "```", m.content, "```", "");
+    }
+  }
+  if (options.includeTools) {
+    const usage = sessionTokenUsage(session.messages);
+    const total = (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0);
+    if (total > 0) {
+      lines.push("---", "", "## Summary", "");
+      lines.push(`- Tokens: ${total} (input ${usage.inputTokens ?? 0}, output ${usage.outputTokens ?? 0})`);
+      const cost = options.model ? estimateCost(usage, options.model, options.modelRates) : null;
+      if (cost !== null) lines.push(`- Estimated cost: ${formatUsd(cost)}`);
+      lines.push("");
+    }
   }
   return lines.join("\n");
 }
