@@ -10,6 +10,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
+import { settingsStore } from "./lib/settings";
 
 vi.mock("./components/Sidebar", () => ({
   Sidebar: ({
@@ -92,5 +93,47 @@ describe("App", () => {
     expect(screen.getByText("sidebar-busy:false")).toBeDefined();
     fireEvent.click(screen.getByText("cp-set-busy"));
     expect(screen.getByText("sidebar-busy:true")).toBeDefined();
+  });
+});
+
+describe("App theme", () => {
+  afterEach(() => {
+    settingsStore.update((s) => ({ ...s, theme: "dark" }));
+    document.documentElement.classList.remove("dark");
+  });
+
+  function stubPrefersDark(matches: boolean): void {
+    window.matchMedia = ((): MediaQueryList =>
+      ({
+        matches,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }) as unknown as MediaQueryList) as typeof window.matchMedia;
+  }
+
+  it("adds the dark class for theme dark", () => {
+    settingsStore.update((s) => ({ ...s, theme: "dark" }));
+    render(<App />);
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
+  });
+
+  it("removes the dark class for theme light", () => {
+    settingsStore.update((s) => ({ ...s, theme: "light" }));
+    render(<App />);
+    expect(document.documentElement.classList.contains("dark")).toBe(false);
+  });
+
+  it("follows system dark for theme auto", () => {
+    stubPrefersDark(true);
+    settingsStore.update((s) => ({ ...s, theme: "auto" }));
+    render(<App />);
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
+  });
+
+  it("follows system light for theme auto", () => {
+    stubPrefersDark(false);
+    settingsStore.update((s) => ({ ...s, theme: "auto" }));
+    render(<App />);
+    expect(document.documentElement.classList.contains("dark")).toBe(false);
   });
 });
