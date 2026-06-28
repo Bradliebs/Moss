@@ -6,7 +6,7 @@ import type { AgentMessage, ChatEventPayload, TokenUsage } from "@common/types";
 import { PERSONALITY_PRESETS } from "@common/personalities";
 
 import { useDictation } from "../lib/dictation";
-import { imageAttachmentError, isLikelyVisionModel, textAttachmentError } from "../lib/attachments";
+import { imageAttachmentError, isLikelyVisionModel, textAttachmentError, textLanguageForFile } from "../lib/attachments";
 import { parseMarkdown, segmentToMarkdown, type InlineSegment } from "../lib/markdown";
 import { estimateCost, formatUsd } from "../lib/pricing";
 import {
@@ -580,7 +580,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
     if (!fileList) return;
     for (const file of Array.from(fileList)) {
       const isImage = file.type.startsWith("image/");
-      const isText = file.type.startsWith("text/") || /\.(txt|md)$/i.test(file.name);
+      const lang = textLanguageForFile(file);
       if (isImage) {
         const error = imageAttachmentError(file);
         if (error) {
@@ -594,7 +594,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
           }
         };
         reader.readAsDataURL(file);
-      } else if (isText) {
+      } else if (lang !== null) {
         const error = textAttachmentError(file);
         if (error) {
           setStatus(error);
@@ -603,7 +603,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
         const reader = new FileReader();
         reader.onload = () => {
           if (typeof reader.result === "string") {
-            const block = `\`\`\`\n${reader.result}\n\`\`\``;
+            const block = `\`\`\`${lang}\n${reader.result}\n\`\`\``;
             setInput((prev) => (prev ? `${prev}\n\n${block}` : block));
           }
         };
@@ -1041,7 +1041,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*,.txt,.md"
+            accept="image/*,.txt,.md,.json,.csv,.tsv,.log,.xml,.yml,.yaml,.toml,.ini,.html,.css,.ts,.tsx,.js,.jsx,.py,.sh,.sql,.rs,.go,.java,.c,.cpp,.rb"
             multiple
             className="hidden"
             onChange={(e) => {

@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { imageAttachmentError, isLikelyVisionModel, MAX_IMAGE_BYTES, MAX_TEXT_BYTES, textAttachmentError } from "./attachments";
+import { imageAttachmentError, isLikelyVisionModel, MAX_IMAGE_BYTES, MAX_TEXT_BYTES, textAttachmentError, textLanguageForFile } from "./attachments";
 
 describe("imageAttachmentError", () => {
   it("accepts an in-bounds image", () => {
@@ -47,5 +47,22 @@ describe("isLikelyVisionModel", () => {
     for (const m of ["gpt-3.5-turbo", "llama3.1", "mistral-7b"]) {
       expect(isLikelyVisionModel(m)).toBe(false);
     }
+  });
+});
+
+describe("textLanguageForFile", () => {
+  it("maps known extensions to a fence language hint", () => {
+    expect(textLanguageForFile({ type: "", name: "a.py" })).toBe("python");
+    expect(textLanguageForFile({ type: "", name: "data.json" })).toBe("json");
+    expect(textLanguageForFile({ type: "", name: "notes.txt" })).toBe("");
+  });
+
+  it("defaults text/* MIME files to a plain fence", () => {
+    expect(textLanguageForFile({ type: "text/plain", name: "no-ext" })).toBe("");
+  });
+
+  it("returns null for unsupported binary types", () => {
+    expect(textLanguageForFile({ type: "application/pdf", name: "doc.pdf" })).toBeNull();
+    expect(textLanguageForFile({ type: "image/png", name: "p.png" })).toBeNull();
   });
 });

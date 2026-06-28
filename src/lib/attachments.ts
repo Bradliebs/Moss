@@ -32,6 +32,48 @@ export function textAttachmentError(file: { size: number; name: string }): strin
   return null;
 }
 
+/** File extensions inlined as fenced text. PDF/Word need binary parsing and are
+ *  deliberately excluded: they would require a new dependency or a main-process
+ *  route, so they stay unsupported rather than producing garbled output. The
+ *  value is a code-fence language hint, "" when no useful highlight applies. */
+export const TEXT_EXTENSIONS: Readonly<Record<string, string>> = {
+  txt: "",
+  md: "markdown",
+  json: "json",
+  csv: "",
+  tsv: "",
+  log: "",
+  xml: "xml",
+  yml: "yaml",
+  yaml: "yaml",
+  toml: "toml",
+  ini: "ini",
+  html: "html",
+  css: "css",
+  ts: "ts",
+  tsx: "tsx",
+  js: "js",
+  jsx: "jsx",
+  py: "python",
+  sh: "bash",
+  sql: "sql",
+  rs: "rust",
+  go: "go",
+  java: "java",
+  c: "c",
+  cpp: "cpp",
+  rb: "ruby",
+};
+
+/** Resolve a filename to a fenced-code language hint when it is a text-like type,
+ *  or null when it is not. text/* MIME files default to a plain fence. */
+export function textLanguageForFile(file: { type: string; name: string }): string | null {
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  if (ext in TEXT_EXTENSIONS) return TEXT_EXTENSIONS[ext];
+  if (file.type.startsWith("text/")) return "";
+  return null;
+}
+
 /** Substrings of model ids known to be vision-capable, matched case-insensitively.
  *  Data-driven so a new model is a one-line addition. Provider kind is deliberately
  *  not a key: vision support is a property of the model, not the endpoint serving
