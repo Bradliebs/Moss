@@ -26,9 +26,8 @@ import {
   useSessions,
 } from "../lib/sessions";
 import { modelsStore, toProviderConfig, updateSettings, useSettings } from "../lib/settings";
+import { type ToolStatus, toolStatusColor } from "../lib/toolStatus";
 import { WelcomeScreen } from "./WelcomeScreen";
-
-type ToolStatus = "approval" | "running" | "done" | "denied" | "error";
 
 interface ToolView {
   kind: "tool";
@@ -332,20 +331,6 @@ function messagesToItems(messages: AgentMessage[]): ViewItem[] {
   }
   closeTurn();
   return items;
-}
-
-function toolStatusColor(status: ToolStatus): string {
-  switch (status) {
-    case "done":
-      return "text-emerald-600 dark:text-emerald-400";
-    case "running":
-      return "text-sky-600 dark:text-sky-400";
-    case "error":
-    case "denied":
-      return "text-red-600 dark:text-red-400";
-    default:
-      return "text-neutral-600 dark:text-neutral-400";
-  }
 }
 
 interface ChatPanelProps {
