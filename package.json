@@ -1,0 +1,43 @@
+{
+  "name": "moss",
+  "version": "0.1.0",
+  "description": "Standalone agentic desktop harness for Ollama, OpenAI-compatible, and Anthropic providers",
+  "private": true,
+  "main": "dist-electron/electron/main.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build:main": "tsc -p tsconfig.node.json",
+    "build:renderer": "vite build",
+    "build": "npm run build:main && npm run build:renderer",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.node.json --noEmit",
+    "test": "vitest run",
+    "start": "electron .",
+    "dev:renderer": "vite",
+    "dev": "npm run build:main && npm run build:renderer && electron .",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder --win nsis"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.11",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^42.5.0",
+    "electron-builder": "^25.1.8",
+    "jsdom": "^29.1.1",
+    "tailwindcss": "^4.1.11",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3",
+    "vitest": "^2.1.8"
+  }
+}

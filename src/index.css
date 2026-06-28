@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background:
+    radial-gradient(1200px 800px at 12% -10%, #12302a 0%, transparent 55%),
+    radial-gradient(1000px 700px at 100% 0%, #14223a 0%, transparent 50%),
+    #0a0a0d;
+  color: #e7e7ea;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: rgba(16, 185, 129, 0.35);
+}
+
+/* Slim, theme-matched scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2a2a31 transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #2a2a31;
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #3a3a44;
+  background-clip: padding-box;
+}
+
+@keyframes moss-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-in {
+  animation: moss-fade-in 160ms ease-out both;
+}

@@ -1,0 +1,171 @@
+// @vitest-environment jsdom
+//
+// src/components/LibraryPanel.test.tsx
+//
+// LibraryPanel hosts two independent CRUD sections (Skills + Memory) backed by
+// the window.moss memory.* and skills.* IPC channels. Each is stubbed; the tests
+// cover the mount refresh, the add/create validation, and the delete/toggle/clear
+// actions plus their follow-up refresh.
+
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import type { MemoryEntry, Skill } from "@common/types";
+
+import { LibraryPanel } from "./LibraryPanel";
+
+const memory = {
+  list: vi.fn(),
+  add: vi.fn(),
+  delete: vi.fn(),
+  clear: vi.fn(),
+};
+const skills = {
+  list: vi.fn(),
+  create: vi.fn(),
+  delete: vi.fn(),
+  toggle: vi.fn(),
+};
+
+function memoryEntry(over: Partial<MemoryEntry> = {}): MemoryEntry {
+  return { id: "m1", fact: "drink water", category: "fact", source: "user", createdAt: "now", ...over };
+}
+
+function skill(over: Partial<Skill> = {}): Skill {
+  return {
+    id: "s1",
+    name: "Linter",
+    description: "Runs the linter",
+    instructions: "",
+    enabled: false,
+    createdAt: "now",
+    ...over,
+  };
+}
+
+beforeEach(() => {
+  memory.list.mockResolvedValue([]);
+  memory.add.mockResolvedValue(memoryEntry());
+  memory.delete.mockResolvedValue(true);
+  memory.clear.mockResolvedValue(undefined);
+  skills.list.mockResolvedValue([]);
+  skills.create.mockResolvedValue(skill());
+  skills.delete.mockResolvedValue(true);
+  skills.toggle.mockResolvedValue(undefined);
+  Object.assign(window, { moss: { memory, skills } });
+});
+
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+  delete (window as { moss?: unknown }).moss;
+});
+
+describe("LibraryPanel — Memory", () => {
+  it("shows the empty state after the mount refresh", async () => {
+    render(<LibraryPanel onClose={() => {}} />);
+    await waitFor(() => expect(screen.getByText("No memories yet.")).toBeDefined());
+    expect(memory.list).toHaveBeenCalled();
+  });
+
+  it("adds a memory with the selected category and refreshes", async () => {
+    memory.list.mockResolvedValueOnce([]).mockResolvedValue([memoryEntry({ fact: "drink water" })]);
+    render(<LibraryPanel onClose={() => {}} />);
+    await waitFor(() => expect(screen.getByText("No memories yet.")).toBeDefined());
+
+    fireEvent.change(screen.getByPlaceholderText("Remember a fact…"), { target: { value: "drink water" } });
+    fireEvent.click(screen.getByText("Add"));
+
+    expect(memory.add).toHaveBeenCalledWith("drink water", "fact");
+    await waitFor(() => expect(screen.getByText("drink water")).toBeDefined());
+  });
+
+  it("does not add a blank memory", async () => {
+    render(<LibraryPanel onClose={() => {}} />);
+    await waitFor(() => expect(screen.getByText("No memories yet.")).toBeDefined());
+    fireEvent.click(screen.getByText("Add"));
+    expect(memory.add).not.toHaveBeenCalled();
+  });
+
+  it("deletes a memory entry", async () => {
+    memory.list.mockResolvedValue([memoryEntry({ id: "m9", fact: "delete me" })]);
+    render(<LibraryPanel onClose={() => {}} />);
+    await waitFor(() => expect(screen.getByText("delete me")).toBeDefined());
+
+    fireEvent.click(screen.getByText("✕"));
+    expect(memory.delete).toHaveBeenCalledWith("m9");
+  });
+
+  it("clears all memories", async () => {
+    memory.list.mockResolvedValue([memoryEntry()]);
+    render(<LibraryPanel onClose={() => {}} />);
+    await waitFor(() => expect(screen.getByText("Clear all")).toBeDefined());
+
+    fireEvent.click(screen.getByText("Clear all"));
+    expect(memory.clear).toHaveBeenCalled();
+  });
+});
+
+describe("LibraryPanel — Skills", () => {
+  it("shows the empty state after the mount refresh", async () => {
+    render(<LibraryPanel onClose={() => {}} />);
+    await waitFor(() => expect(screen.getByText("No skills yet.")).toBeDefined());
+    expect(skills.list).toHaveBeenCalled();
+  });
+
+  it("requires a name and description before creating", async () => {
+    render(<LibraryPanel onClose={() => {}} />);
+    await waitFor(() => expect(screen.getByText("No skills yet.")).toBeDefined());
+
+    fireEvent.click(screen.getByText("Add skill"));
+    expect(screen.getByText("Name and description are required.")).toBeDefined();
+    expect(skills.create).not.toHaveBeenCalled();
+  });
+
+  it("creates a skill and refreshes", async () => {
+    render(<LibraryPanel onClose={() => {}} />);
+    await waitFor(() => expect(screen.getByText("No skills yet.")).toBeDefined());
+
+    fireEvent.change(screen.getByPlaceholderText("Skill name"), { target: { value: "Linter" } });
+    fireEvent.change(screen.getByPlaceholderText("Short description (shown to the model)"), {
+      target: { value: "Runs the linter" },
+    });
+    fireEvent.click(screen.getByText("Add skill"));
+
+    await waitFor(() =>
+      expect(skills.create).toHaveBeenCalledWith({
+        name: "Linter",
+        description: "Runs the linter",
+        instructions: "",
+      }),
+    );
+  });
+
+  it("toggles a skill's enabled state", async () => {
+    skills.list.mockResolvedValue([skill({ id: "s5", enabled: false })]);
+    render(<LibraryPanel onClose={() => {}} />);
+    await waitFor(() => expect(screen.getByText("Linter")).toBeDefined());
+
+    fireEvent.click(screen.getByRole("checkbox"));
+    expect(skills.toggle).toHaveBeenCalledWith("s5", true);
+  });
+
+  it("deletes a skill", async () => {
+    skills.list.mockResolvedValue([skill({ id: "s7", name: "Remove me" })]);
+    render(<LibraryPanel onClose={() => {}} />);
+    await waitFor(() => expect(screen.getByText("Remove me")).toBeDefined());
+
+    fireEvent.click(screen.getByText("✕"));
+    expect(skills.delete).toHaveBeenCalledWith("s7");
+  });
+});
+
+describe("LibraryPanel", () => {
+  it("closes via the Close button", async () => {
+    const onClose = vi.fn();
+    render(<LibraryPanel onClose={onClose} />);
+    await waitFor(() => expect(screen.getByText("No memories yet.")).toBeDefined());
+    fireEvent.click(screen.getByText("Close"));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
