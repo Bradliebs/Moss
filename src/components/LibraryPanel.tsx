@@ -203,7 +203,7 @@ function SkillsSection(): React.ReactElement {
           value={instructions}
           onChange={(e) => setInstructions(e.target.value)}
         />
-        {error ? <p className="text-xs text-red-400">{error}</p> : null}
+        {error ? <p className="text-xs text-red-600 dark:text-red-400">{error}</p> : null}
         <button className="rounded bg-blue-700 px-3 py-1 text-sm hover:bg-blue-600" onClick={() => void create()}>
           Add skill
         </button>

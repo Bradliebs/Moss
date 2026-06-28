@@ -337,12 +337,12 @@ function messagesToItems(messages: AgentMessage[]): ViewItem[] {
 function toolStatusColor(status: ToolStatus): string {
   switch (status) {
     case "done":
-      return "text-emerald-400";
+      return "text-emerald-600 dark:text-emerald-400";
     case "running":
-      return "text-sky-400";
+      return "text-sky-600 dark:text-sky-400";
     case "error":
     case "denied":
-      return "text-red-400";
+      return "text-red-600 dark:text-red-400";
     default:
       return "text-neutral-600 dark:text-neutral-400";
   }
@@ -773,7 +773,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
             <span
               className={
                 contextUsed >= settings.contextLimit
-                  ? "text-xs font-medium text-amber-400"
+                  ? "text-xs font-medium text-amber-600 dark:text-amber-400"
                   : "text-xs text-neutral-400 dark:text-neutral-600"
               }
             >
@@ -906,7 +906,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
           ) : (
             <div key={i} className="mr-auto max-w-2xl animate-fade-in rounded-2xl border border-neutral-300/60 dark:border-neutral-700/60 bg-white/80 dark:bg-neutral-900/80 px-4 py-2.5 text-sm shadow-sm">
               <div className="font-mono text-xs text-neutral-700 dark:text-neutral-300">
-                <span className="text-emerald-300">{it.name}</span>({it.args})
+                <span className="text-emerald-700 dark:text-emerald-300">{it.name}</span>({it.args})
                 {it.autoApproved ? (
                   <span
                     className="ml-2 rounded-full border border-amber-500/30 bg-amber-500/15 px-1.5 py-0.5 font-sans text-[10px] font-medium text-amber-300"
@@ -987,9 +987,9 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
           </div>
         ) : null}
         {status ? <div className="mb-2 text-xs text-neutral-600 dark:text-neutral-400">{status}</div> : null}
-        {dictation.error ? <div className="mb-2 text-xs text-red-400">{dictation.error}</div> : null}
+        {dictation.error ? <div className="mb-2 text-xs text-red-600 dark:text-red-400">{dictation.error}</div> : null}
         {attachments.length > 0 && settings.model && !isLikelyVisionModel(settings.model) ? (
-          <div className="mb-2 text-xs text-amber-400">The selected model may not support images.</div>
+          <div className="mb-2 text-xs text-amber-600 dark:text-amber-400">The selected model may not support images.</div>
         ) : null}
         {attachments.length > 0 ? (
           <div className="mb-2 flex flex-wrap gap-1.5">

@@ -80,3 +80,9 @@ body {
 .animate-fade-in {
   animation: moss-fade-in 160ms ease-out both;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in {
+    animation: none;
+  }
+}
