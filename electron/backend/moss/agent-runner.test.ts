@@ -179,6 +179,18 @@ describe("runTurn", () => {
     expect(toolMsg?.risk).toBe("mutating");
   });
 
+  it("records an execution duration on the tool result event and the persisted message", async () => {
+    const provider = scriptedProvider([[call("c1", "write_file")], [{ type: "text-delta", text: "ok" }]]);
+    const h = await run(provider, [tool("write_file", { ok: true, content: "WROTE" })], { autoApprove: true });
+
+    const res = h.events.find((e) => e.type === "tool-result") as Extract<MossEvent, { type: "tool-result" }>;
+    expect(typeof res.durationMs).toBe("number");
+    expect(res.durationMs).toBeGreaterThanOrEqual(0);
+    const done = h.events.find((e) => e.type === "turn-complete") as Extract<MossEvent, { type: "turn-complete" }>;
+    const toolMsg = done.messages.find((m) => m.role === "tool" && m.toolCallId === "c1");
+    expect(typeof toolMsg?.durationMs).toBe("number");
+  });
+
   it("reports an unknown tool without throwing", async () => {
     const provider = scriptedProvider([[call("c1", "no_such_tool")], [{ type: "text-delta", text: "ok" }]]);
     const h = await run(provider, []);

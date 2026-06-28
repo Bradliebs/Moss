@@ -161,7 +161,7 @@ describe("sessionToMarkdown", () => {
             { id: "c2", name: "write_file", arguments: "{}" },
           ],
         } as AgentMessage,
-        { role: "tool", content: "ok", toolCallId: "c1", autoApproved: true } as AgentMessage,
+        { role: "tool", content: "ok", toolCallId: "c1", autoApproved: true, durationMs: 12 } as AgentMessage,
         { role: "tool", content: "ok", toolCallId: "c2" } as AgentMessage,
       ],
       createdAt: "x",
@@ -169,9 +169,9 @@ describe("sessionToMarkdown", () => {
     };
     const md = sessions.sessionToMarkdown(session, { includeTools: true });
     expect(md).toContain("## Tool activity");
-    expect(md).toContain("| Tool | Risk | Auto-approved |");
-    expect(md).toContain("| read_file | readonly | yes |");
-    expect(md).toContain("| write_file | mutating | no |");
+    expect(md).toContain("| Tool | Risk | Auto-approved | Duration |");
+    expect(md).toContain("| read_file | readonly | yes | 12ms |");
+    expect(md).toContain("| write_file | mutating | no |  |");
   });
 
   it("omits the cost line when the model has no rate", () => {

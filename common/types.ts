@@ -51,6 +51,10 @@ export interface AgentMessage {
    *  a name-based guess. Absent on readonly allow-listed tools the policy runs
    *  without recording a tier. */
   risk?: ToolRisk;
+  /** wall-clock milliseconds the tool took to execute, recorded when this
+   *  tool ran so an audit can show how long each call took. Absent on history
+   *  saved before durations were tracked. */
+  durationMs?: number;
   /** present on an assistant turn cut off by an error mid-stream; persisted so
    *  reloaded history shows it was interrupted rather than a complete reply */
   interrupted?: boolean;
@@ -80,7 +84,7 @@ export type MossEvent =
   | { type: "token-usage"; usage: TokenUsage }
   | { type: "tool-call"; callId: string; name: string; arguments: string }
   | { type: "tool-approval-request"; callId: string; name: string; arguments: string; risk?: ToolRisk }
-  | { type: "tool-result"; callId: string; name: string; ok: boolean; content: string; autoApproved: boolean; risk?: ToolRisk }
+  | { type: "tool-result"; callId: string; name: string; ok: boolean; content: string; autoApproved: boolean; risk?: ToolRisk; durationMs?: number }
   | { type: "notice"; level: "info" | "warn"; message: string }
   | { type: "turn-complete"; messages: AgentMessage[] }
   | { type: "turn-aborted"; messages: AgentMessage[] }

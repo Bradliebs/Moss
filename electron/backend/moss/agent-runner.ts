@@ -128,13 +128,16 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
 
       for (const call of calls) {
         onEvent({ type: "tool-call", callId: call.id, name: call.name, arguments: call.arguments });
+        const startedAt = Date.now();
         const { result, autoApproved, risk } = await executeCall(call, opts);
+        const durationMs = Date.now() - startedAt;
         const toolMsg: AgentMessage = {
           role: "tool",
           content: result.content,
           toolCallId: call.id,
           ...(autoApproved ? { autoApproved: true } : {}),
           ...(risk ? { risk } : {}),
+          durationMs,
         };
         newMessages.push(toolMsg);
         // The model-facing history caps each tool result so one large output
@@ -149,6 +152,7 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
           content: result.content,
           autoApproved,
           ...(risk ? { risk } : {}),
+          durationMs,
         });
       }
     }

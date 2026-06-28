@@ -201,8 +201,9 @@ export function sessionToMarkdown(session: Session, options: MarkdownExportOptio
     const audit = sessionToolAudit(session.messages);
     if (audit.length) {
       lines.push("## Tool activity", "");
-      lines.push("| Tool | Risk | Auto-approved |", "| --- | --- | --- |");
-      for (const e of audit) lines.push(`| ${e.name} | ${e.risk} | ${e.autoApproved ? "yes" : "no"} |`);
+      lines.push("| Tool | Risk | Auto-approved | Duration |", "| --- | --- | --- | --- |");
+      for (const e of audit)
+        lines.push(`| ${e.name} | ${e.risk} | ${e.autoApproved ? "yes" : "no"} | ${e.durationMs != null ? `${e.durationMs}ms` : ""} |`);
       lines.push("");
     }
   }
@@ -271,6 +272,8 @@ export interface ToolAuditEntry {
   name: string;
   risk: ToolRisk;
   autoApproved: boolean;
+  /** wall-clock milliseconds the call took, when recorded at execution time */
+  durationMs?: number;
 }
 
 /** Build a per-conversation audit of every executed tool call, pairing each
@@ -287,7 +290,13 @@ export function sessionToolAudit(messages: AgentMessage[]): ToolAuditEntry[] {
   for (const m of messages) {
     if (m.role === "tool" && m.toolCallId) {
       const name = names.get(m.toolCallId) ?? "unknown";
-      entries.push({ callId: m.toolCallId, name, risk: m.risk ?? toolRiskTier(name), autoApproved: Boolean(m.autoApproved) });
+      entries.push({
+        callId: m.toolCallId,
+        name,
+        risk: m.risk ?? toolRiskTier(name),
+        autoApproved: Boolean(m.autoApproved),
+        ...(typeof m.durationMs === "number" ? { durationMs: m.durationMs } : {}),
+      });
     }
   }
   return entries;

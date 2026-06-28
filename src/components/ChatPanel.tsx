@@ -717,6 +717,9 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
                       {e.autoApproved ? (
                         <span className="rounded bg-amber-900/40 px-1 text-[10px] uppercase text-amber-300">auto</span>
                       ) : null}
+                      {e.durationMs != null ? (
+                        <span className="font-mono text-[10px] tabular-nums text-neutral-500">{e.durationMs}ms</span>
+                      ) : null}
                     </li>
                   ))}
                 </ul>
