@@ -16,7 +16,15 @@ export default function App(): React.JSX.Element {
   const theme = settingsStore.use().theme;
 
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", theme === "dark");
+    const mq = typeof window.matchMedia === "function" ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+    const apply = (): void => {
+      const dark = theme === "dark" || (theme === "auto" && !!mq?.matches);
+      document.documentElement.classList.toggle("dark", dark);
+    };
+    apply();
+    if (theme !== "auto" || !mq) return;
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
   }, [theme]);
 
   return (

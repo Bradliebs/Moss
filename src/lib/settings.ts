@@ -51,8 +51,9 @@ export interface MossSettings {
   /** user-supplied USD-per-million-token rates, keyed by lowercased model id.
    *  Overrides the built-in pricing estimates so cost readouts can be exact. */
   modelRates?: Record<string, ModelRate>;
-  /** UI color theme; "dark" preserves the original look and stays the default. */
-  theme: "dark" | "light";
+  /** UI color theme; "dark" preserves the original look and stays the default,
+   *  "auto" follows the OS prefers-color-scheme. */
+  theme: "dark" | "light" | "auto";
 }
 
 const DEFAULT_SETTINGS: MossSettings = {

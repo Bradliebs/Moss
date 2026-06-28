@@ -217,10 +217,15 @@ export function SettingsPanel({ onClose }: { onClose: () => void }): React.React
               <select
                 className="w-full rounded bg-neutral-200 dark:bg-neutral-800 px-2 py-1"
                 value={settings.theme}
-                onChange={(e) => updateSettings({ theme: e.target.value === "light" ? "light" : "dark" })}
+                onChange={(e) =>
+                  updateSettings({
+                    theme: e.target.value === "light" ? "light" : e.target.value === "auto" ? "auto" : "dark",
+                  })
+                }
               >
                 <option value="dark">Dark</option>
                 <option value="light">Light</option>
+                <option value="auto">Auto (system)</option>
               </select>
             </label>
           </section>
