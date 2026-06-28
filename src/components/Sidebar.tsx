@@ -4,11 +4,16 @@
 // Settings and Library overlays. Session switching is locked while a turn is in
 // flight so transient turn state never lands in the wrong conversation.
 
+import { useState } from "react";
+
 import {
   createSession,
   deleteSession,
+  renameSession,
   selectSession,
+  sessionToMarkdown,
   useSessions,
+  type Session,
 } from "../lib/sessions";
 
 interface SidebarProps {
@@ -17,8 +22,48 @@ interface SidebarProps {
   onOpenLibrary: () => void;
 }
 
+// Trigger a client-side file download for a text payload. Guards on
+// createObjectURL so non-browser environments (tests) are a no-op instead of a
+// throw; the Markdown serializer is unit-tested independently.
+function downloadTextFile(name: string, text: string): void {
+  if (typeof URL === "undefined" || typeof URL.createObjectURL !== "function") return;
+  const url = URL.createObjectURL(new Blob([text], { type: "text/markdown" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function fileNameFor(session: Session): string {
+  const slug = session.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return `${slug || "conversation"}.md`;
+}
+
 export function Sidebar({ busy, onOpenSettings, onOpenLibrary }: SidebarProps): React.ReactElement {
   const { sessions, currentId } = useSessions();
+  const [query, setQuery] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+
+  const filter = query.trim().toLowerCase();
+  const visible = filter ? sessions.filter((s) => s.title.toLowerCase().includes(filter)) : sessions;
+
+  function beginRename(s: Session): void {
+    setEditingId(s.id);
+    setDraft(s.title);
+  }
+
+  function commitRename(): void {
+    if (editingId) renameSession(editingId, draft);
+    setEditingId(null);
+    setDraft("");
+  }
+
+  function cancelRename(): void {
+    setEditingId(null);
+    setDraft("");
+  }
 
   return (
     <aside className="flex h-screen w-60 flex-col border-r border-neutral-800 bg-neutral-900/70 backdrop-blur-sm">
@@ -34,14 +79,26 @@ export function Sidebar({ busy, onOpenSettings, onOpenLibrary }: SidebarProps): 
         >
           + New chat
         </button>
+        {sessions.length > 0 ? (
+          <input
+            className="mt-2 w-full rounded-md border border-neutral-700/60 bg-neutral-800 px-2 py-1.5 text-sm text-neutral-100 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search conversations"
+            aria-label="Search conversations"
+          />
+        ) : null}
       </div>
 
       <nav className="min-h-0 flex-1 overflow-y-auto p-2">
         {sessions.length === 0 ? (
           <p className="px-2 py-4 text-xs text-neutral-500">No conversations yet.</p>
+        ) : visible.length === 0 ? (
+          <p className="px-2 py-4 text-xs text-neutral-500">No matching conversations.</p>
         ) : (
           <ul className="space-y-1">
-            {sessions.map((s) => (
+            {visible.map((s) => (
               <li
                 key={s.id}
                 className={`group flex items-center gap-1 rounded-md px-2 py-1.5 text-sm transition ${
@@ -50,22 +107,55 @@ export function Sidebar({ busy, onOpenSettings, onOpenLibrary }: SidebarProps): 
                     : "border-l-2 border-transparent text-neutral-300 hover:bg-neutral-800/60"
                 }`}
               >
-                <button
-                  className="min-w-0 flex-1 truncate text-left disabled:cursor-not-allowed"
-                  onClick={() => selectSession(s.id)}
-                  disabled={busy}
-                  title={s.title}
-                >
-                  {s.title}
-                </button>
-                <button
-                  className="shrink-0 text-xs text-neutral-500 opacity-0 hover:text-red-400 group-hover:opacity-100 disabled:opacity-0"
-                  onClick={() => deleteSession(s.id)}
-                  disabled={busy}
-                  title="Delete conversation"
-                >
-                  ✕
-                </button>
+                {editingId === s.id ? (
+                  <input
+                    className="min-w-0 flex-1 rounded border border-neutral-600 bg-neutral-900 px-1 py-0.5 text-sm text-neutral-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                    value={draft}
+                    autoFocus
+                    onChange={(e) => setDraft(e.target.value)}
+                    onBlur={commitRename}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") commitRename();
+                      else if (e.key === "Escape") cancelRename();
+                    }}
+                    aria-label="Rename conversation"
+                  />
+                ) : (
+                  <>
+                    <button
+                      className="min-w-0 flex-1 truncate text-left disabled:cursor-not-allowed"
+                      onClick={() => selectSession(s.id)}
+                      onDoubleClick={() => beginRename(s)}
+                      disabled={busy}
+                      title={s.title}
+                    >
+                      {s.title}
+                    </button>
+                    <button
+                      className="shrink-0 text-xs text-neutral-500 opacity-0 hover:text-emerald-400 group-hover:opacity-100 disabled:opacity-0"
+                      onClick={() => beginRename(s)}
+                      disabled={busy}
+                      title="Rename conversation"
+                    >
+                      Rename
+                    </button>
+                    <button
+                      className="shrink-0 text-xs text-neutral-500 opacity-0 hover:text-emerald-400 group-hover:opacity-100 disabled:opacity-0"
+                      onClick={() => downloadTextFile(fileNameFor(s), sessionToMarkdown(s))}
+                      title="Export conversation as Markdown"
+                    >
+                      Export
+                    </button>
+                    <button
+                      className="shrink-0 text-xs text-neutral-500 opacity-0 hover:text-red-400 group-hover:opacity-100 disabled:opacity-0"
+                      onClick={() => deleteSession(s.id)}
+                      disabled={busy}
+                      title="Delete conversation"
+                    >
+                      Delete
+                    </button>
+                  </>
+                )}
               </li>
             ))}
           </ul>

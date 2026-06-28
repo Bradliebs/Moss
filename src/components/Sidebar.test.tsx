@@ -18,6 +18,8 @@ vi.mock("../lib/sessions", () => ({
   createSession: vi.fn(),
   selectSession: vi.fn(),
   deleteSession: vi.fn(),
+  renameSession: vi.fn(),
+  sessionToMarkdown: vi.fn(() => "# md"),
 }));
 
 const noop = (): void => {};
@@ -94,5 +96,42 @@ describe("Sidebar", () => {
     render(<Sidebar busy={true} onOpenSettings={noop} onOpenLibrary={noop} />);
     expect((screen.getByText("+ New chat") as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByText("First chat") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("filters the conversation list by the search query", () => {
+    vi.mocked(sessions.useSessions).mockReturnValue({
+      sessions: [
+        { id: "a", title: "Alpha notes", messages: [], createdAt: 0, updatedAt: 0 },
+        { id: "b", title: "Beta plan", messages: [], createdAt: 0, updatedAt: 0 },
+      ],
+      currentId: "a",
+    });
+    render(<Sidebar busy={false} onOpenSettings={noop} onOpenLibrary={noop} />);
+    fireEvent.change(screen.getByLabelText("Search conversations"), { target: { value: "beta" } });
+    expect(screen.queryByText("Alpha notes")).toBeNull();
+    expect(screen.getByText("Beta plan")).toBeDefined();
+  });
+
+  it("renames a conversation on Enter in the inline editor", () => {
+    vi.mocked(sessions.useSessions).mockReturnValue({
+      sessions: [{ id: "a", title: "First chat", messages: [], createdAt: 0, updatedAt: 0 }],
+      currentId: "a",
+    });
+    render(<Sidebar busy={false} onOpenSettings={noop} onOpenLibrary={noop} />);
+    fireEvent.click(screen.getByTitle("Rename conversation"));
+    const editor = screen.getByLabelText("Rename conversation") as HTMLInputElement;
+    fireEvent.change(editor, { target: { value: "Renamed" } });
+    fireEvent.keyDown(editor, { key: "Enter" });
+    expect(sessions.renameSession).toHaveBeenCalledWith("a", "Renamed");
+  });
+
+  it("exports a conversation as Markdown", () => {
+    vi.mocked(sessions.useSessions).mockReturnValue({
+      sessions: [{ id: "a", title: "First chat", messages: [], createdAt: 0, updatedAt: 0 }],
+      currentId: "a",
+    });
+    render(<Sidebar busy={false} onOpenSettings={noop} onOpenLibrary={noop} />);
+    fireEvent.click(screen.getByTitle("Export conversation as Markdown"));
+    expect(sessions.sessionToMarkdown).toHaveBeenCalledTimes(1);
   });
 });

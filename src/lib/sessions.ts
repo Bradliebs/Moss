@@ -70,6 +70,11 @@ export function getSessionPersonality(id: string): string | undefined {
   return sessionsState.get().sessions.find((s) => s.id === id)?.personalityId;
 }
 
+/** Read a session's current title outside of render. */
+export function getSessionTitle(id: string): string | undefined {
+  return sessionsState.get().sessions.find((s) => s.id === id)?.title;
+}
+
 /** Set a session's personality override, or clear it (undefined) to inherit the
  *  global default. */
 export function setSessionPersonality(id: string, personalityId: string | undefined): void {
@@ -139,6 +144,32 @@ export function setSessionTitle(id: string, firstUserText: string): void {
     ),
   }));
 }
+
+/** Explicitly rename a session to a user-supplied title. Unlike setSessionTitle,
+ *  this overwrites any existing title. An empty/whitespace title is ignored so a
+ *  conversation can never lose its name to a blank rename. */
+export function renameSession(id: string, title: string): void {
+  const clean = title.trim();
+  if (!clean) return;
+  sessionsState.update((prev) => ({
+    ...prev,
+    sessions: prev.sessions.map((s) => (s.id === id ? { ...s, title: clean } : s)),
+  }));
+}
+
+/** Serialize a conversation to a Markdown transcript for export. Only the
+ *  human-readable user and assistant turns are included; system and tool-result
+ *  messages are omitted so the export reads as a clean conversation. */
+export function sessionToMarkdown(session: Session): string {
+  const lines: string[] = [`# ${session.title}`, ""];
+  for (const m of session.messages) {
+    if (m.role !== "user" && m.role !== "assistant") continue;
+    if (!m.content.trim()) continue;
+    lines.push(m.role === "user" ? "## User" : "## Assistant", "", m.content, "");
+  }
+  return lines.join("\n");
+}
+
 
 /** Derive a session's total token usage by summing the per-message usage. Usage
  *  lives on the assistant messages that incurred it, so the total is always an

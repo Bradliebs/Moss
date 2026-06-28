@@ -70,6 +70,57 @@ describe("getSessionPersonality / setSessionPersonality", () => {
   });
 });
 
+describe("renameSession", () => {
+  it("overwrites the title with a trimmed value", () => {
+    const id = sessions.createSession();
+    sessions.renameSession(id, "  Renamed chat  ");
+    expect(sessions.getSessionTitle(id)).toBe("Renamed chat");
+  });
+
+  it("ignores a blank rename so a conversation never loses its name", () => {
+    const id = sessions.createSession();
+    sessions.renameSession(id, "Keep me");
+    sessions.renameSession(id, "   ");
+    expect(sessions.getSessionTitle(id)).toBe("Keep me");
+  });
+});
+
+describe("sessionToMarkdown", () => {
+  it("renders user and assistant turns with role headings", () => {
+    const session = {
+      id: "s1",
+      title: "Greeting",
+      messages: [userMsg("hello"), { role: "assistant", content: "hi there" } as AgentMessage],
+      createdAt: "x",
+      updatedAt: "x",
+    };
+    const md = sessions.sessionToMarkdown(session);
+    expect(md).toContain("# Greeting");
+    expect(md).toContain("## User\n\nhello");
+    expect(md).toContain("## Assistant\n\nhi there");
+  });
+
+  it("omits system, tool, and empty-content messages", () => {
+    const session = {
+      id: "s1",
+      title: "Mixed",
+      messages: [
+        { role: "system", content: "you are moss" } as AgentMessage,
+        { role: "tool", content: "{\"ok\":true}", toolCallId: "t1" } as AgentMessage,
+        { role: "assistant", content: "  " } as AgentMessage,
+        userMsg("kept"),
+      ],
+      createdAt: "x",
+      updatedAt: "x",
+    };
+    const md = sessions.sessionToMarkdown(session);
+    expect(md).not.toContain("you are moss");
+    expect(md).not.toContain("ok");
+    expect(md).toContain("## User\n\nkept");
+    expect(md).not.toContain("## Assistant");
+  });
+});
+
 describe("ensureCurrentSession", () => {
   it("creates a session when the store is empty and is then idempotent", () => {
     const id = sessions.ensureCurrentSession();
