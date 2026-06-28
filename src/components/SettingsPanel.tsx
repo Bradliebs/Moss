@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import type { McpServerStatus } from "@common/types";
+import { PERSONALITY_PRESETS } from "@common/personalities";
 
 import {
   PROVIDER_PRESETS,
@@ -320,6 +321,38 @@ export function SettingsPanel({ onClose }: { onClose: () => void }): React.React
               Appended to Moss&apos;s base system prompt every turn, so you can set a persona or
               standing preferences. Because it is sent on every turn it costs context, so keep it
               short. The built-in safety rules are always kept and cannot be removed by this text.
+            </p>
+          </section>
+
+          <section className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Personality</h3>
+            <select
+              className="w-full rounded bg-neutral-800 px-2 py-1"
+              value={settings.personalityId}
+              onChange={(e) => updateSettings({ personalityId: e.target.value })}
+            >
+              {PERSONALITY_PRESETS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-neutral-500">
+              {PERSONALITY_PRESETS.find((p) => p.id === settings.personalityId)?.description}
+            </p>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="accent-emerald-500"
+                checked={settings.adaptiveTone}
+                onChange={(e) => updateSettings({ adaptiveTone: e.target.checked })}
+              />
+              Adaptive tone
+            </label>
+            <p className="text-xs text-neutral-500">
+              When on, Moss adapts its tone to what it remembers about your preferences, so the
+              persona shifts as your durable memory grows. The selected personality is the starting
+              point; remembered preferences win when they conflict.
             </p>
           </section>
 

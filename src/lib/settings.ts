@@ -5,6 +5,7 @@
 // localStorage so the app reopens with the same provider/model selected.
 
 import type { ProviderConfig, ProviderKind } from "@common/types";
+import { DEFAULT_PERSONALITY_ID } from "@common/personalities";
 
 import { createPersistentStore } from "./persistentStore";
 
@@ -34,6 +35,10 @@ export interface MossSettings {
   /** user-authored persona/instructions appended to the system prompt; the
    *  built-in safety section is always kept regardless of this value */
   customInstructions: string;
+  /** id of the active personality preset (the global default) */
+  personalityId: string;
+  /** when true, the assistant adapts its tone to remembered preferences */
+  adaptiveTone: boolean;
   workspaceRoot: string | null;
   /** speech-to-text endpoint base URL (empty = reuse the provider baseUrl) */
   sttBaseUrl: string;
@@ -53,6 +58,8 @@ const DEFAULT_SETTINGS: MossSettings = {
   enableTools: true,
   autoApproveTools: false,
   customInstructions: "",
+  personalityId: DEFAULT_PERSONALITY_ID,
+  adaptiveTone: false,
   workspaceRoot: null,
   sttBaseUrl: "",
   sttModel: "whisper-1",

@@ -119,4 +119,34 @@ describe("buildSystemMessage", () => {
     expect(safetyIdx).toBeGreaterThanOrEqual(0);
     expect(safetyIdx).toBeLessThan(customIdx);
   });
+
+  it("injects the selected personality prompt for a known preset id", () => {
+    const msg = buildSystemMessage({ includeSkills: false, personalityId: "concise" });
+    expect(msg.content).toContain("be terse and direct");
+  });
+
+  it("injects no personality section for the default preset", () => {
+    const msg = buildSystemMessage({ includeSkills: false, personalityId: "default" });
+    expect(msg.content).not.toContain("Personality:");
+  });
+
+  it("injects nothing for an unknown personality id", () => {
+    const msg = buildSystemMessage({ includeSkills: false, personalityId: "bogus" });
+    expect(msg.content).not.toContain("Personality:");
+  });
+
+  it("keeps the safety section before the personality so it cannot be removed", () => {
+    const msg = buildSystemMessage({ includeSkills: false, personalityId: "concise" });
+    const safetyIdx = msg.content.indexOf("untrusted data");
+    const personaIdx = msg.content.indexOf("be terse and direct");
+    expect(safetyIdx).toBeGreaterThanOrEqual(0);
+    expect(safetyIdx).toBeLessThan(personaIdx);
+  });
+
+  it("adds the adaptive-tone instruction only when adaptiveTone is on", () => {
+    const off = buildSystemMessage({ includeSkills: false });
+    expect(off.content).not.toContain("Adaptive tone:");
+    const on = buildSystemMessage({ includeSkills: false, adaptiveTone: true });
+    expect(on.content).toContain("Adaptive tone:");
+  });
 });

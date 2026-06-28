@@ -91,6 +91,12 @@ export interface ChatStartRequest {
   /** user-authored persona/instructions appended to the base system prompt;
    *  the safety section is always kept, so this cannot disable XPIA defenses */
   customInstructions?: string;
+  /** id of the selected personality preset; the backend maps it to an
+   *  allow-listed prompt, so an unknown id injects nothing */
+  personalityId?: string;
+  /** when true, the assistant adapts its tone to remembered preferences
+   *  (memory-driven adaptation) */
+  adaptiveTone?: boolean;
   /** speech-to-text config for the transcribe_audio tool */
   stt?: SttConfig;
 }

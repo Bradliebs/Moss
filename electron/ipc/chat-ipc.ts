@@ -167,7 +167,7 @@ async function startTurn(event: Electron.IpcMainEvent, req: ChatStartRequest): P
     const lastUser = [...req.messages].reverse().find((m) => m.role === "user");
     const messages = hasSystem
       ? req.messages
-      : [buildSystemMessage({ includeSkills: enableTools, query: lastUser?.content ?? "", customInstructions: req.customInstructions }), ...req.messages];
+      : [buildSystemMessage({ includeSkills: enableTools, query: lastUser?.content ?? "", customInstructions: req.customInstructions, personalityId: req.personalityId, adaptiveTone: req.adaptiveTone }), ...req.messages];
     await runTurn({
       provider,
       model: req.config.model,

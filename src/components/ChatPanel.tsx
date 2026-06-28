@@ -502,6 +502,8 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
       enableTools: settings.enableTools,
       autoApproveTools: settings.autoApproveTools,
       customInstructions: settings.customInstructions,
+      personalityId: settings.personalityId,
+      adaptiveTone: settings.adaptiveTone,
       stt: {
         baseUrl: (settings.sttBaseUrl || settings.baseUrl || "").trim(),
         apiKey: settings.apiKey || undefined,
