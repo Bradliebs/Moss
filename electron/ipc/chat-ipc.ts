@@ -12,6 +12,7 @@ import type {
   MossEvent,
   SkillCreateRequest,
   SkillUpdateRequest,
+  SkillRenameRequest,
   ToolApprovalDecision,
   TranscribeRequest,
   TranscribeResult,
@@ -89,6 +90,9 @@ export function registerChatIpc(): void {
   });
   ipcMain.handle(IPC.skillUpdate, (_event, req: SkillUpdateRequest) =>
     skillsStore.update(req.id, req.description, req.instructions),
+  );
+  ipcMain.handle(IPC.skillRename, (_event, req: SkillRenameRequest) =>
+    skillsStore.rename(req.id, req.newName),
   );
 
   ipcMain.handle(IPC.mcpStatus, () => mcpManager.getStatus());

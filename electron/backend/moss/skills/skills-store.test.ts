@@ -99,6 +99,42 @@ describe("SkillsStore", () => {
     expect(store.update("ghost", "d", "b")).toBeNull();
   });
 
+  it("renames a skill, migrating its directory and preserving enablement", () => {
+    store.create("Old Name", "desc", "body");
+    store.setEnabled("old-name", false);
+
+    const renamed = store.rename("old-name", "New Name");
+    expect(renamed?.id).toBe("new-name");
+    expect(renamed?.name).toBe("new-name");
+    expect(renamed?.description).toBe("desc");
+    expect(renamed?.instructions).toBe("body");
+    expect(renamed?.enabled).toBe(false);
+
+    expect(existsSync(join(dir, "m-skills", "old-name"))).toBe(false);
+    const reopened = new SkillsStore(dir);
+    expect(reopened.get("old-name")).toBeNull();
+    expect(reopened.get("new-name")?.enabled).toBe(false);
+  });
+
+  it("returns the unchanged skill when the new name slugifies to the same id", () => {
+    store.create("Same", "desc", "body");
+    const renamed = store.rename("same", "SAME");
+    expect(renamed?.id).toBe("same");
+    expect(existsSync(join(dir, "m-skills", "same"))).toBe(true);
+  });
+
+  it("refuses to overwrite a different existing skill and returns null", () => {
+    store.create("Alpha", "a", "ab");
+    store.create("Beta", "b", "bb");
+    expect(store.rename("alpha", "Beta")).toBeNull();
+    expect(store.get("alpha")?.description).toBe("a");
+    expect(store.get("beta")?.description).toBe("b");
+  });
+
+  it("returns null when renaming a skill that does not exist", () => {
+    expect(store.rename("ghost", "Whatever")).toBeNull();
+  });
+
   it("ignores directories without a SKILL.md file", () => {
     mkdirSync(join(dir, "m-skills", "not-a-skill"), { recursive: true });
     expect(store.list()).toEqual([]);

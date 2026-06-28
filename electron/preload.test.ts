@@ -78,6 +78,10 @@ describe("preload bridge", () => {
     api.skills.update(skillUpdate);
     expect(invoke).toHaveBeenCalledWith(IPC.skillUpdate, skillUpdate);
 
+    const skillRename = { id: "s1", newName: "New Name" };
+    api.skills.rename(skillRename);
+    expect(invoke).toHaveBeenCalledWith(IPC.skillRename, skillRename);
+
     api.mcp.status();
     expect(invoke).toHaveBeenCalledWith(IPC.mcpStatus);
 

@@ -102,6 +102,8 @@ function SkillsSection(): React.ReactElement {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDescription, setEditDescription] = useState("");
   const [editInstructions, setEditInstructions] = useState("");
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
 
   const refresh = useCallback(async () => {
     setSkills(await window.moss.skills.list());
@@ -157,6 +159,22 @@ function SkillsSection(): React.ReactElement {
     await refresh();
   }
 
+  function beginRename(skill: Skill): void {
+    setRenamingId(skill.id);
+    setRenameDraft(skill.name);
+  }
+
+  function cancelRename(): void {
+    setRenamingId(null);
+  }
+
+  async function saveRename(id: string): Promise<void> {
+    const newName = renameDraft.trim();
+    if (newName) await window.moss.skills.rename({ id, newName });
+    setRenamingId(null);
+    await refresh();
+  }
+
   async function remove(id: string): Promise<void> {
     await window.moss.skills.delete(id);
     await refresh();
@@ -200,12 +218,34 @@ function SkillsSection(): React.ReactElement {
                 <label className="flex items-center gap-1">
                   <input type="checkbox" checked={s.enabled} onChange={() => void toggle(s)} />
                 </label>
-                <span className="flex-1 font-medium text-neutral-200">{s.name}</span>
+                {renamingId === s.id ? (
+                  <input
+                    className="min-w-0 flex-1 rounded bg-neutral-800 px-2 py-0.5 text-sm font-medium text-neutral-100"
+                    aria-label="Rename skill"
+                    value={renameDraft}
+                    autoFocus
+                    onChange={(e) => setRenameDraft(e.target.value)}
+                    onBlur={() => void saveRename(s.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void saveRename(s.id);
+                      else if (e.key === "Escape") cancelRename();
+                    }}
+                  />
+                ) : (
+                  <span className="flex-1 font-medium text-neutral-200">{s.name}</span>
+                )}
                 {s.createdBy === "agent" ? (
                   <span className="rounded bg-amber-900/60 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-300">
                     agent
                   </span>
                 ) : null}
+                <button
+                  className="text-xs text-neutral-500 hover:text-blue-400"
+                  title="Rename skill"
+                  onClick={() => beginRename(s)}
+                >
+                  Rename
+                </button>
                 <button
                   className="text-xs text-neutral-500 hover:text-blue-400"
                   title="Edit skill"

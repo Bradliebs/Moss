@@ -21,6 +21,7 @@ const CH = {
   skillDelete: "moss:skills:delete",
   skillToggle: "moss:skills:toggle",
   skillUpdate: "moss:skills:update",
+  skillRename: "moss:skills:rename",
   mcpStatus: "moss:mcp:status",
   mcpSetEnabled: "moss:mcp:setEnabled",
   mcpOpenConfig: "moss:mcp:openConfig",
@@ -64,6 +65,7 @@ contextBridge.exposeInMainWorld("moss", {
     delete: (id) => ipcRenderer.invoke(CH.skillDelete, id),
     toggle: (id, enabled) => ipcRenderer.invoke(CH.skillToggle, id, enabled),
     update: (request) => ipcRenderer.invoke(CH.skillUpdate, request),
+    rename: (request) => ipcRenderer.invoke(CH.skillRename, request),
   },
   mcp: {
     status: () => ipcRenderer.invoke(CH.mcpStatus),

@@ -115,6 +115,41 @@ export class SkillsStore {
     return this.get(id);
   }
 
+  /** Rename a skill: migrate its on-disk directory to the slug of the new name,
+   *  preserving description, instructions, provenance, and enablement. Returns
+   *  the renamed skill, null when the source is missing/unparsable, or the
+   *  unchanged skill when the new name slugifies to the same id. Refuses to
+   *  overwrite a different existing skill (returns null on a slug collision). */
+  rename(id: string, newName: string): Skill | null {
+    const oldDir = join(this.dir(), basename(id));
+    const oldFile = join(oldDir, "SKILL.md");
+    if (!existsSync(oldFile)) return null;
+    let parsed: ReturnType<typeof parseSkillMarkdown>;
+    try {
+      parsed = parseSkillMarkdown(readFileSync(oldFile, "utf8"));
+    } catch {
+      return null;
+    }
+    if (!parsed) return null;
+    const newId = slugifySkillName(newName) || "skill";
+    if (newId === id) return this.get(id);
+    const newDir = join(this.dir(), basename(newId));
+    if (existsSync(newDir)) return null;
+    mkdirSync(newDir, { recursive: true });
+    writeFileSync(
+      join(newDir, "SKILL.md"),
+      buildSkillMarkdown(newId, parsed.description, parsed.instructions, parsed.createdBy),
+      "utf8",
+    );
+    rmSync(oldDir, { recursive: true, force: true });
+    const disabled = this.loadDisabled();
+    if (disabled.delete(id)) {
+      disabled.add(newId);
+      this.saveDisabled(disabled);
+    }
+    return this.get(newId);
+  }
+
   delete(id: string): boolean {
     const dir = join(this.dir(), basename(id));
     if (!existsSync(dir)) return false;

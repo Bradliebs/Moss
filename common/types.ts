@@ -150,6 +150,11 @@ export interface SkillUpdateRequest {
   instructions: string;
 }
 
+export interface SkillRenameRequest {
+  id: string;
+  newName: string;
+}
+
 // --- MCP runtime status (Phase 6 settings, read-only) ---
 
 export interface McpServerStatus {

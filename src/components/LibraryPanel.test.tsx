@@ -26,6 +26,7 @@ const skills = {
   delete: vi.fn(),
   toggle: vi.fn(),
   update: vi.fn(),
+  rename: vi.fn(),
 };
 
 function memoryEntry(over: Partial<MemoryEntry> = {}): MemoryEntry {
@@ -54,6 +55,7 @@ beforeEach(() => {
   skills.delete.mockResolvedValue(true);
   skills.toggle.mockResolvedValue(undefined);
   skills.update.mockResolvedValue(skill());
+  skills.rename.mockResolvedValue(skill());
   Object.assign(window, { moss: { memory, skills } });
 });
 
@@ -174,6 +176,19 @@ describe("LibraryPanel — Skills", () => {
     await waitFor(() =>
       expect(skills.update).toHaveBeenCalledWith({ id: "s8", description: "new desc", instructions: "new body" }),
     );
+  });
+
+  it("renames a skill on Enter in the inline editor", async () => {
+    skills.list.mockResolvedValue([skill({ id: "s9", name: "Old Name" })]);
+    render(<LibraryPanel onClose={() => {}} />);
+    await waitFor(() => expect(screen.getByText("Old Name")).toBeDefined());
+
+    fireEvent.click(screen.getByText("Rename"));
+    const editor = screen.getByLabelText("Rename skill") as HTMLInputElement;
+    fireEvent.change(editor, { target: { value: "New Name" } });
+    fireEvent.keyDown(editor, { key: "Enter" });
+
+    await waitFor(() => expect(skills.rename).toHaveBeenCalledWith({ id: "s9", newName: "New Name" }));
   });
 });
 
