@@ -260,6 +260,38 @@ describe("sessionToolUsage", () => {
   });
 });
 
+describe("sessionToolAudit", () => {
+  it("pairs each result with its call name, risk tier, and auto-approved flag", () => {
+    const audit = sessions.sessionToolAudit([
+      { role: "user", content: "hi" },
+      {
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          { id: "c1", name: "read_file", arguments: "{}" },
+          { id: "c2", name: "write_file", arguments: "{}" },
+        ],
+      },
+      { role: "tool", content: "ok", toolCallId: "c1", autoApproved: true },
+      { role: "tool", content: "ok", toolCallId: "c2" },
+    ]);
+    expect(audit).toEqual([
+      { callId: "c1", name: "read_file", risk: "readonly", autoApproved: true },
+      { callId: "c2", name: "write_file", risk: "mutating", autoApproved: false },
+    ]);
+  });
+
+  it("labels a result whose call cannot be resolved as unknown and mutating", () => {
+    const audit = sessions.sessionToolAudit([{ role: "tool", content: "ok", toolCallId: "ghost" }]);
+    expect(audit).toEqual([{ callId: "ghost", name: "unknown", risk: "mutating", autoApproved: false }]);
+  });
+
+  it("classifies tool names with toolRiskTier", () => {
+    expect(sessions.toolRiskTier("list_dir")).toBe("readonly");
+    expect(sessions.toolRiskTier("run_command")).toBe("mutating");
+  });
+});
+
 describe("contextWindowTokens", () => {
   it("uses the most recent reply's input + output, not a sum of all turns", () => {
     const used = sessions.contextWindowTokens([

@@ -19,6 +19,7 @@ import {
   getSessionPersonality,
   sessionTokenUsage,
   sessionToolUsage,
+  sessionToolAudit,
   setSessionMessages,
   setSessionPersonality,
   setSessionTitle,
@@ -362,6 +363,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
   const usage = sessionTokenUsage(history);
   const cost = estimateCost(usage, settings.model, settings.modelRates);
   const tools = sessionToolUsage(history);
+  const toolAudit = sessionToolAudit(history);
   const contextUsed = contextWindowTokens(history);
   const contextDetail = contextWindowUsage(history);
 
@@ -373,6 +375,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
   const [status, setStatus] = useState("");
   const [mcpToolCount, setMcpToolCount] = useState(0);
   const [mcpDownCount, setMcpDownCount] = useState(0);
+  const [showToolAudit, setShowToolAudit] = useState(false);
   const dictation = useDictation((text) =>
     setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text)),
   );
@@ -682,12 +685,41 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
           </span>
         ) : null}
         {tools.total > 0 ? (
-          <span
-            className={tools.autoApproved > 0 ? "text-xs text-amber-400/80" : "text-xs text-neutral-600"}
-            title={`${tools.total} tool call(s) ran in this conversation; ${tools.autoApproved} ran without asking because auto-approve was on.`}
-          >
-            {tools.total} tool{tools.total === 1 ? "" : "s"}
-            {tools.autoApproved > 0 ? ` (${tools.autoApproved} auto)` : ""}
+          <span className="relative">
+            <button
+              type="button"
+              className={tools.autoApproved > 0 ? "text-xs text-amber-400/80 hover:underline" : "text-xs text-neutral-600 hover:underline"}
+              title={`${tools.total} tool call(s) ran in this conversation; ${tools.autoApproved} ran without asking because auto-approve was on. Click to review.`}
+              aria-expanded={showToolAudit}
+              onClick={() => setShowToolAudit((v) => !v)}
+            >
+              {tools.total} tool{tools.total === 1 ? "" : "s"}
+              {tools.autoApproved > 0 ? ` (${tools.autoApproved} auto)` : ""}
+            </button>
+            {showToolAudit ? (
+              <div className="absolute left-0 top-5 z-20 max-h-64 w-72 overflow-y-auto rounded border border-neutral-700 bg-neutral-900 p-2 shadow-lg">
+                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">Tool activity</p>
+                <ul className="space-y-1">
+                  {toolAudit.map((e, i) => (
+                    <li key={`${e.callId}-${i}`} className="flex items-center gap-2 text-xs">
+                      <span className="flex-1 truncate font-mono text-neutral-200">{e.name}</span>
+                      <span
+                        className={
+                          e.risk === "mutating"
+                            ? "rounded bg-amber-900/60 px-1 text-[10px] uppercase text-amber-300"
+                            : "rounded bg-neutral-800 px-1 text-[10px] uppercase text-neutral-400"
+                        }
+                      >
+                        {e.risk}
+                      </span>
+                      {e.autoApproved ? (
+                        <span className="rounded bg-amber-900/40 px-1 text-[10px] uppercase text-amber-300">auto</span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </span>
         ) : null}
         {settings.contextLimit > 0 && contextUsed > 0 ? (

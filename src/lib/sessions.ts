@@ -237,6 +237,53 @@ export function sessionToolUsage(messages: AgentMessage[]): ToolUsageSummary {
   return { total, autoApproved };
 }
 
+/** Tools that only read; mirrors the read-only set the backend auto-allows.
+ *  Everything else is treated as mutating for the after-the-fact audit, since
+ *  the authoritative content risk (e.g. a destructive command) is decided at
+ *  execution time and is not persisted with the message. */
+const READONLY_TOOLS = new Set<string>([
+  "read_file",
+  "list_dir",
+  "search_files",
+  "glob_files",
+  "m_recall",
+  "m_list_memories",
+  "m_list_skills",
+  "m_get_skill",
+]);
+
+export type ToolRiskTier = "readonly" | "mutating";
+
+export function toolRiskTier(name: string): ToolRiskTier {
+  return READONLY_TOOLS.has(name) ? "readonly" : "mutating";
+}
+
+export interface ToolAuditEntry {
+  callId: string;
+  /** the tool's name, resolved from the assistant call that triggered it */
+  name: string;
+  risk: ToolRiskTier;
+  autoApproved: boolean;
+}
+
+/** Build a per-conversation audit of every executed tool call, pairing each
+ *  result with the name of the call that triggered it, a name-derived risk tier,
+ *  and whether it ran without a prompt. Order matches execution order. */
+export function sessionToolAudit(messages: AgentMessage[]): ToolAuditEntry[] {
+  const names = new Map<string, string>();
+  for (const m of messages) {
+    if (m.toolCalls) for (const c of m.toolCalls) names.set(c.id, c.name);
+  }
+  const entries: ToolAuditEntry[] = [];
+  for (const m of messages) {
+    if (m.role === "tool" && m.toolCallId) {
+      const name = names.get(m.toolCallId) ?? "unknown";
+      entries.push({ callId: m.toolCallId, name, risk: toolRiskTier(name), autoApproved: Boolean(m.autoApproved) });
+    }
+  }
+  return entries;
+}
+
 /** The token usage occupying the model's context window: the most recent reply's
  *  usage (its input already counts the whole prior exchange, plus its own output).
  *  Returned split so callers can show the input/output breakdown. Zeros until a

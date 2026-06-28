@@ -26,6 +26,12 @@ const mockSession = vi.hoisted(() => ({
   value: { id: "s1", title: "New chat", messages: [], createdAt: 0, updatedAt: 0 },
 }));
 
+// Drives the header tool-activity badge and audit popover; reset in beforeEach.
+const mockToolState = vi.hoisted(() => ({
+  usage: { total: 0, autoApproved: 0 },
+  audit: [] as { callId: string; name: string; risk: string; autoApproved: boolean }[],
+}));
+
 const mockSettingsDefaults = {
   model: "gpt-4",
   enableTools: true,
@@ -71,7 +77,8 @@ vi.mock("../lib/sessions", () => ({
   sessionTokenUsage: () => ({ inputTokens: 0, outputTokens: 0 }),
   contextWindowTokens: () => 0,
   contextWindowUsage: () => ({ inputTokens: 0, outputTokens: 0 }),
-  sessionToolUsage: () => ({ total: 0, autoApproved: 0 }),
+  sessionToolUsage: () => mockToolState.usage,
+  sessionToolAudit: () => mockToolState.audit,
 }));
 
 vi.mock("../lib/dictation", () => ({
@@ -101,6 +108,8 @@ function emit(turnId: string, event: MossEvent): void {
 beforeEach(() => {
   eventHandler = null;
   mockSession.value = { id: "s1", title: "New chat", messages: [], createdAt: 0, updatedAt: 0 };
+  mockToolState.usage = { total: 0, autoApproved: 0 };
+  mockToolState.audit = [];
   Object.assign(mockSettings, mockSettingsDefaults);
   // jsdom does not implement Element.scrollTo; ChatPanel's autoscroll effect calls it.
   Element.prototype.scrollTo = vi.fn();
@@ -603,6 +612,24 @@ describe("ChatPanel", () => {
 
     expect(screen.getByText("Approval required.")).toBeDefined();
     expect(screen.getByText("destructive")).toBeDefined();
+  });
+
+  it("opens a tool-activity audit listing each call's name, risk tier, and auto flag", () => {
+    mockToolState.usage = { total: 2, autoApproved: 1 };
+    mockToolState.audit = [
+      { callId: "c1", name: "read_file", risk: "readonly", autoApproved: true },
+      { callId: "c2", name: "write_file", risk: "mutating", autoApproved: false },
+    ];
+    render(<Harness />);
+
+    fireEvent.click(screen.getByText("2 tools (1 auto)"));
+
+    expect(screen.getByText("Tool activity")).toBeDefined();
+    expect(screen.getByText("read_file")).toBeDefined();
+    expect(screen.getByText("readonly")).toBeDefined();
+    expect(screen.getByText("write_file")).toBeDefined();
+    expect(screen.getByText("mutating")).toBeDefined();
+    expect(screen.getByText("auto")).toBeDefined();
   });
 
   it("commits messages and clears busy on turn-complete", () => {
