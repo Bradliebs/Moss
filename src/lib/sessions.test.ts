@@ -147,6 +147,33 @@ describe("sessionToMarkdown", () => {
     expect(md).toContain("Estimated cost: $2.50");
   });
 
+  it("appends a Tool activity table mirroring the in-app audit when includeTools is set", () => {
+    const session = {
+      id: "s1",
+      title: "Audit",
+      messages: [
+        userMsg("go"),
+        {
+          role: "assistant",
+          content: "",
+          toolCalls: [
+            { id: "c1", name: "read_file", arguments: "{}" },
+            { id: "c2", name: "write_file", arguments: "{}" },
+          ],
+        } as AgentMessage,
+        { role: "tool", content: "ok", toolCallId: "c1", autoApproved: true } as AgentMessage,
+        { role: "tool", content: "ok", toolCallId: "c2" } as AgentMessage,
+      ],
+      createdAt: "x",
+      updatedAt: "x",
+    };
+    const md = sessions.sessionToMarkdown(session, { includeTools: true });
+    expect(md).toContain("## Tool activity");
+    expect(md).toContain("| Tool | Risk | Auto-approved |");
+    expect(md).toContain("| read_file | readonly | yes |");
+    expect(md).toContain("| write_file | mutating | no |");
+  });
+
   it("omits the cost line when the model has no rate", () => {
     const session = {
       id: "s1",

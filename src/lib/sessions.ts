@@ -198,6 +198,13 @@ export function sessionToMarkdown(session: Session, options: MarkdownExportOptio
       if (cost !== null) lines.push(`- Estimated cost: ${formatUsd(cost)}`);
       lines.push("");
     }
+    const audit = sessionToolAudit(session.messages);
+    if (audit.length) {
+      lines.push("## Tool activity", "");
+      lines.push("| Tool | Risk | Auto-approved |", "| --- | --- | --- |");
+      for (const e of audit) lines.push(`| ${e.name} | ${e.risk} | ${e.autoApproved ? "yes" : "no"} |`);
+      lines.push("");
+    }
   }
   return lines.join("\n");
 }
