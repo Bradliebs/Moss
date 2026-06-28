@@ -51,6 +51,7 @@ describe("registerChatIpc", () => {
       IPC.skillCreate,
       IPC.skillDelete,
       IPC.skillToggle,
+      IPC.skillUpdate,
       IPC.mcpStatus,
       IPC.mcpOpenConfig,
       IPC.transcribe,

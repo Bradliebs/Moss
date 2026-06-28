@@ -144,6 +144,12 @@ export interface SkillCreateRequest {
   instructions: string;
 }
 
+export interface SkillUpdateRequest {
+  id: string;
+  description: string;
+  instructions: string;
+}
+
 // --- MCP runtime status (Phase 6 settings, read-only) ---
 
 export interface McpServerStatus {

@@ -98,6 +98,23 @@ export class SkillsStore {
     return created;
   }
 
+  /** Rewrite an existing skill's description and instructions in place. The id,
+   *  name, and createdBy provenance are preserved; enablement is untouched.
+   *  Returns the updated skill, or null when no skill with that id exists. */
+  update(id: string, description: string, instructions: string): Skill | null {
+    const file = join(this.dir(), basename(id), "SKILL.md");
+    if (!existsSync(file)) return null;
+    let parsed: ReturnType<typeof parseSkillMarkdown>;
+    try {
+      parsed = parseSkillMarkdown(readFileSync(file, "utf8"));
+    } catch {
+      return null;
+    }
+    if (!parsed) return null;
+    writeFileSync(file, buildSkillMarkdown(parsed.name, description, instructions, parsed.createdBy), "utf8");
+    return this.get(id);
+  }
+
   delete(id: string): boolean {
     const dir = join(this.dir(), basename(id));
     if (!existsSync(dir)) return false;

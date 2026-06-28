@@ -9,6 +9,7 @@ import type {
   ProviderConfig,
   Skill,
   SkillCreateRequest,
+  SkillUpdateRequest,
   ToolApprovalDecision,
   TranscribeRequest,
   TranscribeResult,
@@ -50,6 +51,7 @@ declare global {
         create: (request: SkillCreateRequest) => Promise<Skill>;
         delete: (id: string) => Promise<boolean>;
         toggle: (id: string, enabled: boolean) => Promise<void>;
+        update: (request: SkillUpdateRequest) => Promise<Skill | null>;
       };
       mcp: {
         status: () => Promise<McpServerStatus[]>;

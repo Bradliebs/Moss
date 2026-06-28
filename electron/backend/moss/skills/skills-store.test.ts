@@ -78,6 +78,27 @@ describe("SkillsStore", () => {
     expect(store.delete("doomed")).toBe(false);
   });
 
+  it("updates description and instructions while preserving id and enablement", () => {
+    store.create("Editable", "old desc", "old body");
+    store.setEnabled("editable", false);
+
+    const updated = store.update("editable", "new desc", "new body");
+    expect(updated?.id).toBe("editable");
+    expect(updated?.name).toBe("editable");
+    expect(updated?.description).toBe("new desc");
+    expect(updated?.instructions).toBe("new body");
+    expect(updated?.enabled).toBe(false);
+
+    const reopened = new SkillsStore(dir);
+    const persisted = reopened.get("editable");
+    expect(persisted?.description).toBe("new desc");
+    expect(persisted?.instructions).toBe("new body");
+  });
+
+  it("returns null when updating a skill that does not exist", () => {
+    expect(store.update("ghost", "d", "b")).toBeNull();
+  });
+
   it("ignores directories without a SKILL.md file", () => {
     mkdirSync(join(dir, "m-skills", "not-a-skill"), { recursive: true });
     expect(store.list()).toEqual([]);

@@ -25,6 +25,7 @@ const skills = {
   create: vi.fn(),
   delete: vi.fn(),
   toggle: vi.fn(),
+  update: vi.fn(),
 };
 
 function memoryEntry(over: Partial<MemoryEntry> = {}): MemoryEntry {
@@ -52,6 +53,7 @@ beforeEach(() => {
   skills.create.mockResolvedValue(skill());
   skills.delete.mockResolvedValue(true);
   skills.toggle.mockResolvedValue(undefined);
+  skills.update.mockResolvedValue(skill());
   Object.assign(window, { moss: { memory, skills } });
 });
 
@@ -157,6 +159,21 @@ describe("LibraryPanel — Skills", () => {
 
     fireEvent.click(screen.getByText("✕"));
     expect(skills.delete).toHaveBeenCalledWith("s7");
+  });
+
+  it("edits a skill's description and instructions", async () => {
+    skills.list.mockResolvedValue([skill({ id: "s8", name: "Editable", description: "old", instructions: "body" })]);
+    render(<LibraryPanel onClose={() => {}} />);
+    await waitFor(() => expect(screen.getByText("Editable")).toBeDefined());
+
+    fireEvent.click(screen.getByText("Edit"));
+    fireEvent.change(screen.getByLabelText("Edit description"), { target: { value: "new desc" } });
+    fireEvent.change(screen.getByLabelText("Edit instructions"), { target: { value: "new body" } });
+    fireEvent.click(screen.getByText("Save"));
+
+    await waitFor(() =>
+      expect(skills.update).toHaveBeenCalledWith({ id: "s8", description: "new desc", instructions: "new body" }),
+    );
   });
 });
 

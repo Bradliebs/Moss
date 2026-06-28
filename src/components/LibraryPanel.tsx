@@ -99,6 +99,9 @@ function SkillsSection(): React.ReactElement {
   const [description, setDescription] = useState("");
   const [instructions, setInstructions] = useState("");
   const [error, setError] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDescription, setEditDescription] = useState("");
+  const [editInstructions, setEditInstructions] = useState("");
 
   const refresh = useCallback(async () => {
     setSkills(await window.moss.skills.list());
@@ -131,6 +134,26 @@ function SkillsSection(): React.ReactElement {
 
   async function toggle(skill: Skill): Promise<void> {
     await window.moss.skills.toggle(skill.id, !skill.enabled);
+    await refresh();
+  }
+
+  function beginEdit(skill: Skill): void {
+    setEditingId(skill.id);
+    setEditDescription(skill.description);
+    setEditInstructions(skill.instructions);
+  }
+
+  function cancelEdit(): void {
+    setEditingId(null);
+  }
+
+  async function saveEdit(id: string): Promise<void> {
+    await window.moss.skills.update({
+      id,
+      description: editDescription.trim(),
+      instructions: editInstructions.trim(),
+    });
+    setEditingId(null);
     await refresh();
   }
 
@@ -183,11 +206,47 @@ function SkillsSection(): React.ReactElement {
                     agent
                   </span>
                 ) : null}
+                <button
+                  className="text-xs text-neutral-500 hover:text-blue-400"
+                  title="Edit skill"
+                  onClick={() => beginEdit(s)}
+                >
+                  Edit
+                </button>
                 <button className="text-xs text-neutral-500 hover:text-red-400" onClick={() => void remove(s.id)}>
                   ✕
                 </button>
               </div>
-              <p className="pl-6 text-xs text-neutral-400">{s.description}</p>
+              {editingId === s.id ? (
+                <div className="mt-1 space-y-1 pl-6">
+                  <input
+                    className="w-full rounded bg-neutral-800 px-2 py-1 text-sm"
+                    aria-label="Edit description"
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                  />
+                  <textarea
+                    className="w-full resize-none rounded bg-neutral-800 px-2 py-1 text-sm"
+                    aria-label="Edit instructions"
+                    rows={3}
+                    value={editInstructions}
+                    onChange={(e) => setEditInstructions(e.target.value)}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      className="rounded bg-blue-700 px-2 py-0.5 text-xs hover:bg-blue-600"
+                      onClick={() => void saveEdit(s.id)}
+                    >
+                      Save
+                    </button>
+                    <button className="text-xs text-neutral-400 hover:text-neutral-200" onClick={cancelEdit}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="pl-6 text-xs text-neutral-400">{s.description}</p>
+              )}
             </div>
           ))
         )}

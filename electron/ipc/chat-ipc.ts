@@ -11,6 +11,7 @@ import type {
   MemoryCategory,
   MossEvent,
   SkillCreateRequest,
+  SkillUpdateRequest,
   ToolApprovalDecision,
   TranscribeRequest,
   TranscribeResult,
@@ -86,6 +87,9 @@ export function registerChatIpc(): void {
   ipcMain.handle(IPC.skillToggle, (_event, id: string, enabled: boolean) => {
     skillsStore.setEnabled(id, enabled);
   });
+  ipcMain.handle(IPC.skillUpdate, (_event, req: SkillUpdateRequest) =>
+    skillsStore.update(req.id, req.description, req.instructions),
+  );
 
   ipcMain.handle(IPC.mcpStatus, () => mcpManager.getStatus());
   ipcMain.handle(IPC.mcpSetEnabled, async (_event, id: string, enabled: boolean) => {
