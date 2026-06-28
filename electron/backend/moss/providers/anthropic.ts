@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto";
 import type { AgentMessage } from "../../../../common/types";
 import { joinUrl, safeText } from "./http";
 import { readSSE } from "./sse";
+import { ProviderError } from "./types";
 import type { ChatProvider, ChatRequest, ProviderStreamEvent } from "./types";
 
 const DEFAULT_ANTHROPIC_MODELS = [
@@ -136,7 +137,7 @@ export class AnthropicProvider implements ChatProvider {
       signal,
     });
     if (!res.ok || !res.body) {
-      throw new Error(`Anthropic request failed: HTTP ${res.status} ${await safeText(res)}`);
+      throw new ProviderError(`Anthropic request failed: HTTP ${res.status} ${await safeText(res)}`, res.status);
     }
 
     const blocks = new Map<number, { type: string; id?: string; name?: string; json: string }>();

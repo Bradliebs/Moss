@@ -9,6 +9,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { AgentMessage, MossEvent, ToolDefinition } from "../../../common/types";
 import { runTurn } from "./agent-runner";
+import { ProviderError } from "./providers/types";
 import type { ChatProvider, ProviderStreamEvent } from "./providers/types";
 import type { Tool, ToolResult } from "./tools";
 
@@ -395,6 +396,46 @@ describe("runTurn", () => {
     expect(attempts).toBe(3); // initial attempt + 2 retries
     const err = h.events.find((e) => e.type === "turn-error") as Extract<MossEvent, { type: "turn-error" }>;
     expect(err.message).toBe("down");
+  });
+
+  it("surfaces a permanent provider error immediately without retrying", async () => {
+    let attempts = 0;
+    const provider: ChatProvider = {
+      kind: "test",
+      // eslint-disable-next-line require-yield
+      async *streamChat(): AsyncIterable<ProviderStreamEvent> {
+        attempts += 1;
+        throw new ProviderError("Anthropic request failed: HTTP 401 bad key", 401);
+      },
+      async listModels() {
+        return [];
+      },
+    };
+    const h = await run(provider, []);
+
+    expect(attempts).toBe(1); // 4xx is permanent: no retry
+    expect(types(h)).not.toContain("notice");
+    const err = h.events.find((e) => e.type === "turn-error") as Extract<MossEvent, { type: "turn-error" }>;
+    expect(err.message).toContain("HTTP 401");
+  });
+
+  it("retries a server-side provider error before any output, then succeeds", async () => {
+    let attempts = 0;
+    const provider: ChatProvider = {
+      kind: "test",
+      async *streamChat(): AsyncIterable<ProviderStreamEvent> {
+        attempts += 1;
+        if (attempts === 1) throw new ProviderError("HTTP 503 overloaded", 503);
+        yield { type: "text-delta", text: "ok" };
+      },
+      async listModels() {
+        return [];
+      },
+    };
+    const h = await run(provider, []);
+
+    expect(attempts).toBe(2); // 5xx is transient: retried once
+    expect(types(h)).toContain("notice");
   });
 
   it("does not retry once text has been streamed, even if the stream then throws", async () => {

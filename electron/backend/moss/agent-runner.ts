@@ -6,6 +6,7 @@
 
 import type { AgentMessage, MossEvent, SttConfig, TokenUsage, ToolCall, ToolDefinition } from "../../../common/types";
 import { resolvePermission } from "./permission";
+import { ProviderError } from "./providers/types";
 import type { ChatProvider } from "./providers/types";
 import type { Tool, ToolResult } from "./tools";
 
@@ -94,7 +95,7 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
         } catch (err) {
           if (signal.aborted) throw err;
           const emitted = pendingText.length > 0 || sawUsage;
-          if (emitted || attempt >= MAX_STREAM_RETRIES) throw err;
+          if (emitted || attempt >= MAX_STREAM_RETRIES || !isRetryableStreamError(err)) throw err;
           onEvent({
             type: "notice",
             level: "warn",
@@ -231,6 +232,17 @@ function truncateForModel(content: string): string {
   const tail = content.slice(-tailLen);
   const dropped = content.length - head.length - tail.length;
   return `${head}\n\n...[truncated ${dropped} characters]...\n\n${tail}`;
+}
+
+/** A pre-output stream failure is retried only when it looks transient: a
+ *  network-level error (no HTTP status reached us) or a server-side/rate-limit
+ *  status. A client-side status (bad auth, model, or request) is permanent, so
+ *  we surface it immediately instead of paying the retry backoff. */
+function isRetryableStreamError(err: unknown): boolean {
+  const status = err instanceof ProviderError ? err.status : undefined;
+  if (status === undefined) return true;
+  if (status >= 500) return true;
+  return status === 408 || status === 409 || status === 425 || status === 429;
 }
 
 /** Abortable sleep; resolves early when the signal aborts so the round-top

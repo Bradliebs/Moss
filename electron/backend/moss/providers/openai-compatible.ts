@@ -9,6 +9,7 @@ import { randomUUID } from "node:crypto";
 import type { AgentMessage } from "../../../../common/types";
 import { joinUrl, safeText } from "./http";
 import { readSSE } from "./sse";
+import { ProviderError } from "./types";
 import type { ChatProvider, ChatRequest, ProviderStreamEvent } from "./types";
 
 interface OAToolCallDelta {
@@ -87,7 +88,7 @@ export class OpenAiCompatibleProvider implements ChatProvider {
       signal,
     });
     if (!res.ok || !res.body) {
-      throw new Error(`OpenAI-compatible request failed: HTTP ${res.status} ${await safeText(res)}`);
+      throw new ProviderError(`OpenAI-compatible request failed: HTTP ${res.status} ${await safeText(res)}`, res.status);
     }
 
     const toolAcc = new Map<number, { id: string; name: string; args: string }>();
