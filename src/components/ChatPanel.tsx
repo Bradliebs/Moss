@@ -8,6 +8,7 @@ import { PERSONALITY_PRESETS } from "@common/personalities";
 import { useDictation } from "../lib/dictation";
 import { imageAttachmentError, isLikelyVisionModel, textAttachmentError } from "../lib/attachments";
 import { parseMarkdown, segmentToMarkdown, type InlineSegment } from "../lib/markdown";
+import { estimateCost, formatUsd } from "../lib/pricing";
 import {
   clearSession,
   contextWindowTokens,
@@ -358,6 +359,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
   const current = currentSession(sessions);
   const history = current?.messages ?? [];
   const usage = sessionTokenUsage(history);
+  const cost = estimateCost(usage, settings.model);
   const contextUsed = contextWindowTokens(history);
   const contextDetail = contextWindowUsage(history);
 
@@ -667,6 +669,14 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
             title="Total token usage for this conversation (input / output), summed across messages."
           >
             {formatTokens(usage.inputTokens ?? 0)} in / {formatTokens(usage.outputTokens ?? 0)} out
+          </span>
+        ) : null}
+        {cost !== null && (usage.inputTokens || usage.outputTokens) ? (
+          <span
+            className="text-xs text-neutral-600"
+            title={`Estimated cost for this conversation using built-in rates for ${settings.model}. Approximate; provider pricing may differ.`}
+          >
+            ~{formatUsd(cost)}
           </span>
         ) : null}
         {settings.contextLimit > 0 && contextUsed > 0 ? (
