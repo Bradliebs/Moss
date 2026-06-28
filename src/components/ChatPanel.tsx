@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { AgentMessage, ChatEventPayload, TokenUsage } from "@common/types";
+import { PERSONALITY_PRESETS } from "@common/personalities";
 
 import { useDictation } from "../lib/dictation";
 import { imageAttachmentError, isLikelyVisionModel, textAttachmentError } from "../lib/attachments";
@@ -14,8 +15,10 @@ import {
   currentSession,
   ensureCurrentSession,
   getSessionMessages,
+  getSessionPersonality,
   sessionTokenUsage,
   setSessionMessages,
+  setSessionPersonality,
   setSessionTitle,
   useSessions,
 } from "../lib/sessions";
@@ -502,7 +505,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
       enableTools: settings.enableTools,
       autoApproveTools: settings.autoApproveTools,
       customInstructions: settings.customInstructions,
-      personalityId: settings.personalityId,
+      personalityId: getSessionPersonality(sessionId) ?? settings.personalityId,
       adaptiveTone: settings.adaptiveTone,
       stt: {
         baseUrl: (settings.sttBaseUrl || settings.baseUrl || "").trim(),
@@ -640,6 +643,24 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
           </button>
         )}
         {settings.model ? <span className="text-xs text-neutral-500">{settings.model}</span> : null}
+        {current ? (
+          <select
+            className="w-40 rounded-md border border-neutral-700/60 bg-neutral-800 px-2 py-1 transition focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+            value={current.personalityId ?? ""}
+            onChange={(e) => setSessionPersonality(current.id, e.target.value || undefined)}
+            disabled={busy}
+            title="Personality for this chat. Inherit uses the global default from Settings."
+          >
+            <option value="">
+              Inherit ({PERSONALITY_PRESETS.find((p) => p.id === settings.personalityId)?.name ?? "Default"})
+            </option>
+            {PERSONALITY_PRESETS.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        ) : null}
         {usage.inputTokens || usage.outputTokens ? (
           <span
             className="text-xs text-neutral-600"

@@ -14,6 +14,8 @@ export interface Session {
   messages: AgentMessage[];
   createdAt: string;
   updatedAt: string;
+  /** per-chat personality override; undefined inherits the global default */
+  personalityId?: string;
 }
 
 interface SessionsState {
@@ -59,6 +61,22 @@ export function currentSession(state: SessionsState): Session | null {
  *  turn always commits onto the session's real history, not stale render state). */
 export function getSessionMessages(id: string): AgentMessage[] {
   return sessionsState.get().sessions.find((s) => s.id === id)?.messages ?? [];
+}
+
+/** Read a session's personality override outside of render (used by the send path
+ *  so the turn uses the per-chat choice). Undefined means inherit the global
+ *  default from settings. */
+export function getSessionPersonality(id: string): string | undefined {
+  return sessionsState.get().sessions.find((s) => s.id === id)?.personalityId;
+}
+
+/** Set a session's personality override, or clear it (undefined) to inherit the
+ *  global default. */
+export function setSessionPersonality(id: string, personalityId: string | undefined): void {
+  sessionsState.update((prev) => ({
+    ...prev,
+    sessions: prev.sessions.map((s) => (s.id === id ? { ...s, personalityId } : s)),
+  }));
 }
 
 /** Create an empty session and make it current. Returns the new id. */

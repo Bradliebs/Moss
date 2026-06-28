@@ -50,6 +50,26 @@ describe("getSessionMessages / setSessionMessages", () => {
   });
 });
 
+describe("getSessionPersonality / setSessionPersonality", () => {
+  it("defaults to undefined (inherit) and round-trips an override", () => {
+    const id = sessions.createSession();
+    expect(sessions.getSessionPersonality(id)).toBeUndefined();
+    sessions.setSessionPersonality(id, "concise");
+    expect(sessions.getSessionPersonality(id)).toBe("concise");
+  });
+
+  it("clears the override back to inherit when set to undefined", () => {
+    const id = sessions.createSession();
+    sessions.setSessionPersonality(id, "mentor");
+    sessions.setSessionPersonality(id, undefined);
+    expect(sessions.getSessionPersonality(id)).toBeUndefined();
+  });
+
+  it("returns undefined for an unknown id", () => {
+    expect(sessions.getSessionPersonality("nope")).toBeUndefined();
+  });
+});
+
 describe("ensureCurrentSession", () => {
   it("creates a session when the store is empty and is then idempotent", () => {
     const id = sessions.ensureCurrentSession();

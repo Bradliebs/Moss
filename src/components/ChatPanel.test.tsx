@@ -63,6 +63,8 @@ vi.mock("../lib/sessions", () => ({
   currentSession: () => mockSession.value,
   ensureCurrentSession: () => "s1",
   getSessionMessages: () => [],
+  getSessionPersonality: () => undefined,
+  setSessionPersonality: vi.fn(),
   setSessionMessages: (...args: unknown[]) => mockSetSessionMessages(...args),
   setSessionTitle: vi.fn(),
   clearSession: (...args: unknown[]) => mockClearSession(...args),
