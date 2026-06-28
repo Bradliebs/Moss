@@ -71,6 +71,7 @@ vi.mock("../lib/sessions", () => ({
   sessionTokenUsage: () => ({ inputTokens: 0, outputTokens: 0 }),
   contextWindowTokens: () => 0,
   contextWindowUsage: () => ({ inputTokens: 0, outputTokens: 0 }),
+  sessionToolUsage: () => ({ total: 0, autoApproved: 0 }),
 }));
 
 vi.mock("../lib/dictation", () => ({

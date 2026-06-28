@@ -18,6 +18,7 @@ import {
   getSessionMessages,
   getSessionPersonality,
   sessionTokenUsage,
+  sessionToolUsage,
   setSessionMessages,
   setSessionPersonality,
   setSessionTitle,
@@ -360,6 +361,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
   const history = current?.messages ?? [];
   const usage = sessionTokenUsage(history);
   const cost = estimateCost(usage, settings.model);
+  const tools = sessionToolUsage(history);
   const contextUsed = contextWindowTokens(history);
   const contextDetail = contextWindowUsage(history);
 
@@ -677,6 +679,15 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
             title={`Estimated cost for this conversation using built-in rates for ${settings.model}. Approximate; provider pricing may differ.`}
           >
             ~{formatUsd(cost)}
+          </span>
+        ) : null}
+        {tools.total > 0 ? (
+          <span
+            className={tools.autoApproved > 0 ? "text-xs text-amber-400/80" : "text-xs text-neutral-600"}
+            title={`${tools.total} tool call(s) ran in this conversation; ${tools.autoApproved} ran without asking because auto-approve was on.`}
+          >
+            {tools.total} tool{tools.total === 1 ? "" : "s"}
+            {tools.autoApproved > 0 ? ` (${tools.autoApproved} auto)` : ""}
           </span>
         ) : null}
         {settings.contextLimit > 0 && contextUsed > 0 ? (

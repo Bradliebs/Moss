@@ -204,6 +204,22 @@ describe("sessionTokenUsage", () => {
   });
 });
 
+describe("sessionToolUsage", () => {
+  it("counts tool-result messages and how many ran under auto-approve", () => {
+    const summary = sessions.sessionToolUsage([
+      { role: "user", content: "hi" },
+      { role: "assistant", content: "", toolCalls: [{ id: "c1", name: "run_command", arguments: "{}" }] },
+      { role: "tool", content: "ok", toolCallId: "c1", autoApproved: true },
+      { role: "tool", content: "ok", toolCallId: "c2" },
+    ]);
+    expect(summary).toEqual({ total: 2, autoApproved: 1 });
+  });
+
+  it("returns zeros when no tools ran", () => {
+    expect(sessions.sessionToolUsage([{ role: "user", content: "hi" }])).toEqual({ total: 0, autoApproved: 0 });
+  });
+});
+
 describe("contextWindowTokens", () => {
   it("uses the most recent reply's input + output, not a sum of all turns", () => {
     const used = sessions.contextWindowTokens([

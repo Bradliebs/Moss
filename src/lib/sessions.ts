@@ -184,6 +184,27 @@ export function sessionTokenUsage(messages: AgentMessage[]): TokenUsage {
   return { inputTokens, outputTokens };
 }
 
+export interface ToolUsageSummary {
+  /** executed tool calls in the conversation (one per tool-result message) */
+  total: number;
+  /** how many of those ran without a prompt because auto-approve was on */
+  autoApproved: number;
+}
+
+/** Summarize tool activity in a conversation so the UI can show, at a glance,
+ *  how many tools ran and how many ran unattended under auto-approve. */
+export function sessionToolUsage(messages: AgentMessage[]): ToolUsageSummary {
+  let total = 0;
+  let autoApproved = 0;
+  for (const m of messages) {
+    if (m.role === "tool" && m.toolCallId) {
+      total += 1;
+      if (m.autoApproved) autoApproved += 1;
+    }
+  }
+  return { total, autoApproved };
+}
+
 /** The token usage occupying the model's context window: the most recent reply's
  *  usage (its input already counts the whole prior exchange, plus its own output).
  *  Returned split so callers can show the input/output breakdown. Zeros until a
