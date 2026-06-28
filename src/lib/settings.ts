@@ -51,6 +51,8 @@ export interface MossSettings {
   /** user-supplied USD-per-million-token rates, keyed by lowercased model id.
    *  Overrides the built-in pricing estimates so cost readouts can be exact. */
   modelRates?: Record<string, ModelRate>;
+  /** UI color theme; "dark" preserves the original look and stays the default. */
+  theme: "dark" | "light";
 }
 
 const DEFAULT_SETTINGS: MossSettings = {
@@ -69,6 +71,7 @@ const DEFAULT_SETTINGS: MossSettings = {
   sttModel: "whisper-1",
   contextLimit: 0,
   modelRates: {},
+  theme: "dark",
 };
 
 export const settingsStore = createPersistentStore<MossSettings>("moss.settings", DEFAULT_SETTINGS);

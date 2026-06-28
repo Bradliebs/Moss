@@ -42,16 +42,16 @@ function MemorySection(): React.ReactElement {
   return (
     <section className="flex min-h-0 flex-1 flex-col">
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-neutral-200">Memory</h2>
+        <h2 className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">Memory</h2>
         {entries.length > 0 ? (
-          <button className="text-xs text-neutral-400 hover:text-red-400" onClick={() => void clearAll()}>
+          <button className="text-xs text-neutral-600 dark:text-neutral-400 hover:text-red-400" onClick={() => void clearAll()}>
             Clear all
           </button>
         ) : null}
       </div>
       <div className="mb-2 flex gap-2">
         <input
-          className="flex-1 rounded bg-neutral-800 px-2 py-1 text-sm"
+          className="flex-1 rounded bg-neutral-200 dark:bg-neutral-800 px-2 py-1 text-sm"
           placeholder="Remember a fact…"
           value={fact}
           onChange={(e) => setFact(e.target.value)}
@@ -60,7 +60,7 @@ function MemorySection(): React.ReactElement {
           }}
         />
         <select
-          className="rounded bg-neutral-800 px-2 py-1 text-sm"
+          className="rounded bg-neutral-200 dark:bg-neutral-800 px-2 py-1 text-sm"
           value={category}
           onChange={(e) => setCategory(e.target.value as MemoryCategory)}
         >
@@ -76,13 +76,13 @@ function MemorySection(): React.ReactElement {
       </div>
       <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
         {entries.length === 0 ? (
-          <p className="text-xs text-neutral-500">No memories yet.</p>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">No memories yet.</p>
         ) : (
           entries.map((m) => (
-            <div key={m.id} className="flex items-start gap-2 rounded bg-neutral-900 px-2 py-1 text-sm">
-              <span className="rounded bg-neutral-800 px-1 text-xs text-neutral-400">{m.category}</span>
-              <span className="flex-1 text-neutral-200">{m.fact}</span>
-              <button className="text-xs text-neutral-500 hover:text-red-400" onClick={() => void remove(m.id)}>
+            <div key={m.id} className="flex items-start gap-2 rounded bg-white dark:bg-neutral-900 px-2 py-1 text-sm">
+              <span className="rounded bg-neutral-200 dark:bg-neutral-800 px-1 text-xs text-neutral-600 dark:text-neutral-400">{m.category}</span>
+              <span className="flex-1 text-neutral-800 dark:text-neutral-200">{m.fact}</span>
+              <button className="text-xs text-neutral-500 dark:text-neutral-400 hover:text-red-400" onClick={() => void remove(m.id)}>
                 ✕
               </button>
             </div>
@@ -182,22 +182,22 @@ function SkillsSection(): React.ReactElement {
 
   return (
     <section className="flex min-h-0 flex-1 flex-col">
-      <h2 className="mb-2 text-sm font-semibold text-neutral-200">Skills</h2>
-      <div className="mb-2 space-y-2 rounded border border-neutral-800 p-2">
+      <h2 className="mb-2 text-sm font-semibold text-neutral-800 dark:text-neutral-200">Skills</h2>
+      <div className="mb-2 space-y-2 rounded border border-neutral-200 dark:border-neutral-800 p-2">
         <input
-          className="w-full rounded bg-neutral-800 px-2 py-1 text-sm"
+          className="w-full rounded bg-neutral-200 dark:bg-neutral-800 px-2 py-1 text-sm"
           placeholder="Skill name"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
         <input
-          className="w-full rounded bg-neutral-800 px-2 py-1 text-sm"
+          className="w-full rounded bg-neutral-200 dark:bg-neutral-800 px-2 py-1 text-sm"
           placeholder="Short description (shown to the model)"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
         <textarea
-          className="w-full resize-none rounded bg-neutral-800 px-2 py-1 text-sm"
+          className="w-full resize-none rounded bg-neutral-200 dark:bg-neutral-800 px-2 py-1 text-sm"
           rows={3}
           placeholder="Full instructions (loaded on demand)"
           value={instructions}
@@ -210,17 +210,17 @@ function SkillsSection(): React.ReactElement {
       </div>
       <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
         {skills.length === 0 ? (
-          <p className="text-xs text-neutral-500">No skills yet.</p>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">No skills yet.</p>
         ) : (
           skills.map((s) => (
-            <div key={s.id} className="rounded bg-neutral-900 px-2 py-1 text-sm">
+            <div key={s.id} className="rounded bg-white dark:bg-neutral-900 px-2 py-1 text-sm">
               <div className="flex items-center gap-2">
                 <label className="flex items-center gap-1">
                   <input type="checkbox" checked={s.enabled} onChange={() => void toggle(s)} />
                 </label>
                 {renamingId === s.id ? (
                   <input
-                    className="min-w-0 flex-1 rounded bg-neutral-800 px-2 py-0.5 text-sm font-medium text-neutral-100"
+                    className="min-w-0 flex-1 rounded bg-neutral-200 dark:bg-neutral-800 px-2 py-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
                     aria-label="Rename skill"
                     value={renameDraft}
                     autoFocus
@@ -232,7 +232,7 @@ function SkillsSection(): React.ReactElement {
                     }}
                   />
                 ) : (
-                  <span className="flex-1 font-medium text-neutral-200">{s.name}</span>
+                  <span className="flex-1 font-medium text-neutral-800 dark:text-neutral-200">{s.name}</span>
                 )}
                 {s.createdBy === "agent" ? (
                   <span className="rounded bg-amber-900/60 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-300">
@@ -240,33 +240,33 @@ function SkillsSection(): React.ReactElement {
                   </span>
                 ) : null}
                 <button
-                  className="text-xs text-neutral-500 hover:text-blue-400"
+                  className="text-xs text-neutral-500 dark:text-neutral-400 hover:text-blue-400"
                   title="Rename skill"
                   onClick={() => beginRename(s)}
                 >
                   Rename
                 </button>
                 <button
-                  className="text-xs text-neutral-500 hover:text-blue-400"
+                  className="text-xs text-neutral-500 dark:text-neutral-400 hover:text-blue-400"
                   title="Edit skill"
                   onClick={() => beginEdit(s)}
                 >
                   Edit
                 </button>
-                <button className="text-xs text-neutral-500 hover:text-red-400" onClick={() => void remove(s.id)}>
+                <button className="text-xs text-neutral-500 dark:text-neutral-400 hover:text-red-400" onClick={() => void remove(s.id)}>
                   ✕
                 </button>
               </div>
               {editingId === s.id ? (
                 <div className="mt-1 space-y-1 pl-6">
                   <input
-                    className="w-full rounded bg-neutral-800 px-2 py-1 text-sm"
+                    className="w-full rounded bg-neutral-200 dark:bg-neutral-800 px-2 py-1 text-sm"
                     aria-label="Edit description"
                     value={editDescription}
                     onChange={(e) => setEditDescription(e.target.value)}
                   />
                   <textarea
-                    className="w-full resize-none rounded bg-neutral-800 px-2 py-1 text-sm"
+                    className="w-full resize-none rounded bg-neutral-200 dark:bg-neutral-800 px-2 py-1 text-sm"
                     aria-label="Edit instructions"
                     rows={3}
                     value={editInstructions}
@@ -279,13 +279,13 @@ function SkillsSection(): React.ReactElement {
                     >
                       Save
                     </button>
-                    <button className="text-xs text-neutral-400 hover:text-neutral-200" onClick={cancelEdit}>
+                    <button className="text-xs text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200" onClick={cancelEdit}>
                       Cancel
                     </button>
                   </div>
                 </div>
               ) : (
-                <p className="pl-6 text-xs text-neutral-400">{s.description}</p>
+                <p className="pl-6 text-xs text-neutral-600 dark:text-neutral-400">{s.description}</p>
               )}
             </div>
           ))
@@ -298,10 +298,10 @@ function SkillsSection(): React.ReactElement {
 export function LibraryPanel({ onClose }: { onClose: () => void }): React.ReactElement {
   return (
     <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/60 p-6">
-      <div className="flex h-full max-h-[80vh] w-full max-w-3xl flex-col rounded-lg border border-neutral-800 bg-neutral-950 p-4">
+      <div className="flex h-full max-h-[80vh] w-full max-w-3xl flex-col rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 p-4">
         <div className="mb-3 flex items-center justify-between">
-          <h1 className="text-base font-semibold text-neutral-100">Library</h1>
-          <button className="rounded bg-neutral-800 px-3 py-1 text-sm hover:bg-neutral-700" onClick={onClose}>
+          <h1 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">Library</h1>
+          <button className="rounded bg-neutral-200 dark:bg-neutral-800 px-3 py-1 text-sm hover:bg-neutral-300 dark:hover:bg-neutral-700" onClick={onClose}>
             Close
           </button>
         </div>

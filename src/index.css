@@ -1,6 +1,13 @@
 @import "tailwindcss";
 
+/* Class-based dark mode: the renderer toggles .dark on <html> from settings.theme
+   so existing dark utilities stay the default and light is opt-in. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
+  color-scheme: light;
+}
+:root.dark {
   color-scheme: dark;
 }
 
@@ -13,13 +20,21 @@ body,
 
 body {
   background:
+    radial-gradient(1200px 800px at 12% -10%, #d7efe7 0%, transparent 55%),
+    radial-gradient(1000px 700px at 100% 0%, #dde7f6 0%, transparent 50%),
+    #f6f7f9;
+  color: #1c1c1f;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.dark body {
+  background:
     radial-gradient(1200px 800px at 12% -10%, #12302a 0%, transparent 55%),
     radial-gradient(1000px 700px at 100% 0%, #14223a 0%, transparent 50%),
     #0a0a0d;
   color: #e7e7ea;
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
 }
 
 ::selection {
@@ -29,21 +44,27 @@ body {
 /* Slim, theme-matched scrollbars */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #2a2a31 transparent;
+  scrollbar-color: #c4c4cc transparent;
 }
 *::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 *::-webkit-scrollbar-thumb {
-  background: #2a2a31;
+  background: #c4c4cc;
   border-radius: 9999px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: #3a3a44;
+  background: #a8a8b2;
   background-clip: padding-box;
+}
+.dark *::-webkit-scrollbar-thumb {
+  background: #2a2a31;
+}
+.dark *::-webkit-scrollbar-thumb:hover {
+  background: #3a3a44;
 }
 
 @keyframes moss-fade-in {

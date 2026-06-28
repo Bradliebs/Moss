@@ -67,21 +67,21 @@ function formatTokens(n: number): string {
 function renderInline(seg: InlineSegment, key: number) {
   if (seg.type === "bold") {
     return (
-      <strong key={key} className="font-semibold text-neutral-100">
+      <strong key={key} className="font-semibold text-neutral-900 dark:text-neutral-100">
         {seg.value}
       </strong>
     );
   }
   if (seg.type === "inlineCode") {
     return (
-      <code key={key} className="rounded bg-neutral-950/70 px-1 py-0.5 text-[0.85em] text-emerald-200">
+      <code key={key} className="rounded bg-neutral-50/70 dark:bg-neutral-950/70 px-1 py-0.5 text-[0.85em] text-emerald-200">
         {seg.value}
       </code>
     );
   }
   if (seg.type === "strike") {
     return (
-      <span key={key} className="text-neutral-400 line-through">
+      <span key={key} className="text-neutral-600 dark:text-neutral-400 line-through">
         {seg.value}
       </span>
     );
@@ -111,10 +111,10 @@ function renderContent(content: string) {
         <div key={i} className="group/code relative">
           <CopyButton
             text={seg.value}
-            className="absolute right-1.5 top-1.5 rounded bg-neutral-800/80 px-1.5 py-0.5 text-[10px] text-neutral-400 opacity-0 transition hover:text-neutral-100 group-hover/code:opacity-100"
+            className="absolute right-1.5 top-1.5 rounded bg-neutral-200/80 dark:bg-neutral-800/80 px-1.5 py-0.5 text-[10px] text-neutral-600 dark:text-neutral-400 opacity-0 transition hover:text-neutral-900 dark:hover:text-neutral-100 group-hover/code:opacity-100"
             title="Copy this code block to the clipboard."
           />
-          <pre className="my-2 overflow-x-auto rounded-lg border border-neutral-700/60 bg-neutral-950 p-2.5 text-xs text-neutral-200">
+          <pre className="my-2 overflow-x-auto rounded-lg border border-neutral-300/60 dark:border-neutral-700/60 bg-neutral-50 dark:bg-neutral-950 p-2.5 text-xs text-neutral-800 dark:text-neutral-200">
             <code>{seg.value}</code>
           </pre>
         </div>
@@ -123,17 +123,17 @@ function renderContent(content: string) {
     if (seg.type === "heading") {
       const size = seg.level <= 1 ? "text-base" : seg.level === 2 ? "text-sm" : "text-xs";
       return (
-        <div key={i} className={`mb-1 mt-2 font-semibold text-neutral-100 ${size}`}>
+        <div key={i} className={`mb-1 mt-2 font-semibold text-neutral-900 dark:text-neutral-100 ${size}`}>
           {seg.content.map((p, pi) => renderInline(p, pi))}
         </div>
       );
     }
     if (seg.type === "hr") {
-      return <hr key={i} className="my-3 border-neutral-700/60" />;
+      return <hr key={i} className="my-3 border-neutral-300/60 dark:border-neutral-700/60" />;
     }
     if (seg.type === "blockquote") {
       return (
-        <blockquote key={i} className="my-2 border-l-2 border-neutral-600 pl-3 text-neutral-400">
+        <blockquote key={i} className="my-2 border-l-2 border-neutral-400 dark:border-neutral-600 pl-3 text-neutral-600 dark:text-neutral-400">
           {seg.content.map((p, pi) => renderInline(p, pi))}
         </blockquote>
       );
@@ -158,7 +158,7 @@ function renderContent(content: string) {
         <div key={i} className="group/blk relative">
           <CopyButton
             text={segmentToMarkdown(seg)}
-            className="absolute right-1.5 top-0 rounded bg-neutral-800/80 px-1.5 py-0.5 text-[10px] text-neutral-400 opacity-0 transition hover:text-neutral-100 group-hover/blk:opacity-100"
+            className="absolute right-1.5 top-0 rounded bg-neutral-200/80 dark:bg-neutral-800/80 px-1.5 py-0.5 text-[10px] text-neutral-600 dark:text-neutral-400 opacity-0 transition hover:text-neutral-900 dark:hover:text-neutral-100 group-hover/blk:opacity-100"
             title="Copy this task list as markdown to the clipboard."
           />
           <ul className="my-1 ml-1 space-y-0.5">
@@ -183,7 +183,7 @@ function renderContent(content: string) {
         <div key={i} className="group/blk relative my-2 overflow-x-auto">
           <CopyButton
             text={segmentToMarkdown(seg)}
-            className="absolute right-1.5 top-1.5 z-10 rounded bg-neutral-800/80 px-1.5 py-0.5 text-[10px] text-neutral-400 opacity-0 transition hover:text-neutral-100 group-hover/blk:opacity-100"
+            className="absolute right-1.5 top-1.5 z-10 rounded bg-neutral-200/80 dark:bg-neutral-800/80 px-1.5 py-0.5 text-[10px] text-neutral-600 dark:text-neutral-400 opacity-0 transition hover:text-neutral-900 dark:hover:text-neutral-100 group-hover/blk:opacity-100"
             title="Copy this table as markdown to the clipboard."
           />
           <table className="w-full border-collapse text-xs">
@@ -192,7 +192,7 @@ function renderContent(content: string) {
                 {seg.header.map((cell, ci) => (
                   <th
                     key={ci}
-                    className="border border-neutral-700/60 px-2 py-1 text-left font-semibold text-neutral-200"
+                    className="border border-neutral-300/60 dark:border-neutral-700/60 px-2 py-1 text-left font-semibold text-neutral-800 dark:text-neutral-200"
                   >
                     {cell.map((p, pi) => renderInline(p, pi))}
                   </th>
@@ -205,7 +205,7 @@ function renderContent(content: string) {
                   {row.map((cell, ci) => (
                     <td
                       key={ci}
-                      className="border border-neutral-700/60 px-2 py-1 align-top text-neutral-300"
+                      className="border border-neutral-300/60 dark:border-neutral-700/60 px-2 py-1 align-top text-neutral-700 dark:text-neutral-300"
                     >
                       {cell.map((p, pi) => renderInline(p, pi))}
                     </td>
@@ -344,7 +344,7 @@ function toolStatusColor(status: ToolStatus): string {
     case "denied":
       return "text-red-400";
     default:
-      return "text-neutral-400";
+      return "text-neutral-600 dark:text-neutral-400";
   }
 }
 
@@ -635,12 +635,12 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
   const showWelcome = items.length === 0;
 
   return (
-    <div className="flex h-screen flex-1 flex-col bg-transparent text-neutral-100">
-      <header className="flex flex-wrap items-center gap-2 border-b border-neutral-800 bg-neutral-950/60 px-4 py-2 text-sm backdrop-blur-sm">
-        <span className="font-semibold tracking-tight text-neutral-200">Moss</span>
+    <div className="flex h-screen flex-1 flex-col bg-transparent text-neutral-900 dark:text-neutral-100">
+      <header className="flex flex-wrap items-center gap-2 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-950/60 px-4 py-2 text-sm backdrop-blur-sm">
+        <span className="font-semibold tracking-tight text-neutral-800 dark:text-neutral-200">Moss</span>
         {models.length > 0 ? (
           <select
-            className="w-56 rounded-md border border-neutral-700/60 bg-neutral-800 px-2 py-1 transition focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+            className="w-56 rounded-md border border-neutral-300/60 dark:border-neutral-700/60 bg-neutral-200 dark:bg-neutral-800 px-2 py-1 transition focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
             value={settings.model}
             onChange={(e) => updateSettings({ model: e.target.value })}
           >
@@ -653,16 +653,16 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
           </select>
         ) : (
           <button
-            className="rounded-md bg-neutral-700 px-2 py-1 transition hover:bg-neutral-600"
+            className="rounded-md bg-neutral-300 dark:bg-neutral-700 px-2 py-1 transition hover:bg-neutral-400 dark:hover:bg-neutral-600"
             onClick={onOpenSettings}
           >
             Set up provider…
           </button>
         )}
-        {settings.model ? <span className="text-xs text-neutral-500">{settings.model}</span> : null}
+        {settings.model ? <span className="text-xs text-neutral-500 dark:text-neutral-400">{settings.model}</span> : null}
         {current ? (
           <select
-            className="w-40 rounded-md border border-neutral-700/60 bg-neutral-800 px-2 py-1 transition focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+            className="w-40 rounded-md border border-neutral-300/60 dark:border-neutral-700/60 bg-neutral-200 dark:bg-neutral-800 px-2 py-1 transition focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
             value={current.personalityId ?? ""}
             onChange={(e) => setSessionPersonality(current.id, e.target.value || undefined)}
             disabled={busy}
@@ -680,7 +680,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
         ) : null}
         {usage.inputTokens || usage.outputTokens ? (
           <span
-            className="text-xs text-neutral-600"
+            className="text-xs text-neutral-400 dark:text-neutral-600"
             title="Total token usage for this conversation (input / output), summed across messages."
           >
             {formatTokens(usage.inputTokens ?? 0)} in / {formatTokens(usage.outputTokens ?? 0)} out
@@ -688,7 +688,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
         ) : null}
         {cost !== null && (usage.inputTokens || usage.outputTokens) ? (
           <span
-            className="text-xs text-neutral-600"
+            className="text-xs text-neutral-400 dark:text-neutral-600"
             title={`Estimated cost for this conversation using built-in rates for ${settings.model}. Approximate; provider pricing may differ.`}
           >
             ~{formatUsd(cost)}
@@ -698,7 +698,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
           <span className="relative">
             <button
               type="button"
-              className={tools.autoApproved > 0 ? "text-xs text-amber-400/80 hover:underline" : "text-xs text-neutral-600 hover:underline"}
+              className={tools.autoApproved > 0 ? "text-xs text-amber-400/80 hover:underline" : "text-xs text-neutral-400 dark:text-neutral-600 hover:underline"}
               title={`${tools.total} tool call(s) ran in this conversation; ${tools.autoApproved} ran without asking because auto-approve was on. Click to review.`}
               aria-expanded={showToolAudit}
               onClick={() => setShowToolAudit((v) => !v)}
@@ -707,9 +707,9 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
               {tools.autoApproved > 0 ? ` (${tools.autoApproved} auto)` : ""}
             </button>
             {showToolAudit ? (
-              <div className="absolute left-0 top-5 z-20 max-h-64 w-72 overflow-y-auto rounded border border-neutral-700 bg-neutral-900 p-2 shadow-lg">
+              <div className="absolute left-0 top-5 z-20 max-h-64 w-72 overflow-y-auto rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-2 shadow-lg">
                 <div className="mb-1 flex items-center justify-between gap-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">Tool activity</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-400">Tool activity</p>
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
@@ -717,8 +717,8 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
                       aria-pressed={auditHideReadonly}
                       className={
                         auditHideReadonly
-                          ? "rounded bg-neutral-700 px-1 text-[10px] uppercase text-neutral-200"
-                          : "rounded bg-neutral-800 px-1 text-[10px] uppercase text-neutral-400 hover:text-neutral-200"
+                          ? "rounded bg-neutral-300 dark:bg-neutral-700 px-1 text-[10px] uppercase text-neutral-800 dark:text-neutral-200"
+                          : "rounded bg-neutral-200 dark:bg-neutral-800 px-1 text-[10px] uppercase text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200"
                       }
                     >
                       Hide readonly
@@ -729,8 +729,8 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
                       aria-pressed={auditSortByRisk}
                       className={
                         auditSortByRisk
-                          ? "rounded bg-neutral-700 px-1 text-[10px] uppercase text-neutral-200"
-                          : "rounded bg-neutral-800 px-1 text-[10px] uppercase text-neutral-400 hover:text-neutral-200"
+                          ? "rounded bg-neutral-300 dark:bg-neutral-700 px-1 text-[10px] uppercase text-neutral-800 dark:text-neutral-200"
+                          : "rounded bg-neutral-200 dark:bg-neutral-800 px-1 text-[10px] uppercase text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200"
                       }
                     >
                       By risk
@@ -740,14 +740,14 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
                 <ul className="space-y-1">
                   {visibleToolAudit.map((e, i) => (
                     <li key={`${e.callId}-${i}`} className="flex items-center gap-2 text-xs">
-                      <span className="flex-1 truncate font-mono text-neutral-200">{e.name}</span>
+                      <span className="flex-1 truncate font-mono text-neutral-800 dark:text-neutral-200">{e.name}</span>
                       <span
                         className={
                           e.risk === "destructive"
                             ? "rounded bg-red-900/60 px-1 text-[10px] uppercase text-red-300"
                             : e.risk === "mutating"
                               ? "rounded bg-amber-900/60 px-1 text-[10px] uppercase text-amber-300"
-                              : "rounded bg-neutral-800 px-1 text-[10px] uppercase text-neutral-400"
+                              : "rounded bg-neutral-200 dark:bg-neutral-800 px-1 text-[10px] uppercase text-neutral-600 dark:text-neutral-400"
                         }
                       >
                         {e.risk}
@@ -756,7 +756,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
                         <span className="rounded bg-amber-900/40 px-1 text-[10px] uppercase text-amber-300">auto</span>
                       ) : null}
                       {e.durationMs != null ? (
-                        <span className="font-mono text-[10px] tabular-nums text-neutral-500">{e.durationMs}ms</span>
+                        <span className="font-mono text-[10px] tabular-nums text-neutral-500 dark:text-neutral-400">{e.durationMs}ms</span>
                       ) : null}
                     </li>
                   ))}
@@ -774,12 +774,12 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
               className={
                 contextUsed >= settings.contextLimit
                   ? "text-xs font-medium text-amber-400"
-                  : "text-xs text-neutral-600"
+                  : "text-xs text-neutral-400 dark:text-neutral-600"
               }
             >
               ctx {formatTokens(contextUsed)}/{formatTokens(settings.contextLimit)}
             </span>
-            <span className="h-1 w-full overflow-hidden rounded-full bg-neutral-800" aria-hidden="true">
+            <span className="h-1 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800" aria-hidden="true">
               <span
                 className={`block h-full rounded-full ${
                   contextUsed >= settings.contextLimit ? "bg-amber-400" : "bg-emerald-500/60"
@@ -813,12 +813,12 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
             Auto-approving tools
           </span>
         ) : null}
-        <span className="ml-auto truncate text-xs text-neutral-500">
+        <span className="ml-auto truncate text-xs text-neutral-500 dark:text-neutral-400">
           {settings.workspaceRoot ?? "no workspace"}
         </span>
         {current && history.length > 0 ? (
           <button
-            className="rounded-md bg-neutral-700 px-2 py-1 transition hover:bg-neutral-600 disabled:opacity-50"
+            className="rounded-md bg-neutral-300 dark:bg-neutral-700 px-2 py-1 transition hover:bg-neutral-400 dark:hover:bg-neutral-600 disabled:opacity-50"
             onClick={() => clearSession(current.id)}
             disabled={busy}
             title="Clear this conversation: removes its messages but keeps it in the list."
@@ -826,7 +826,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
             Clear
           </button>
         ) : null}
-        <button className="rounded-md bg-neutral-700 px-2 py-1 transition hover:bg-neutral-600" onClick={onOpenSettings}>
+        <button className="rounded-md bg-neutral-300 dark:bg-neutral-700 px-2 py-1 transition hover:bg-neutral-400 dark:hover:bg-neutral-600" onClick={onOpenSettings}>
           Settings
         </button>
       </header>
@@ -842,7 +842,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
               className={
                 it.role === "user"
                   ? "group ml-auto max-w-2xl animate-fade-in whitespace-pre-wrap rounded-2xl border border-emerald-500/20 bg-emerald-600/15 px-4 py-2.5 shadow-sm"
-                  : "group mr-auto max-w-2xl animate-fade-in whitespace-pre-wrap rounded-2xl border border-neutral-700/50 bg-neutral-800/80 px-4 py-2.5 shadow-sm"
+                  : "group mr-auto max-w-2xl animate-fade-in whitespace-pre-wrap rounded-2xl border border-neutral-300/50 dark:border-neutral-700/50 bg-neutral-200/80 dark:bg-neutral-800/80 px-4 py-2.5 shadow-sm"
               }
             >
               {it.role === "assistant" ? renderContent(it.content) : it.content}
@@ -859,7 +859,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
                 </div>
               ) : null}
               {it.role === "assistant" && it.interrupted ? (
-                <span className="ml-1 text-xs italic text-neutral-500">(interrupted)</span>
+                <span className="ml-1 text-xs italic text-neutral-500 dark:text-neutral-400">(interrupted)</span>
               ) : null}
               {it.role === "user" && it.historyIndex !== undefined && !busy ? (
                 <div className="mt-1 flex gap-2 text-[10px] text-emerald-200/50 opacity-0 transition group-hover:opacity-100">
@@ -881,7 +881,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
               ) : null}
               {it.role === "assistant" && it.usage && (it.usage.inputTokens || it.usage.outputTokens) ? (
                 <span
-                  className="ml-2 align-middle text-[10px] text-neutral-600"
+                  className="ml-2 align-middle text-[10px] text-neutral-400 dark:text-neutral-600"
                   title="Token usage for this reply (input / output)."
                 >
                   {formatTokens(it.usage.inputTokens ?? 0)}/{formatTokens(it.usage.outputTokens ?? 0)} tok
@@ -889,7 +889,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
               ) : null}
               {it.role === "assistant" && it.turnUsage ? (
                 <span
-                  className="ml-2 align-middle text-[10px] text-neutral-600"
+                  className="ml-2 align-middle text-[10px] text-neutral-400 dark:text-neutral-600"
                   title="Total token usage for this exchange across all tool rounds (input / output)."
                 >
                   turn {formatTokens(it.turnUsage.inputTokens ?? 0)}/{formatTokens(it.turnUsage.outputTokens ?? 0)} tok
@@ -898,14 +898,14 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
               {it.role === "assistant" && it.content ? (
                 <CopyButton
                   text={it.content}
-                  className="ml-2 align-middle text-[10px] text-neutral-600 opacity-0 transition hover:text-neutral-300 group-hover:opacity-100"
+                  className="ml-2 align-middle text-[10px] text-neutral-400 dark:text-neutral-600 opacity-0 transition hover:text-neutral-700 dark:hover:text-neutral-300 group-hover:opacity-100"
                   title="Copy this reply to the clipboard."
                 />
               ) : null}
             </div>
           ) : (
-            <div key={i} className="mr-auto max-w-2xl animate-fade-in rounded-2xl border border-neutral-700/60 bg-neutral-900/80 px-4 py-2.5 text-sm shadow-sm">
-              <div className="font-mono text-xs text-neutral-300">
+            <div key={i} className="mr-auto max-w-2xl animate-fade-in rounded-2xl border border-neutral-300/60 dark:border-neutral-700/60 bg-white/80 dark:bg-neutral-900/80 px-4 py-2.5 text-sm shadow-sm">
+              <div className="font-mono text-xs text-neutral-700 dark:text-neutral-300">
                 <span className="text-emerald-300">{it.name}</span>({it.args})
                 {it.autoApproved ? (
                   <span
@@ -951,7 +951,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
                 <div className="mt-1.5 text-xs">
                   <span className={toolStatusColor(it.status)}>{it.status}</span>
                   {it.result ? (
-                    <pre className="mt-1.5 max-h-48 overflow-auto whitespace-pre-wrap rounded-lg bg-neutral-950 p-2 text-neutral-300">
+                    <pre className="mt-1.5 max-h-48 overflow-auto whitespace-pre-wrap rounded-lg bg-neutral-50 dark:bg-neutral-950 p-2 text-neutral-700 dark:text-neutral-300">
                       {it.result}
                     </pre>
                   ) : null}
@@ -963,7 +963,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
       </div>
 
       <footer
-        className="relative border-t border-neutral-800 bg-neutral-950/60 px-4 py-3 backdrop-blur-sm"
+        className="relative border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-950/60 px-4 py-3 backdrop-blur-sm"
         onDragEnter={(e) => {
           e.preventDefault();
           dragDepth.current += 1;
@@ -982,11 +982,11 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
         }}
       >
         {dragging ? (
-          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-emerald-500/60 bg-neutral-950/80 text-sm text-emerald-300">
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-emerald-500/60 bg-neutral-50/80 dark:bg-neutral-950/80 text-sm text-emerald-300">
             Drop files to attach
           </div>
         ) : null}
-        {status ? <div className="mb-2 text-xs text-neutral-400">{status}</div> : null}
+        {status ? <div className="mb-2 text-xs text-neutral-600 dark:text-neutral-400">{status}</div> : null}
         {dictation.error ? <div className="mb-2 text-xs text-red-400">{dictation.error}</div> : null}
         {attachments.length > 0 && settings.model && !isLikelyVisionModel(settings.model) ? (
           <div className="mb-2 text-xs text-amber-400">The selected model may not support images.</div>
@@ -998,10 +998,10 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
                 <img
                   src={src}
                   alt="attachment"
-                  className="h-14 w-14 rounded-lg border border-neutral-700/60 object-cover"
+                  className="h-14 w-14 rounded-lg border border-neutral-300/60 dark:border-neutral-700/60 object-cover"
                 />
                 <button
-                  className="absolute -right-1 -top-1 rounded-full bg-neutral-900 px-1 text-[10px] text-neutral-300 hover:text-white"
+                  className="absolute -right-1 -top-1 rounded-full bg-white dark:bg-neutral-900 px-1 text-[10px] text-neutral-700 dark:text-neutral-300 hover:text-white"
                   onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
                   title="Remove this attachment"
                 >
@@ -1010,7 +1010,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
               </div>
             ))}
             <button
-              className="self-center rounded-lg px-2 py-1 text-[10px] text-neutral-400 hover:text-neutral-100"
+              className="self-center rounded-lg px-2 py-1 text-[10px] text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100"
               onClick={() => setAttachments([])}
               title="Remove all attachments"
             >
@@ -1020,7 +1020,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
         ) : null}
         <div className="flex gap-2">
           <textarea
-            className="flex-1 resize-none rounded-xl border border-neutral-700/60 bg-neutral-800 px-3 py-2 transition focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+            className="flex-1 resize-none rounded-xl border border-neutral-300/60 dark:border-neutral-700/60 bg-neutral-200 dark:bg-neutral-800 px-3 py-2 transition focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
             rows={2}
             placeholder="Message…"
             value={input}
@@ -1050,7 +1050,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
             }}
           />
           <button
-            className="rounded-xl bg-neutral-700 px-3 py-2 transition hover:bg-neutral-600"
+            className="rounded-xl bg-neutral-300 dark:bg-neutral-700 px-3 py-2 transition hover:bg-neutral-400 dark:hover:bg-neutral-600"
             onClick={() => fileInputRef.current?.click()}
             title="Attach an image or text file"
           >
@@ -1060,7 +1060,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
             className={`rounded-xl px-3 py-2 transition disabled:opacity-50 ${
               dictation.state === "recording"
                 ? "bg-red-700 hover:bg-red-600"
-                : "bg-neutral-700 hover:bg-neutral-600"
+                : "bg-neutral-300 dark:bg-neutral-700 hover:bg-neutral-400 dark:hover:bg-neutral-600"
             }`}
             onClick={dictation.toggle}
             disabled={dictation.state === "transcribing"}
