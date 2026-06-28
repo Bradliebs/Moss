@@ -142,8 +142,10 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
         newMessages.push(toolMsg);
         // The model-facing history caps each tool result so one large output
         // cannot exhaust the context across this turn's rounds; newMessages and
-        // the renderer event above keep the full content.
-        conversation.push({ ...toolMsg, content: truncateForModel(result.content) });
+        // the renderer event above keep the full content. Audit-only metadata
+        // (autoApproved/risk/durationMs) is dropped here so it never reaches the
+        // provider; only newMessages and the renderer keep it.
+        conversation.push({ role: "tool", content: truncateForModel(result.content), toolCallId: call.id });
         onEvent({
           type: "tool-result",
           callId: call.id,

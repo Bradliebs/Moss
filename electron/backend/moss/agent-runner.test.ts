@@ -512,6 +512,9 @@ describe("runTurn", () => {
     const toolMsg = seen[1].find((m) => m.role === "tool");
     expect(toolMsg?.content.length).toBeLessThan(big.length);
     expect(toolMsg?.content).toContain("[truncated");
+    // audit-only metadata stays out of the model-facing history
+    expect(toolMsg?.durationMs).toBeUndefined();
+    expect(toolMsg?.risk).toBeUndefined();
   });
 
   it("fails a tool that exceeds the per-tool timeout and continues the turn", async () => {
