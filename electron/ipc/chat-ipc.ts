@@ -188,6 +188,7 @@ async function startTurn(event: Electron.IpcMainEvent, req: ChatStartRequest): P
       requestApproval: (callId) => broker.request(callId),
       autoApprove: req.autoApproveTools === true,
       stt: req.stt,
+      email: req.email,
     });
   } catch (err) {
     send({ type: "turn-error", message: err instanceof Error ? err.message : String(err), messages: [] });

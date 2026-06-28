@@ -514,6 +514,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
         apiKey: settings.apiKey || undefined,
         model: settings.sttModel || "whisper-1",
       },
+      email: { apiKey: settings.emailApiKey || "", from: settings.emailFrom || "" },
     });
   }
 

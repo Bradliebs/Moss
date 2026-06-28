@@ -2,6 +2,7 @@
 
 import type { ToolDefinition } from "../../../../common/types";
 import { editFileTool, globFilesTool, listDirTool, moveFileTool, readFileTool, searchFilesTool, writeFileTool } from "./fs-tools";
+import { sendEmailTool } from "./email-tool";
 import { SELF_TOOLS } from "./self-tools";
 import { runCommandTool } from "./shell-tool";
 import { transcribeAudioTool } from "./transcribe-tool";
@@ -20,6 +21,7 @@ export const TOOLS: Tool[] = [
   webSearchTool,
   fetchUrlTool,
   transcribeAudioTool,
+  sendEmailTool,
   ...SELF_TOOLS,
 ];
 

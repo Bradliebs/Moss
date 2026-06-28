@@ -407,6 +407,33 @@ export function SettingsPanel({ onClose }: { onClose: () => void }): React.React
           </section>
 
           <section className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-400">Email</h3>
+            <label className="block">
+              <span className="mb-1 block text-neutral-600 dark:text-neutral-400">Resend API key</span>
+              <input
+                className="w-full rounded bg-neutral-200 dark:bg-neutral-800 px-2 py-1"
+                type="password"
+                placeholder="re_..."
+                value={settings.emailApiKey ?? ""}
+                onChange={(e) => updateSettings({ emailApiKey: e.target.value })}
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-neutral-600 dark:text-neutral-400">From address</span>
+              <input
+                className="w-full rounded bg-neutral-200 dark:bg-neutral-800 px-2 py-1"
+                placeholder="Moss &lt;noreply@yourdomain.com&gt;"
+                value={settings.emailFrom ?? ""}
+                onChange={(e) => updateSettings({ emailFrom: e.target.value })}
+              />
+            </label>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+              The send_email tool delivers mail through Resend over HTTPS. Use a verified sender
+              domain; sends are still approval-gated before they go out.
+            </p>
+          </section>
+
+          <section className="space-y-2">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-400">Context window</h3>
             <label className="block">
               <span className="mb-1 block text-neutral-600 dark:text-neutral-400">Token limit (optional)</span>

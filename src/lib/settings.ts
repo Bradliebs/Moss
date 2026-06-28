@@ -45,6 +45,10 @@ export interface MossSettings {
   sttBaseUrl: string;
   /** transcription model name for the /audio/transcriptions endpoint */
   sttModel: string;
+  /** Resend API key for the send_email tool (empty = tool disabled) */
+  emailApiKey: string;
+  /** verified sender address for the send_email tool */
+  emailFrom: string;
   /** optional context-window size for the chosen model; 0 hides the meter.
    *  User-supplied so it never drifts against a bundled per-model table. */
   contextLimit: number;
@@ -70,6 +74,8 @@ const DEFAULT_SETTINGS: MossSettings = {
   workspaceRoot: null,
   sttBaseUrl: "",
   sttModel: "whisper-1",
+  emailApiKey: "",
+  emailFrom: "",
   contextLimit: 0,
   modelRates: {},
   theme: "dark",

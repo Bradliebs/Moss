@@ -21,6 +21,13 @@ export interface SttConfig {
   model: string;
 }
 
+/** Email-sending config carried alongside a turn so the send_email tool can
+ *  reach the Resend HTTPS API. apiKey empty = tool refuses (no plaintext SMTP). */
+export interface EmailConfig {
+  apiKey: string;
+  from: string;
+}
+
 export type ChatRole = "system" | "user" | "assistant" | "tool";
 
 /** A tool invocation requested by the model. `arguments` is the raw JSON string
@@ -111,6 +118,8 @@ export interface ChatStartRequest {
   adaptiveTone?: boolean;
   /** speech-to-text config for the transcribe_audio tool */
   stt?: SttConfig;
+  /** email config for the send_email tool */
+  email?: EmailConfig;
 }
 
 export interface ToolApprovalDecision {

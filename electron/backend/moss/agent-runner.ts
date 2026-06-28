@@ -4,7 +4,7 @@
 // permission-gate + execute them, feed results back, and repeat until the model
 // stops calling tools (or a round cap is hit).
 
-import type { AgentMessage, MossEvent, SttConfig, TokenUsage, ToolCall, ToolDefinition } from "../../../common/types";
+import type { AgentMessage, EmailConfig, MossEvent, SttConfig, TokenUsage, ToolCall, ToolDefinition } from "../../../common/types";
 import { resolvePermission } from "./permission";
 import type { CommandRisk } from "./permission";
 import { ProviderError } from "./providers/types";
@@ -37,6 +37,7 @@ export interface RunTurnOptions {
   autoApprove?: boolean;
   /** speech-to-text config for the transcribe_audio tool */
   stt?: SttConfig;
+  email?: EmailConfig;
   /** base backoff for stream-failure retries (ms); overridable for tests. */
   streamRetryBaseMs?: number;
   /** per-tool execution timeout (ms); overridable for tests. */
@@ -221,7 +222,7 @@ async function executeCall(call: ToolCall, opts: RunTurnOptions): Promise<ExecOu
 
   try {
     const result = await runWithTimeout(
-      (sig) => tool.execute(args, { workspaceRoot: opts.workspaceRoot, signal: sig, stt: opts.stt }),
+      (sig) => tool.execute(args, { workspaceRoot: opts.workspaceRoot, signal: sig, stt: opts.stt, email: opts.email }),
       opts.signal,
       opts.toolTimeoutMs ?? TOOL_TIMEOUT_MS,
       call.name,

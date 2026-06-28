@@ -1,6 +1,6 @@
 // electron/backend/moss/tools/types.ts
 
-import type { SttConfig } from "../../../../common/types";
+import type { EmailConfig, SttConfig } from "../../../../common/types";
 
 export interface ToolContext {
   /** absolute sandbox root; empty string means no workspace selected */
@@ -8,6 +8,8 @@ export interface ToolContext {
   signal: AbortSignal;
   /** speech-to-text config, when configured, for the transcribe_audio tool */
   stt?: SttConfig;
+  /** email config, when configured, for the send_email tool */
+  email?: EmailConfig;
 }
 
 export interface ToolResult {

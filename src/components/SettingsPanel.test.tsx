@@ -23,6 +23,8 @@ const settingsValue = {
   workspaceRoot: null,
   sttBaseUrl: "",
   sttModel: "whisper-1",
+  emailApiKey: "",
+  emailFrom: "",
 };
 
 vi.mock("../lib/settings", () => ({
