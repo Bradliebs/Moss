@@ -109,6 +109,13 @@ describe("preload bridge", () => {
 
     api.checkpoint.revert("t1");
     expect(invoke).toHaveBeenCalledWith(IPC.checkpointRevert, "t1");
+
+    const embed = { baseUrl: "http://x", model: "nomic-embed-text" };
+    api.codebase.reindex("/ws", embed);
+    expect(invoke).toHaveBeenCalledWith(IPC.codebaseReindex, "/ws", embed);
+
+    api.codebase.status("/ws");
+    expect(invoke).toHaveBeenCalledWith(IPC.codebaseStatus, "/ws");
   });
 
   it("subscribes to chat events and returns an unsubscribe that removes the listener", () => {

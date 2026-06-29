@@ -28,6 +28,37 @@ export interface EmailConfig {
   from: string;
 }
 
+/** Embeddings endpoint config for the semantic codebase index and the
+ *  search_codebase tool. Kept separate from the chat ProviderConfig because some
+ *  chat providers (Anthropic) expose no embeddings endpoint, so users point this
+ *  at a local OpenAI-style /embeddings server (e.g. Ollama's nomic-embed-text). */
+export interface EmbedConfig {
+  baseUrl: string;
+  apiKey?: string;
+  model: string;
+}
+
+/** Outcome of a codebase reindex, surfaced to the settings UI. */
+export interface CodebaseReindexResult {
+  ok: boolean;
+  /** files included in the index after this run */
+  files: number;
+  /** total embedded chunks after this run */
+  chunks: number;
+  /** files reused unchanged (mtime match) rather than re-embedded */
+  skipped: number;
+  error?: string;
+}
+
+/** Current state of a workspace's semantic index, for the settings UI. */
+export interface CodebaseStatus {
+  indexed: boolean;
+  files: number;
+  chunks: number;
+  model: string;
+  updatedAt?: string;
+}
+
 /** Verification config carried alongside a turn: after the agent edits files,
  *  these shell commands run in the workspace and their pass/fail is fed back to
  *  the model so it can self-correct. Disabled or empty commands = no-op. */
@@ -136,6 +167,8 @@ export interface ChatStartRequest {
   email?: EmailConfig;
   /** verification commands run after the agent edits files */
   verify?: VerifyConfig;
+  /** embeddings config so the search_codebase tool can embed queries */
+  embed?: EmbedConfig;
 }
 
 export interface ToolApprovalDecision {

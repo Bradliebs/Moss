@@ -4,7 +4,7 @@
 // master switch, the UI theme, and the tool workspace root. Persisted to
 // localStorage so the app reopens with the same provider/model selected.
 
-import type { ProviderConfig, ProviderKind } from "@common/types";
+import type { EmbedConfig, ProviderConfig, ProviderKind } from "@common/types";
 import { DEFAULT_PERSONALITY_ID } from "@common/personalities";
 
 import type { ModelRate } from "./pricing";
@@ -49,6 +49,10 @@ export interface MossSettings {
   emailApiKey: string;
   /** verified sender address for the send_email tool */
   emailFrom: string;
+  /** embeddings endpoint base URL for the codebase index (empty = reuse provider baseUrl) */
+  embedBaseUrl: string;
+  /** embeddings model name for the /embeddings endpoint */
+  embedModel: string;
   /** when true, run the verification commands after the agent edits files */
   verifyEnabled: boolean;
   /** newline-separated shell commands run in the workspace to verify edits */
@@ -80,6 +84,8 @@ const DEFAULT_SETTINGS: MossSettings = {
   sttModel: "whisper-1",
   emailApiKey: "",
   emailFrom: "",
+  embedBaseUrl: "",
+  embedModel: "nomic-embed-text",
   verifyEnabled: false,
   verifyCommands: "",
   contextLimit: 0,
@@ -132,4 +138,14 @@ export function applyPreset(index: number): void {
 
 export function toProviderConfig(s: MossSettings): ProviderConfig {
   return { kind: s.kind, baseUrl: s.baseUrl, apiKey: s.apiKey || undefined, model: s.model };
+}
+
+/** Embeddings config for the codebase index. Falls back to the provider baseUrl
+ *  and reuses the provider API key, so an Ollama user needs no extra setup. */
+export function toEmbedConfig(s: MossSettings): EmbedConfig {
+  return {
+    baseUrl: (s.embedBaseUrl || s.baseUrl || "").trim(),
+    apiKey: s.apiKey || undefined,
+    model: s.embedModel || "nomic-embed-text",
+  };
 }

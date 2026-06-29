@@ -69,6 +69,7 @@ vi.mock("../lib/settings", () => ({
   useSettings: () => mockSettings,
   modelsStore: { use: () => ["gpt-4"] },
   toProviderConfig: () => ({}),
+  toEmbedConfig: () => ({ baseUrl: "http://localhost:11434/v1", model: "nomic-embed-text" }),
   updateSettings: vi.fn(),
 }));
 

@@ -5,6 +5,9 @@ import type {
   ChatStartRequest,
   CheckpointFile,
   CheckpointRevertResult,
+  CodebaseReindexResult,
+  CodebaseStatus,
+  EmbedConfig,
   McpServerStatus,
   MemoryCategory,
   MemoryEntry,
@@ -79,6 +82,10 @@ declare global {
       checkpoint: {
         list: (turnId: string) => Promise<CheckpointFile[]>;
         revert: (turnId: string) => Promise<CheckpointRevertResult>;
+      };
+      codebase: {
+        reindex: (workspaceRoot: string, config: EmbedConfig) => Promise<CodebaseReindexResult>;
+        status: (workspaceRoot: string) => Promise<CodebaseStatus>;
       };
     };
   }

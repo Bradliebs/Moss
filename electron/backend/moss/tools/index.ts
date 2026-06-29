@@ -1,6 +1,7 @@
 // electron/backend/moss/tools/index.ts
 
 import type { ToolDefinition } from "../../../../common/types";
+import { searchCodebaseTool } from "./codebase-tool";
 import { editFileTool, globFilesTool, listDirTool, moveFileTool, readFileTool, searchFilesTool, writeFileTool } from "./fs-tools";
 import { sendEmailTool } from "./email-tool";
 import { SELF_TOOLS } from "./self-tools";
@@ -14,6 +15,7 @@ export const TOOLS: Tool[] = [
   listDirTool,
   searchFilesTool,
   globFilesTool,
+  searchCodebaseTool,
   writeFileTool,
   editFileTool,
   moveFileTool,

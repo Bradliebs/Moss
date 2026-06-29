@@ -4,7 +4,7 @@
 // permission-gate + execute them, feed results back, and repeat until the model
 // stops calling tools (or a round cap is hit).
 
-import type { AgentMessage, EmailConfig, MossEvent, SttConfig, TokenUsage, ToolCall, ToolDefinition, VerifyConfig } from "../../../common/types";
+import type { AgentMessage, EmailConfig, EmbedConfig, MossEvent, SttConfig, TokenUsage, ToolCall, ToolDefinition, VerifyConfig } from "../../../common/types";
 import type { CheckpointRecorder } from "./checkpoint/checkpoint-store";
 import { resolvePermission } from "./permission";
 import type { CommandRisk } from "./permission";
@@ -45,6 +45,8 @@ export interface RunTurnOptions {
   /** speech-to-text config for the transcribe_audio tool */
   stt?: SttConfig;
   email?: EmailConfig;
+  /** embeddings config for the search_codebase tool */
+  embed?: EmbedConfig;
   /** id of this turn; stamped on assistant messages and used to key checkpoints */
   turnId?: string;
   /** records file pre-images so a mutating tool's changes can be reverted */
@@ -278,7 +280,7 @@ async function executeCall(call: ToolCall, opts: RunTurnOptions): Promise<ExecOu
 
   try {
     const result = await runWithTimeout(
-      (sig) => tool.execute(args, { workspaceRoot: opts.workspaceRoot, signal: sig, stt: opts.stt, email: opts.email, checkpoint: opts.checkpoint }),
+      (sig) => tool.execute(args, { workspaceRoot: opts.workspaceRoot, signal: sig, stt: opts.stt, email: opts.email, embed: opts.embed, checkpoint: opts.checkpoint }),
       opts.signal,
       opts.toolTimeoutMs ?? TOOL_TIMEOUT_MS,
       call.name,

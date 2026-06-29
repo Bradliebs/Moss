@@ -11,6 +11,7 @@ const AUTO_ALLOW = new Set<string>([
   "list_dir",
   "search_files",
   "glob_files",
+  "search_codebase",
   // Self-management tools operate on local app data, not user files, and are
   // low-risk; requiring approval on every memory/skill access would be noise.
   "m_remember",

@@ -13,6 +13,7 @@ import {
   PROVIDER_PRESETS,
   setModelRate,
   settingsStore,
+  toEmbedConfig,
   toProviderConfig,
   updateSettings,
   type MossSettings,
@@ -30,6 +31,8 @@ const baseline: MossSettings = {
   sttModel: "whisper-1",
   emailApiKey: "",
   emailFrom: "",
+  embedBaseUrl: "",
+  embedModel: "nomic-embed-text",
   verifyEnabled: false,
   verifyCommands: "",
 };
@@ -51,6 +54,24 @@ describe("toProviderConfig", () => {
   it("carries kind, baseUrl, and model", () => {
     const cfg = toProviderConfig({ ...baseline, kind: "anthropic", baseUrl: "https://x", model: "m" });
     expect(cfg).toMatchObject({ kind: "anthropic", baseUrl: "https://x", model: "m" });
+  });
+});
+
+describe("toEmbedConfig", () => {
+  it("falls back to the provider baseUrl and default model", () => {
+    const cfg = toEmbedConfig({ ...baseline, baseUrl: "http://localhost:11434/v1", embedBaseUrl: "", embedModel: "" });
+    expect(cfg).toEqual({ baseUrl: "http://localhost:11434/v1", apiKey: undefined, model: "nomic-embed-text" });
+  });
+
+  it("prefers an explicit embed base URL and model and reuses the api key", () => {
+    const cfg = toEmbedConfig({
+      ...baseline,
+      apiKey: "sk-1",
+      baseUrl: "http://provider",
+      embedBaseUrl: "http://embed",
+      embedModel: "text-embedding-3-small",
+    });
+    expect(cfg).toEqual({ baseUrl: "http://embed", apiKey: "sk-1", model: "text-embedding-3-small" });
   });
 });
 

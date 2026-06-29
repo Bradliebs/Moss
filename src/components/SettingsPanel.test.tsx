@@ -25,6 +25,8 @@ const settingsValue = {
   sttModel: "whisper-1",
   emailApiKey: "",
   emailFrom: "",
+  embedBaseUrl: "",
+  embedModel: "nomic-embed-text",
   verifyEnabled: false,
   verifyCommands: "",
 };
@@ -39,6 +41,7 @@ vi.mock("../lib/settings", () => ({
   applyPreset: vi.fn(),
   updateSettings: vi.fn(),
   toProviderConfig: vi.fn(() => ({})),
+  toEmbedConfig: vi.fn(() => ({ baseUrl: "http://x", model: "nomic-embed-text" })),
   modelsStore: { use: vi.fn(() => []), set: vi.fn() },
   mcpAddFormTypeStore: { get: vi.fn(() => "stdio"), set: vi.fn() },
   useSettings: vi.fn(() => settingsValue),
@@ -59,6 +62,10 @@ beforeEach(() => {
       },
       provider: { listModels: vi.fn(() => Promise.resolve([])) },
       workspace: { pick: vi.fn(() => Promise.resolve(null)) },
+      codebase: {
+        status: vi.fn(() => Promise.resolve({ indexed: false, files: 0, chunks: 0, model: "" })),
+        reindex: vi.fn(() => Promise.resolve({ ok: true, files: 0, chunks: 0, skipped: 0 })),
+      },
     },
   });
 });

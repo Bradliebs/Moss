@@ -8,6 +8,7 @@ import { clipboard, dialog, ipcMain, shell } from "electron";
 import { IPC } from "../../common/ipc-contract";
 import type {
   ChatStartRequest,
+  EmbedConfig,
   MemoryCategory,
   MossEvent,
   SkillCreateRequest,
@@ -20,6 +21,7 @@ import type {
 import { runTurn } from "../backend/moss/agent-runner";
 import { ApprovalBroker } from "../backend/moss/approval-broker";
 import { checkpointStore } from "../backend/moss/checkpoint/checkpoint-store";
+import { codebaseIndex } from "../backend/moss/codebase/codebase-index";
 import {
   addMcpServer,
   ensureMcpConfig,
@@ -148,6 +150,11 @@ export function registerChatIpc(): void {
 
   ipcMain.handle(IPC.checkpointList, (_event, turnId: string) => checkpointStore.list(turnId));
   ipcMain.handle(IPC.checkpointRevert, (_event, turnId: string) => checkpointStore.revert(turnId));
+
+  ipcMain.handle(IPC.codebaseStatus, (_event, workspaceRoot: string) => codebaseIndex.status(workspaceRoot));
+  ipcMain.handle(IPC.codebaseReindex, (_event, workspaceRoot: string, config: EmbedConfig) =>
+    codebaseIndex.reindex(workspaceRoot, config),
+  );
 }
 
 async function startTurn(event: Electron.IpcMainEvent, req: ChatStartRequest): Promise<void> {
@@ -206,6 +213,7 @@ async function startTurn(event: Electron.IpcMainEvent, req: ChatStartRequest): P
       autoApprove: req.autoApproveTools === true,
       stt: req.stt,
       email: req.email,
+      embed: req.embed,
       turnId: req.turnId,
       checkpoint,
       verify: req.verify,

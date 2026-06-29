@@ -71,4 +71,10 @@ export const IPC = {
   checkpointList: "moss:checkpoint:list",
   /** renderer -> main (invoke): revert a turn's file changes by turnId */
   checkpointRevert: "moss:checkpoint:revert",
+
+  /** renderer -> main (invoke): (re)build the semantic codebase index for a
+   *  workspace with the given embeddings config; returns CodebaseReindexResult */
+  codebaseReindex: "moss:codebase:reindex",
+  /** renderer -> main (invoke): current index stats for a workspace */
+  codebaseStatus: "moss:codebase:status",
 } as const;

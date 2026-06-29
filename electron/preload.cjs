@@ -35,6 +35,8 @@ const CH = {
   clipboardWrite: "moss:clipboard:write",
   checkpointList: "moss:checkpoint:list",
   checkpointRevert: "moss:checkpoint:revert",
+  codebaseReindex: "moss:codebase:reindex",
+  codebaseStatus: "moss:codebase:status",
 };
 
 contextBridge.exposeInMainWorld("moss", {
@@ -92,5 +94,9 @@ contextBridge.exposeInMainWorld("moss", {
   checkpoint: {
     list: (turnId) => ipcRenderer.invoke(CH.checkpointList, turnId),
     revert: (turnId) => ipcRenderer.invoke(CH.checkpointRevert, turnId),
+  },
+  codebase: {
+    reindex: (workspaceRoot, config) => ipcRenderer.invoke(CH.codebaseReindex, workspaceRoot, config),
+    status: (workspaceRoot) => ipcRenderer.invoke(CH.codebaseStatus, workspaceRoot),
   },
 });

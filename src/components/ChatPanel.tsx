@@ -25,7 +25,7 @@ import {
   setSessionTitle,
   useSessions,
 } from "../lib/sessions";
-import { modelsStore, toProviderConfig, updateSettings, useSettings } from "../lib/settings";
+import { modelsStore, toEmbedConfig, toProviderConfig, updateSettings, useSettings } from "../lib/settings";
 import { type ToolStatus, toolStatusColor } from "../lib/toolStatus";
 import { WelcomeScreen } from "./WelcomeScreen";
 
@@ -636,6 +636,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
           .map((c) => c.trim())
           .filter(Boolean),
       },
+      embed: toEmbedConfig(settings),
     });
   }
 

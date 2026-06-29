@@ -16,6 +16,7 @@ import {
   mcpAddFormTypeStore,
   modelsStore,
   setModelRate,
+  toEmbedConfig,
   toProviderConfig,
   updateSettings,
   useSettings,
@@ -34,6 +35,9 @@ export function SettingsPanel({ onClose }: { onClose: () => void }): React.React
   const [newCommand, setNewCommand] = useState("");
   const [newArgs, setNewArgs] = useState("");
   const [newUrl, setNewUrl] = useState("");
+
+  const [indexing, setIndexing] = useState(false);
+  const [indexMsg, setIndexMsg] = useState("");
 
   const currentModelRate = settings.modelRates?.[settings.model.trim().toLowerCase()];
 
@@ -54,6 +58,40 @@ export function SettingsPanel({ onClose }: { onClose: () => void }): React.React
   useEffect(() => {
     void refreshMcp();
   }, [refreshMcp]);
+
+  useEffect(() => {
+    const api = window.moss.codebase;
+    const root = settings.workspaceRoot;
+    if (!api || !root) return;
+    void api
+      .status(root)
+      .then((s) => {
+        if (s.indexed) setIndexMsg(`Indexed ${s.files} files, ${s.chunks} chunks${s.model ? ` (${s.model})` : ""}.`);
+      })
+      .catch(() => {});
+  }, [settings.workspaceRoot]);
+
+  async function runIndex(): Promise<void> {
+    const root = settings.workspaceRoot;
+    if (!root) {
+      setIndexMsg("Select a workspace folder first.");
+      return;
+    }
+    setIndexing(true);
+    setIndexMsg("Indexing…");
+    try {
+      const res = await window.moss.codebase.reindex(root, toEmbedConfig(settings));
+      setIndexMsg(
+        res.ok
+          ? `Indexed ${res.files} files, ${res.chunks} chunks (${res.skipped} unchanged).`
+          : `Index failed: ${res.error ?? "unknown error"}`,
+      );
+    } catch (err) {
+      setIndexMsg(`Index failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIndexing(false);
+    }
+  }
 
   async function loadModels(): Promise<void> {
     setStatus("Loading models…");
@@ -455,6 +493,43 @@ export function SettingsPanel({ onClose }: { onClose: () => void }): React.React
               One command per line, run in the workspace after Moss edits files. The pass/fail output
               is fed back so Moss can correct its own changes. Commands run fail-fast and only when a
               workspace is selected.
+            </p>
+          </section>
+
+          <section className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-400">Codebase index</h3>
+            <label className="block">
+              <span className="mb-1 block text-neutral-600 dark:text-neutral-400">Embeddings base URL (optional)</span>
+              <input
+                className="w-full rounded bg-neutral-200 dark:bg-neutral-800 px-2 py-1"
+                placeholder="Falls back to the provider Base URL"
+                value={settings.embedBaseUrl ?? ""}
+                onChange={(e) => updateSettings({ embedBaseUrl: e.target.value })}
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-neutral-600 dark:text-neutral-400">Embeddings model</span>
+              <input
+                className="w-full rounded bg-neutral-200 dark:bg-neutral-800 px-2 py-1"
+                placeholder="nomic-embed-text"
+                value={settings.embedModel ?? "nomic-embed-text"}
+                onChange={(e) => updateSettings({ embedModel: e.target.value })}
+              />
+            </label>
+            <button
+              type="button"
+              className="rounded bg-emerald-600 px-3 py-1 text-white disabled:opacity-50"
+              disabled={indexing || !settings.workspaceRoot}
+              onClick={() => void runIndex()}
+            >
+              {indexing ? "Indexing…" : "Index workspace"}
+            </button>
+            {indexMsg ? <p className="text-xs text-neutral-500 dark:text-neutral-400">{indexMsg}</p> : null}
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+              Builds a semantic index of the workspace's text files via an OpenAI-compatible
+              /embeddings endpoint (Ollama's nomic-embed-text, OpenAI, …). The search_codebase tool
+              then finds relevant code by meaning. Re-indexing only re-embeds changed files; binaries,
+              build output, and .gitignore'd paths are skipped.
             </p>
           </section>
 
