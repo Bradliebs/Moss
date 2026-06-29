@@ -629,6 +629,13 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
         model: settings.sttModel || "whisper-1",
       },
       email: { apiKey: settings.emailApiKey || "", from: settings.emailFrom || "" },
+      verify: {
+        enabled: settings.verifyEnabled,
+        commands: (settings.verifyCommands || "")
+          .split("\n")
+          .map((c) => c.trim())
+          .filter(Boolean),
+      },
     });
   }
 

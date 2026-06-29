@@ -5,7 +5,11 @@
 // tests exercise the loop's own behavior: streaming, tool dispatch, permission
 // gating, error isolation, abort handling, and the round cap.
 
-import { describe, expect, it, vi } from "vitest";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AgentMessage, MossEvent, ToolDefinition } from "../../../common/types";
 import { runTurn } from "./agent-runner";
@@ -64,7 +68,18 @@ interface Harness {
 async function run(
   provider: ChatProvider,
   tools: Tool[],
-  opts?: { approve?: boolean; aborted?: boolean; autoApprove?: boolean; toolTimeoutMs?: number; messages?: AgentMessage[]; turnId?: string; checkpoint?: { record: (abs: string, rel: string) => Promise<void> } },
+  opts?: {
+    approve?: boolean;
+    aborted?: boolean;
+    autoApprove?: boolean;
+    toolTimeoutMs?: number;
+    messages?: AgentMessage[];
+    turnId?: string;
+    checkpoint?: { record: (abs: string, rel: string) => Promise<void> };
+    workspaceRoot?: string;
+    verify?: { enabled: boolean; commands: string[]; maxCycles?: number };
+    maxRounds?: number;
+  },
 ): Promise<Harness> {
   const events: MossEvent[] = [];
   const approvals: string[] = [];
@@ -85,7 +100,7 @@ async function run(
     messages,
     tools: toolDefs,
     toolRegistry: registry,
-    workspaceRoot: "/work",
+    workspaceRoot: opts?.workspaceRoot ?? "/work",
     signal: controller.signal,
     onEvent: (e) => events.push(e),
     requestApproval: async (id) => {
@@ -99,6 +114,8 @@ async function run(
     ...(opts?.toolTimeoutMs !== undefined ? { toolTimeoutMs: opts.toolTimeoutMs } : {}),
     ...(opts?.turnId !== undefined ? { turnId: opts.turnId } : {}),
     ...(opts?.checkpoint !== undefined ? { checkpoint: opts.checkpoint } : {}),
+    ...(opts?.verify !== undefined ? { verify: opts.verify } : {}),
+    ...(opts?.maxRounds !== undefined ? { maxRounds: opts.maxRounds } : {}),
   });
 
   return { events, approvals };
@@ -582,5 +599,82 @@ describe("runTurn", () => {
     await run(provider, [snapshotting], { autoApprove: true, checkpoint });
 
     expect(recorded).toEqual([["/work/a.txt", "a.txt"]]);
+  });
+});
+
+describe("runTurn verification loop", () => {
+  let cwd: string;
+
+  beforeEach(() => {
+    cwd = mkdtempSync(join(tmpdir(), "moss-runner-verify-"));
+  });
+
+  afterEach(() => {
+    rmSync(cwd, { recursive: true, force: true });
+  });
+
+  const notices = (h: Harness): Extract<MossEvent, { type: "notice" }>[] =>
+    h.events.filter((e): e is Extract<MossEvent, { type: "notice" }> => e.type === "notice");
+
+  it("runs verification after a mutating edit and emits a passing notice", async () => {
+    const provider = scriptedProvider([
+      [call("c1", "write_file")],
+      [{ type: "text-delta", text: "done" }],
+    ]);
+    const h = await run(provider, [tool("write_file", { ok: true, content: "W" })], {
+      autoApprove: true,
+      workspaceRoot: cwd,
+      verify: { enabled: true, commands: ["exit 0"] },
+    });
+
+    const ns = notices(h);
+    expect(ns).toHaveLength(1);
+    expect(ns[0].level).toBe("info");
+  });
+
+  it("emits a warning notice when verification fails", async () => {
+    const provider = scriptedProvider([
+      [call("c1", "write_file")],
+      [{ type: "text-delta", text: "done" }],
+    ]);
+    const h = await run(provider, [tool("write_file", { ok: true, content: "W" })], {
+      autoApprove: true,
+      workspaceRoot: cwd,
+      verify: { enabled: true, commands: ["exit 1"] },
+    });
+
+    const ns = notices(h);
+    expect(ns).toHaveLength(1);
+    expect(ns[0].level).toBe("warn");
+    expect(ns[0].message).toContain("Verification failed");
+  });
+
+  it("does not verify when no mutating tool ran", async () => {
+    const provider = scriptedProvider([
+      [call("c1", "read_file")],
+      [{ type: "text-delta", text: "done" }],
+    ]);
+    const h = await run(provider, [tool("read_file", { ok: true, content: "R" })], {
+      autoApprove: true,
+      workspaceRoot: cwd,
+      verify: { enabled: true, commands: ["exit 0"] },
+    });
+
+    expect(notices(h)).toHaveLength(0);
+  });
+
+  it("stops verifying once the cycle budget is exhausted", async () => {
+    const provider = scriptedProvider([
+      [call("c1", "write_file")],
+      [call("c2", "write_file")],
+      [{ type: "text-delta", text: "done" }],
+    ]);
+    const h = await run(provider, [tool("write_file", { ok: true, content: "W" })], {
+      autoApprove: true,
+      workspaceRoot: cwd,
+      verify: { enabled: true, commands: ["exit 0"], maxCycles: 1 },
+    });
+
+    expect(notices(h)).toHaveLength(1);
   });
 });

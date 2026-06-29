@@ -43,6 +43,8 @@ const mockSettingsDefaults = {
   sttModel: "whisper-1",
   emailApiKey: "",
   emailFrom: "",
+  verifyEnabled: false,
+  verifyCommands: "",
   presetIndex: 0,
   kind: "openai-compatible",
 };
@@ -57,6 +59,8 @@ const mockSettings = vi.hoisted(() => ({
   sttModel: "whisper-1",
   emailApiKey: "",
   emailFrom: "",
+  verifyEnabled: false,
+  verifyCommands: "",
   presetIndex: 0,
   kind: "openai-compatible",
 }));

@@ -25,6 +25,8 @@ const settingsValue = {
   sttModel: "whisper-1",
   emailApiKey: "",
   emailFrom: "",
+  verifyEnabled: false,
+  verifyCommands: "",
 };
 
 vi.mock("../lib/settings", () => ({

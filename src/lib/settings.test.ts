@@ -30,6 +30,8 @@ const baseline: MossSettings = {
   sttModel: "whisper-1",
   emailApiKey: "",
   emailFrom: "",
+  verifyEnabled: false,
+  verifyCommands: "",
 };
 
 beforeEach(() => {

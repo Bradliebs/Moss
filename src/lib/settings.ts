@@ -49,6 +49,10 @@ export interface MossSettings {
   emailApiKey: string;
   /** verified sender address for the send_email tool */
   emailFrom: string;
+  /** when true, run the verification commands after the agent edits files */
+  verifyEnabled: boolean;
+  /** newline-separated shell commands run in the workspace to verify edits */
+  verifyCommands: string;
   /** optional context-window size for the chosen model; 0 hides the meter.
    *  User-supplied so it never drifts against a bundled per-model table. */
   contextLimit: number;
@@ -76,6 +80,8 @@ const DEFAULT_SETTINGS: MossSettings = {
   sttModel: "whisper-1",
   emailApiKey: "",
   emailFrom: "",
+  verifyEnabled: false,
+  verifyCommands: "",
   contextLimit: 0,
   modelRates: {},
   theme: "dark",

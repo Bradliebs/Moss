@@ -28,6 +28,17 @@ export interface EmailConfig {
   from: string;
 }
 
+/** Verification config carried alongside a turn: after the agent edits files,
+ *  these shell commands run in the workspace and their pass/fail is fed back to
+ *  the model so it can self-correct. Disabled or empty commands = no-op. */
+export interface VerifyConfig {
+  enabled: boolean;
+  /** shell commands run in workspace order; fail-fast on the first failure */
+  commands: string[];
+  /** max times verification runs per turn before the loop stops re-checking */
+  maxCycles?: number;
+}
+
 export type ChatRole = "system" | "user" | "assistant" | "tool";
 
 /** A tool invocation requested by the model. `arguments` is the raw JSON string
@@ -123,6 +134,8 @@ export interface ChatStartRequest {
   stt?: SttConfig;
   /** email config for the send_email tool */
   email?: EmailConfig;
+  /** verification commands run after the agent edits files */
+  verify?: VerifyConfig;
 }
 
 export interface ToolApprovalDecision {

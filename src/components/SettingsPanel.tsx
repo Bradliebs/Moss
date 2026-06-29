@@ -434,6 +434,31 @@ export function SettingsPanel({ onClose }: { onClose: () => void }): React.React
           </section>
 
           <section className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-400">Verification</h3>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                className="accent-emerald-500"
+                checked={settings.verifyEnabled}
+                disabled={!settings.enableTools}
+                onChange={(e) => updateSettings({ verifyEnabled: e.target.checked })}
+              />
+              Verify edits with commands
+            </label>
+            <textarea
+              className="h-20 w-full resize-y rounded bg-neutral-200 dark:bg-neutral-800 px-2 py-1 font-mono text-xs"
+              placeholder={"npm run typecheck\nnpm test"}
+              value={settings.verifyCommands ?? ""}
+              onChange={(e) => updateSettings({ verifyCommands: e.target.value })}
+            />
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+              One command per line, run in the workspace after Moss edits files. The pass/fail output
+              is fed back so Moss can correct its own changes. Commands run fail-fast and only when a
+              workspace is selected.
+            </p>
+          </section>
+
+          <section className="space-y-2">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-400">Context window</h3>
             <label className="block">
               <span className="mb-1 block text-neutral-600 dark:text-neutral-400">Token limit (optional)</span>

@@ -1,0 +1,113 @@
+// electron/backend/moss/verify/verifier.ts
+//
+// Runs the user-configured verification commands (e.g. `npm run typecheck`,
+// `npm test`) in the workspace after the agent edits files, so the model gets
+// pass/fail feedback and can self-correct. Fail-fast: the first failing command
+// stops the run, since later checks are usually noise once an earlier one fails.
+
+import { spawn } from "node:child_process";
+
+import { createLogger } from "../../../../common/logger";
+
+const log = createLogger("verifier");
+
+/** Per-command output cap (characters) so a noisy failure cannot exhaust the
+ *  model's context when the report is fed back. */
+const OUTPUT_CAP = 8000;
+/** Per-command timeout backstop; a test suite can legitimately run a while. */
+const COMMAND_TIMEOUT_MS = 180_000;
+
+export interface VerifyCommandResult {
+  command: string;
+  ok: boolean;
+  /** combined stdout/stderr, capped */
+  output: string;
+}
+
+export interface VerifyResult {
+  /** true only when every command that ran exited 0 */
+  ok: boolean;
+  results: VerifyCommandResult[];
+}
+
+interface RunOptions {
+  /** per-command timeout override (ms); for tests */
+  commandTimeoutMs?: number;
+}
+
+/** Run each command in order, stopping at the first failure. A blank/empty
+ *  command list yields an ok result with no entries. */
+export async function runVerify(
+  commands: string[],
+  cwd: string,
+  signal: AbortSignal,
+  opts: RunOptions = {},
+): Promise<VerifyResult> {
+  const cleaned = commands.map((c) => c.trim()).filter(Boolean);
+  const results: VerifyCommandResult[] = [];
+
+  for (const command of cleaned) {
+    if (signal.aborted) break;
+    const res = await runOne(command, cwd, signal, opts.commandTimeoutMs ?? COMMAND_TIMEOUT_MS);
+    results.push(res);
+    if (!res.ok) break;
+  }
+
+  return { ok: results.every((r) => r.ok), results };
+}
+
+function runOne(
+  command: string,
+  cwd: string,
+  signal: AbortSignal,
+  timeoutMs: number,
+): Promise<VerifyCommandResult> {
+  return new Promise<VerifyCommandResult>((resolve) => {
+    const child = spawn(command, { cwd, shell: true });
+    let out = "";
+    let err = "";
+    let settled = false;
+
+    const onAbort = (): void => {
+      child.kill();
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+    const timer = setTimeout(() => child.kill(), timeoutMs);
+
+    const finish = (ok: boolean, body: string): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      signal.removeEventListener("abort", onAbort);
+      resolve({ command, ok, output: body });
+    };
+
+    child.stdout.on("data", (d: Buffer) => {
+      if (out.length < OUTPUT_CAP) out += d.toString();
+    });
+    child.stderr.on("data", (d: Buffer) => {
+      if (err.length < OUTPUT_CAP) err += d.toString();
+    });
+    child.on("error", (e: Error) => {
+      log.warn(`verify command failed to start: ${command}: ${e.message}`);
+      finish(false, e.message);
+    });
+    child.on("close", (code: number | null) => {
+      const body = [out.trim(), err.trim() ? `[stderr]\n${err.trim()}` : ""]
+        .filter(Boolean)
+        .join("\n");
+      finish(code === 0, body || `(exited with code ${code})`);
+    });
+  });
+}
+
+/** Render a verify result into a compact report for the model, prefixed so it
+ *  is clearly distinguishable from the tool output it is appended to. */
+export function formatVerifyReport(result: VerifyResult): string {
+  if (result.results.length === 0) return "";
+  const lines = result.results.map((r) => {
+    const status = r.ok ? "PASS" : "FAIL";
+    return r.ok ? `[verification] ${status}: ${r.command}` : `[verification] ${status}: ${r.command}\n${r.output}`;
+  });
+  return lines.join("\n");
+}

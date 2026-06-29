@@ -4,15 +4,21 @@
 // permission-gate + execute them, feed results back, and repeat until the model
 // stops calling tools (or a round cap is hit).
 
-import type { AgentMessage, EmailConfig, MossEvent, SttConfig, TokenUsage, ToolCall, ToolDefinition } from "../../../common/types";
+import type { AgentMessage, EmailConfig, MossEvent, SttConfig, TokenUsage, ToolCall, ToolDefinition, VerifyConfig } from "../../../common/types";
 import type { CheckpointRecorder } from "./checkpoint/checkpoint-store";
 import { resolvePermission } from "./permission";
 import type { CommandRisk } from "./permission";
 import { ProviderError } from "./providers/types";
 import type { ChatProvider } from "./providers/types";
 import type { Tool, ToolResult } from "./tools";
+import { formatVerifyReport, runVerify } from "./verify/verifier";
 
 const MAX_ROUNDS = 8;
+/** Default cap on how many times verification runs per turn, so a stubborn
+ *  fix/verify spiral cannot consume every round. */
+const DEFAULT_VERIFY_CYCLES = 3;
+/** File-mutating tools whose success should trigger a verification pass. */
+const MUTATING_FS_TOOLS = new Set(["write_file", "edit_file", "move_file"]);
 /** Retries for a transient provider stream failure, attempted only before any
  *  output has been emitted for the round (so a retry cannot duplicate it). */
 const MAX_STREAM_RETRIES = 2;
@@ -43,6 +49,11 @@ export interface RunTurnOptions {
   turnId?: string;
   /** records file pre-images so a mutating tool's changes can be reverted */
   checkpoint?: CheckpointRecorder;
+  /** verification commands run after a round that mutated files */
+  verify?: VerifyConfig;
+  /** tool-round cap; defaults to MAX_ROUNDS, raised when verify is enabled so
+   *  the fix/verify cycle has room to converge. */
+  maxRounds?: number;
   /** base backoff for stream-failure retries (ms); overridable for tests. */
   streamRetryBaseMs?: number;
   /** per-tool execution timeout (ms); overridable for tests. */
@@ -62,9 +73,15 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
   // still persist what was shown before the failure. Reset once the round's
   // assistant message is committed to newMessages.
   let pendingText = "";
+  const maxRounds = opts.maxRounds ?? MAX_ROUNDS;
+  // Verification runs only when enabled with a workspace and at least one
+  // command; verifyCyclesLeft caps how many fix/verify rounds we drive.
+  const verifyCommands = opts.verify?.enabled ? (opts.verify.commands ?? []).filter((c) => c.trim()) : [];
+  let verifyCyclesLeft =
+    verifyCommands.length > 0 && opts.workspaceRoot ? opts.verify?.maxCycles ?? DEFAULT_VERIFY_CYCLES : 0;
 
   try {
-    for (let round = 0; round < MAX_ROUNDS; round++) {
+    for (let round = 0; round < maxRounds; round++) {
       if (signal.aborted) {
         onEvent({ type: "turn-aborted", messages: newMessages });
         return;
@@ -73,6 +90,10 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
       pendingText = "";
       let roundUsage: TokenUsage | undefined;
       let calls: ToolCall[] = [];
+      // Whether this round successfully mutated files, and the model-facing copy
+      // of the last such tool result, so a verify report can be appended to it.
+      let mutatedThisRound = false;
+      let lastConvToolMsg: { role: "tool"; content: string; toolCallId: string } | undefined;
       // Stream the round, retrying a transient provider failure only while
       // nothing has been emitted to the renderer yet -- once text or usage has
       // been shown, a retry would duplicate it, so we let the error propagate.
@@ -152,7 +173,12 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
         // the renderer event above keep the full content. Audit-only metadata
         // (autoApproved/risk/durationMs) is dropped here so it never reaches the
         // provider; only newMessages and the renderer keep it.
-        conversation.push({ role: "tool", content: truncateForModel(result.content), toolCallId: call.id });
+        const convToolMsg = { role: "tool" as const, content: truncateForModel(result.content), toolCallId: call.id };
+        conversation.push(convToolMsg);
+        if (MUTATING_FS_TOOLS.has(call.name) && result.ok) {
+          mutatedThisRound = true;
+          lastConvToolMsg = convToolMsg;
+        }
         onEvent({
           type: "tool-result",
           callId: call.id,
@@ -163,6 +189,30 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
           ...(risk ? { risk } : {}),
           durationMs,
         });
+      }
+
+      // After a round that successfully changed files, run the configured
+      // verification commands and feed the report back to the model. The report
+      // is appended to the model-facing copy of the last mutating tool result
+      // (not the persisted history): a standalone injected message would break
+      // Anthropic's strict user/assistant alternation, whereas extending a
+      // tool_result stays valid for both providers. A notice surfaces it live.
+      if (mutatedThisRound && verifyCyclesLeft > 0 && lastConvToolMsg && !signal.aborted) {
+        verifyCyclesLeft--;
+        const verifyResult = await runVerify(verifyCommands, opts.workspaceRoot, signal, {
+          commandTimeoutMs: opts.toolTimeoutMs,
+        });
+        const report = formatVerifyReport(verifyResult);
+        if (report) {
+          lastConvToolMsg.content = `${lastConvToolMsg.content}\n\n${report}`;
+          onEvent({
+            type: "notice",
+            level: verifyResult.ok ? "info" : "warn",
+            message: verifyResult.ok
+              ? "Verification passed"
+              : `Verification failed: ${verifyResult.results.find((r) => !r.ok)?.command ?? ""}`,
+          });
+        }
       }
     }
 

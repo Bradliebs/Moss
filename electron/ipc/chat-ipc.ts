@@ -191,6 +191,8 @@ async function startTurn(event: Electron.IpcMainEvent, req: ChatStartRequest): P
     const workspaceRoot = req.workspaceRoot ?? "";
     const checkpoint = workspaceRoot ? checkpointStore.recorder(req.turnId) : undefined;
     if (workspaceRoot) checkpointStore.prune();
+    // Give the fix/verify cycle extra rounds to converge when verification runs.
+    const verifyEnabled = req.verify?.enabled === true && (req.verify.commands?.length ?? 0) > 0;
     await runTurn({
       provider,
       model: req.config.model,
@@ -206,6 +208,8 @@ async function startTurn(event: Electron.IpcMainEvent, req: ChatStartRequest): P
       email: req.email,
       turnId: req.turnId,
       checkpoint,
+      verify: req.verify,
+      ...(verifyEnabled ? { maxRounds: 12 } : {}),
     });
   } catch (err) {
     send({ type: "turn-error", message: err instanceof Error ? err.message : String(err), messages: [] });
