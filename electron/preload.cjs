@@ -32,6 +32,7 @@ const CH = {
   mcpReconnect: "moss:mcp:reconnect",
   shellOpenExternal: "moss:shell:openExternal",
   transcribe: "moss:stt:transcribe",
+  clipboardWrite: "moss:clipboard:write",
 };
 
 contextBridge.exposeInMainWorld("moss", {
@@ -79,6 +80,9 @@ contextBridge.exposeInMainWorld("moss", {
   },
   shell: {
     openExternal: (url) => ipcRenderer.invoke(CH.shellOpenExternal, url),
+  },
+  clipboard: {
+    write: (text, html) => ipcRenderer.invoke(CH.clipboardWrite, text, html),
   },
   stt: {
     transcribe: (request) => ipcRenderer.invoke(CH.transcribe, request),

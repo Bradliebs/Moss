@@ -7,7 +7,7 @@ import { PERSONALITY_PRESETS } from "@common/personalities";
 
 import { useDictation } from "../lib/dictation";
 import { imageAttachmentError, isLikelyVisionModel, textAttachmentError, textLanguageForFile } from "../lib/attachments";
-import { parseMarkdown, segmentToMarkdown, type InlineSegment } from "../lib/markdown";
+import { markdownToHtml, parseMarkdown, segmentToMarkdown, type InlineSegment } from "../lib/markdown";
 import { estimateCost, formatUsd } from "../lib/pricing";
 import {
   clearSession,
@@ -224,10 +224,12 @@ function renderContent(content: string) {
  *  silent clipboard write gives visible confirmation. */
 function CopyButton({
   text,
+  html,
   className,
   title,
 }: {
   text: string;
+  html?: string;
   className: string;
   title: string;
 }): React.ReactElement {
@@ -243,7 +245,7 @@ function CopyButton({
     <button
       className={className}
       onClick={() => {
-        copyToClipboard(text);
+        copyToClipboard(text, html);
         setCopied(true);
         if (timer.current) clearTimeout(timer.current);
         timer.current = setTimeout(() => setCopied(false), 1200);
@@ -255,9 +257,39 @@ function CopyButton({
   );
 }
 
-/** Copy text to the clipboard, ignoring environments without the API. */
-function copyToClipboard(text: string): void {
-  void navigator.clipboard?.writeText(text);
+/** Copy text to the clipboard, with rich HTML when provided so pastes keep
+ *  their formatting. Prefers the Electron bridge (works without a secure
+ *  context), then the async Clipboard API, then a textarea/execCommand
+ *  fallback so it never silently no-ops. */
+function copyToClipboard(text: string, html?: string): void {
+  if (window.moss?.clipboard) {
+    void window.moss.clipboard
+      .write(text, html)
+      .catch(() => fallbackCopy(text));
+    return;
+  }
+  fallbackCopy(text);
+}
+
+/** Best-effort clipboard write outside the Electron bridge: async Clipboard API
+ *  first, then a textarea/execCommand fallback so it never silently no-ops. */
+function fallbackCopy(text: string): void {
+  if (navigator.clipboard?.writeText) {
+    void navigator.clipboard.writeText(text);
+    return;
+  }
+  try {
+    const el = document.createElement("textarea");
+    el.value = text;
+    el.style.position = "fixed";
+    el.style.opacity = "0";
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand("copy");
+    document.body.removeChild(el);
+  } catch {
+    /* clipboard unavailable */
+  }
 }
 
 /** Flag the last assistant message so reloaded history shows it was cut off by
@@ -884,6 +916,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
               {it.role === "assistant" && it.content ? (
                 <CopyButton
                   text={it.content}
+                  html={markdownToHtml(it.content)}
                   className="ml-2 align-middle text-[10px] text-neutral-400 dark:text-neutral-600 opacity-0 transition hover:text-neutral-700 dark:hover:text-neutral-300 group-hover:opacity-100"
                   title="Copy this reply to the clipboard."
                 />

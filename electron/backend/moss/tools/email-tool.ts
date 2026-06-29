@@ -33,6 +33,7 @@ export const sendEmailTool: Tool = {
       },
       subject: { type: "string", description: "Email subject line." },
       body: { type: "string", description: "Plain-text email body." },
+      html: { type: "string", description: "Optional HTML body; sent alongside the plain-text body." },
     },
     required: ["to", "subject", "body"],
   },
@@ -43,10 +44,14 @@ export const sendEmailTool: Tool = {
     if (!ctx.email.from) {
       return { ok: false, content: "No from address configured (set one in Settings)." };
     }
+    if (!EMAIL_RE.test(ctx.email.from.replace(/^.*<([^>]+)>.*$/, "$1").trim())) {
+      return { ok: false, content: "Invalid from address (use a verified sender, e.g. Name <you@domain.com>)." };
+    }
 
     const to = asRecipients(args.to);
     const subject = typeof args.subject === "string" ? args.subject.trim() : "";
     const body = typeof args.body === "string" ? args.body : "";
+    const html = typeof args.html === "string" && args.html.trim() ? args.html : undefined;
     if (to.length === 0) return { ok: false, content: "to is required" };
     if (to.length > MAX_RECIPIENTS) return { ok: false, content: `too many recipients (max ${MAX_RECIPIENTS})` };
     const bad = to.filter((a) => !EMAIL_RE.test(a));
@@ -62,7 +67,7 @@ export const sendEmailTool: Tool = {
       const res = await fetch(RESEND_ENDPOINT, {
         method: "POST",
         headers: { Authorization: `Bearer ${ctx.email.apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ from: ctx.email.from, to, subject, text: body }),
+        body: JSON.stringify({ from: ctx.email.from, to, subject, text: body, ...(html ? { html } : {}) }),
         signal: controller.signal,
       });
       const raw = await res.text();

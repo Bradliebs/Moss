@@ -34,6 +34,12 @@ describe("send_email", () => {
     expect(res.content).toContain("No from address");
   });
 
+  it("refuses a malformed from address", async () => {
+    const res = await sendEmailTool.execute(args, ctx({ email: { apiKey: "re_test", from: "not-an-email" } }));
+    expect(res.ok).toBe(false);
+    expect(res.content).toContain("Invalid from address");
+  });
+
   it("validates recipients, subject, and body", async () => {
     expect((await sendEmailTool.execute({ to: "", subject: "s", body: "b" }, ctx())).content).toBe("to is required");
     expect((await sendEmailTool.execute({ to: "nope", subject: "s", body: "b" }, ctx())).content).toContain("invalid recipient");
@@ -51,6 +57,14 @@ describe("send_email", () => {
     expect((init as RequestInit).method).toBe("POST");
     const body = JSON.parse((init as RequestInit).body as string);
     expect(body).toMatchObject({ from: EMAIL.from, to: ["a@b.com", "c@d.com"], subject: "Hi", text: "Hello" });
+  });
+
+  it("includes an html body when provided", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ id: "x" }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await sendEmailTool.execute({ to: "a@b.com", subject: "Hi", body: "Hello", html: "<b>Hi</b>" }, ctx());
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect(body.html).toBe("<b>Hi</b>");
   });
 
   it("surfaces a Resend error message", async () => {

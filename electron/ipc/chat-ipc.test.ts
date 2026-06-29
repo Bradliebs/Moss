@@ -56,6 +56,7 @@ describe("registerChatIpc", () => {
       IPC.mcpStatus,
       IPC.mcpOpenConfig,
       IPC.transcribe,
+      IPC.clipboardWrite,
     ];
     for (const channel of invokeChannels) {
       expect(recorded.handle.has(channel)).toBe(true);

@@ -60,4 +60,9 @@ export const IPC = {
 
   /** renderer -> main (invoke): transcribe captured audio to text (Whisper) */
   transcribe: "moss:stt:transcribe",
+
+  /** renderer -> main (invoke): write text (and optional html) to the clipboard.
+   *  Routed through main because the clipboard module is unavailable in the
+   *  sandboxed preload. */
+  clipboardWrite: "moss:clipboard:write",
 } as const;

@@ -3,7 +3,7 @@
 // Wires renderer requests to the agent runner. One AbortController + one
 // ApprovalBroker per in-flight turn.
 
-import { dialog, ipcMain, shell } from "electron";
+import { clipboard, dialog, ipcMain, shell } from "electron";
 
 import { IPC } from "../../common/ipc-contract";
 import type {
@@ -128,6 +128,12 @@ export function registerChatIpc(): void {
     // URL the main process has not re-validated to http(s)/mailto.
     if (typeof url !== "string" || !/^(https?:|mailto:)/i.test(url)) return false;
     await shell.openExternal(url);
+    return true;
+  });
+
+  ipcMain.handle(IPC.clipboardWrite, (_event, text: string, html?: string): boolean => {
+    if (typeof text !== "string") return false;
+    clipboard.write(typeof html === "string" && html ? { text, html } : { text });
     return true;
   });
 

@@ -68,6 +68,9 @@ declare global {
       shell: {
         openExternal: (url: string) => Promise<boolean>;
       };
+      clipboard: {
+        write: (text: string, html?: string) => Promise<boolean>;
+      };
       stt: {
         transcribe: (request: TranscribeRequest) => Promise<TranscribeResult>;
       };

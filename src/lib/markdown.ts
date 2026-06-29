@@ -238,3 +238,69 @@ export function segmentToMarkdown(seg: MarkdownSegment): string {
   }
   return "";
 }
+
+/** Escape the five characters that must not appear raw in HTML text/attributes. */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/** Render inline segments to safe HTML. */
+function inlineToHtml(segs: InlineSegment[]): string {
+  return segs
+    .map((s) => {
+      switch (s.type) {
+        case "bold":
+          return `<strong>${escapeHtml(s.value)}</strong>`;
+        case "strike":
+          return `<s>${escapeHtml(s.value)}</s>`;
+        case "inlineCode":
+          return `<code>${escapeHtml(s.value)}</code>`;
+        case "link":
+          return `<a href="${escapeHtml(s.href)}">${escapeHtml(s.value)}</a>`;
+        default:
+          return escapeHtml(s.value);
+      }
+    })
+    .join("");
+}
+
+/** Render parsed markdown to a self-contained HTML string so a copied reply
+ *  pastes with formatting intact into rich-text targets (mail, docs). */
+export function markdownToHtml(input: string): string {
+  return parseMarkdown(input)
+    .map((seg) => {
+      switch (seg.type) {
+        case "code":
+          return `<pre><code>${escapeHtml(seg.value)}</code></pre>`;
+        case "heading":
+          return `<h${seg.level}>${inlineToHtml(seg.content)}</h${seg.level}>`;
+        case "blockquote":
+          return `<blockquote>${inlineToHtml(seg.content)}</blockquote>`;
+        case "hr":
+          return "<hr>";
+        case "list": {
+          const items = seg.items.map((it) => `<li>${inlineToHtml(it)}</li>`).join("");
+          return seg.ordered ? `<ol>${items}</ol>` : `<ul>${items}</ul>`;
+        }
+        case "taskList": {
+          const items = seg.items
+            .map((it) => `<li>${it.checked ? "\u2611" : "\u2610"} ${inlineToHtml(it.content)}</li>`)
+            .join("");
+          return `<ul>${items}</ul>`;
+        }
+        case "table": {
+          const head = `<tr>${seg.header.map((c) => `<th>${inlineToHtml(c)}</th>`).join("")}</tr>`;
+          const body = seg.rows.map((r) => `<tr>${r.map((c) => `<td>${inlineToHtml(c)}</td>`).join("")}</tr>`).join("");
+          return `<table>${head}${body}</table>`;
+        }
+        default:
+          return `<p>${inlineToHtml([seg])}</p>`;
+      }
+    })
+    .join("\n");
+}
