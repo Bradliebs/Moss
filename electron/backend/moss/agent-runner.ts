@@ -5,6 +5,7 @@
 // stops calling tools (or a round cap is hit).
 
 import type { AgentMessage, EmailConfig, MossEvent, SttConfig, TokenUsage, ToolCall, ToolDefinition } from "../../../common/types";
+import type { CheckpointRecorder } from "./checkpoint/checkpoint-store";
 import { resolvePermission } from "./permission";
 import type { CommandRisk } from "./permission";
 import { ProviderError } from "./providers/types";
@@ -38,6 +39,10 @@ export interface RunTurnOptions {
   /** speech-to-text config for the transcribe_audio tool */
   stt?: SttConfig;
   email?: EmailConfig;
+  /** id of this turn; stamped on assistant messages and used to key checkpoints */
+  turnId?: string;
+  /** records file pre-images so a mutating tool's changes can be reverted */
+  checkpoint?: CheckpointRecorder;
   /** base backoff for stream-failure retries (ms); overridable for tests. */
   streamRetryBaseMs?: number;
   /** per-tool execution timeout (ms); overridable for tests. */
@@ -117,6 +122,7 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
         content: pendingText,
         ...(calls.length > 0 ? { toolCalls: calls } : {}),
         ...(roundUsage ? { usage: roundUsage } : {}),
+        ...(opts.turnId ? { turnId: opts.turnId } : {}),
       };
       conversation.push(assistantMsg);
       newMessages.push(assistantMsg);
@@ -222,7 +228,7 @@ async function executeCall(call: ToolCall, opts: RunTurnOptions): Promise<ExecOu
 
   try {
     const result = await runWithTimeout(
-      (sig) => tool.execute(args, { workspaceRoot: opts.workspaceRoot, signal: sig, stt: opts.stt, email: opts.email }),
+      (sig) => tool.execute(args, { workspaceRoot: opts.workspaceRoot, signal: sig, stt: opts.stt, email: opts.email, checkpoint: opts.checkpoint }),
       opts.signal,
       opts.toolTimeoutMs ?? TOOL_TIMEOUT_MS,
       call.name,

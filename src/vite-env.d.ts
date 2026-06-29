@@ -3,6 +3,8 @@
 import type {
   ChatEventPayload,
   ChatStartRequest,
+  CheckpointFile,
+  CheckpointRevertResult,
   McpServerStatus,
   MemoryCategory,
   MemoryEntry,
@@ -73,6 +75,10 @@ declare global {
       };
       stt: {
         transcribe: (request: TranscribeRequest) => Promise<TranscribeResult>;
+      };
+      checkpoint: {
+        list: (turnId: string) => Promise<CheckpointFile[]>;
+        revert: (turnId: string) => Promise<CheckpointRevertResult>;
       };
     };
   }

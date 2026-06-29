@@ -81,6 +81,7 @@ export const writeFileTool: Tool = {
   async execute(args: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> {
     const abs = resolveInWorkspace(ctx.workspaceRoot, String(args.path ?? ""));
     const content = String(args.content ?? "");
+    await ctx.checkpoint?.record(abs, String(args.path ?? ""));
     await mkdir(dirname(abs), { recursive: true });
     await writeFile(abs, content, "utf8");
     return { ok: true, content: `Wrote ${content.length} bytes to ${args.path}` };
@@ -133,6 +134,7 @@ export const editFileTool: Tool = {
     // A replacement function keeps newText literal so "$&"/"$1" style sequences
     // are written verbatim rather than interpreted by String.prototype.replace.
     const updated = replaceAll ? text.split(oldText).join(newText) : text.replace(oldText, () => newText);
+    await ctx.checkpoint?.record(abs, String(args.path ?? ""));
     await writeFile(abs, updated, "utf8");
     const n = replaceAll ? count : 1;
     return { ok: true, content: `Replaced ${n} occurrence${n === 1 ? "" : "s"} in ${args.path}` };
@@ -325,6 +327,8 @@ export const moveFileTool: Tool = {
   async execute(args: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> {
     const fromAbs = resolveInWorkspace(ctx.workspaceRoot, String(args.from ?? ""));
     const toAbs = resolveInWorkspace(ctx.workspaceRoot, String(args.to ?? ""));
+    await ctx.checkpoint?.record(fromAbs, String(args.from ?? ""));
+    await ctx.checkpoint?.record(toAbs, String(args.to ?? ""));
     try {
       await mkdir(dirname(toAbs), { recursive: true });
       await rename(fromAbs, toAbs);

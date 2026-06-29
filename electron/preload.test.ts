@@ -103,6 +103,12 @@ describe("preload bridge", () => {
 
     api.mcp.reconnect("n");
     expect(invoke).toHaveBeenCalledWith(IPC.mcpReconnect, "n");
+
+    api.checkpoint.list("t1");
+    expect(invoke).toHaveBeenCalledWith(IPC.checkpointList, "t1");
+
+    api.checkpoint.revert("t1");
+    expect(invoke).toHaveBeenCalledWith(IPC.checkpointRevert, "t1");
   });
 
   it("subscribes to chat events and returns an unsubscribe that removes the listener", () => {

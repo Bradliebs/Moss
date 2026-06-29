@@ -71,6 +71,9 @@ export interface AgentMessage {
   /** image attachments on a user turn, as data URLs (data:<mime>;base64,...).
    *  Sent to vision-capable models as image content parts alongside the text */
   images?: string[];
+  /** id of the turn that produced this message; stamped on assistant turns so
+   *  the renderer can look up and revert the files that turn changed */
+  turnId?: string;
 }
 
 export interface TokenUsage {
@@ -131,6 +134,22 @@ export interface ToolApprovalDecision {
 export interface ChatEventPayload {
   turnId: string;
   event: MossEvent;
+}
+
+/** A file a turn changed, as reported to the renderer for the revert affordance. */
+export interface CheckpointFile {
+  /** workspace-relative path */
+  path: string;
+  /** false when the turn created the file (revert deletes it) */
+  existed: boolean;
+}
+
+/** Outcome of reverting a turn's file changes. */
+export interface CheckpointRevertResult {
+  /** number of files restored or deleted */
+  reverted: number;
+  /** per-file failures, as "<path>: <message>" */
+  errors: string[];
 }
 
 // --- Durable memory & skills (Phase 5) ---

@@ -33,6 +33,8 @@ const CH = {
   shellOpenExternal: "moss:shell:openExternal",
   transcribe: "moss:stt:transcribe",
   clipboardWrite: "moss:clipboard:write",
+  checkpointList: "moss:checkpoint:list",
+  checkpointRevert: "moss:checkpoint:revert",
 };
 
 contextBridge.exposeInMainWorld("moss", {
@@ -86,5 +88,9 @@ contextBridge.exposeInMainWorld("moss", {
   },
   stt: {
     transcribe: (request) => ipcRenderer.invoke(CH.transcribe, request),
+  },
+  checkpoint: {
+    list: (turnId) => ipcRenderer.invoke(CH.checkpointList, turnId),
+    revert: (turnId) => ipcRenderer.invoke(CH.checkpointRevert, turnId),
   },
 });

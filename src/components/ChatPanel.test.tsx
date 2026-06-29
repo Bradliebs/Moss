@@ -191,6 +191,51 @@ describe("ChatPanel", () => {
     ).toBeNull();
   });
 
+  it("shows a revert affordance on a turn that changed files and undoes them on click", async () => {
+    const list = vi.fn(() => Promise.resolve([{ path: "a.ts", existed: true }, { path: "b.ts", existed: false }]));
+    const revert = vi.fn(() => Promise.resolve({ reverted: 2, errors: [] }));
+    (window.moss as { checkpoint?: unknown }).checkpoint = { list, revert };
+    mockSession.value = {
+      id: "s1",
+      title: "New chat",
+      messages: [
+        { role: "user", content: "edit files" },
+        { role: "assistant", content: "done", turnId: "turn-42" },
+      ],
+      createdAt: 0,
+      updatedAt: 0,
+    };
+    render(<Harness />);
+
+    const revertBtn = await screen.findByText("Revert");
+    expect(list).toHaveBeenCalledWith("turn-42");
+    expect(screen.getByText("2 files changed")).toBeTruthy();
+
+    fireEvent.click(revertBtn);
+    expect(revert).toHaveBeenCalledWith("turn-42");
+    await screen.findByText("Reverted 2 files");
+    expect(screen.queryByText("Revert")).toBeNull();
+  });
+
+  it("shows no revert affordance when a turn changed no files", async () => {
+    const list = vi.fn(() => Promise.resolve([]));
+    (window.moss as { checkpoint?: unknown }).checkpoint = { list, revert: vi.fn() };
+    mockSession.value = {
+      id: "s1",
+      title: "New chat",
+      messages: [
+        { role: "user", content: "just chat" },
+        { role: "assistant", content: "hello", turnId: "turn-7" },
+      ],
+      createdAt: 0,
+      updatedAt: 0,
+    };
+    render(<Harness />);
+
+    await waitFor(() => expect(list).toHaveBeenCalledWith("turn-7"));
+    expect(screen.queryByText("Revert")).toBeNull();
+  });
+
   it("formats large per-turn token counts with thousands separators", () => {
     mockSession.value = {
       id: "s1",

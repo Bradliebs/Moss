@@ -65,4 +65,10 @@ export const IPC = {
    *  Routed through main because the clipboard module is unavailable in the
    *  sandboxed preload. */
   clipboardWrite: "moss:clipboard:write",
+
+  /** renderer -> main (invoke): list the files a turn changed, for the revert
+   *  affordance; returns CheckpointFile[] (empty when the turn changed nothing) */
+  checkpointList: "moss:checkpoint:list",
+  /** renderer -> main (invoke): revert a turn's file changes by turnId */
+  checkpointRevert: "moss:checkpoint:revert",
 } as const;

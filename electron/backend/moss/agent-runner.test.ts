@@ -64,7 +64,7 @@ interface Harness {
 async function run(
   provider: ChatProvider,
   tools: Tool[],
-  opts?: { approve?: boolean; aborted?: boolean; autoApprove?: boolean; toolTimeoutMs?: number; messages?: AgentMessage[] },
+  opts?: { approve?: boolean; aborted?: boolean; autoApprove?: boolean; toolTimeoutMs?: number; messages?: AgentMessage[]; turnId?: string; checkpoint?: { record: (abs: string, rel: string) => Promise<void> } },
 ): Promise<Harness> {
   const events: MossEvent[] = [];
   const approvals: string[] = [];
@@ -97,6 +97,8 @@ async function run(
     // explicitly below.
     streamRetryBaseMs: 0,
     ...(opts?.toolTimeoutMs !== undefined ? { toolTimeoutMs: opts.toolTimeoutMs } : {}),
+    ...(opts?.turnId !== undefined ? { turnId: opts.turnId } : {}),
+    ...(opts?.checkpoint !== undefined ? { checkpoint: opts.checkpoint } : {}),
   });
 
   return { events, approvals };
@@ -550,5 +552,35 @@ describe("runTurn", () => {
     const toolMsg = seen[0].find((m) => m.role === "tool");
     expect(toolMsg?.content.length).toBeLessThan(big.length);
     expect(toolMsg?.content).toContain("[truncated");
+  });
+
+  it("stamps the turnId on assistant messages so the renderer can key checkpoints", async () => {
+    const provider = scriptedProvider([[{ type: "text-delta", text: "hi" }]]);
+    const h = await run(provider, [], { turnId: "turn-7" });
+
+    const complete = h.events.at(-1) as Extract<MossEvent, { type: "turn-complete" }>;
+    expect(complete.messages[0]).toMatchObject({ role: "assistant", turnId: "turn-7" });
+  });
+
+  it("threads the checkpoint recorder into the tool context", async () => {
+    const recorded: Array<[string, string]> = [];
+    const checkpoint = {
+      record: async (abs: string, rel: string): Promise<void> => {
+        recorded.push([abs, rel]);
+      },
+    };
+    const snapshotting: Tool = {
+      name: "write_file",
+      description: "",
+      parameters: { type: "object", properties: {} },
+      execute: async (_args, ctx) => {
+        await ctx.checkpoint?.record("/work/a.txt", "a.txt");
+        return { ok: true, content: "W" };
+      },
+    };
+    const provider = scriptedProvider([[call("c1", "write_file")], [{ type: "text-delta", text: "ok" }]]);
+    await run(provider, [snapshotting], { autoApprove: true, checkpoint });
+
+    expect(recorded).toEqual([["/work/a.txt", "a.txt"]]);
   });
 });

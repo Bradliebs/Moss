@@ -19,6 +19,7 @@ import type {
 } from "../../common/types";
 import { runTurn } from "../backend/moss/agent-runner";
 import { ApprovalBroker } from "../backend/moss/approval-broker";
+import { checkpointStore } from "../backend/moss/checkpoint/checkpoint-store";
 import {
   addMcpServer,
   ensureMcpConfig,
@@ -144,6 +145,9 @@ export function registerChatIpc(): void {
       return { error: err instanceof Error ? err.message : String(err) };
     }
   });
+
+  ipcMain.handle(IPC.checkpointList, (_event, turnId: string) => checkpointStore.list(turnId));
+  ipcMain.handle(IPC.checkpointRevert, (_event, turnId: string) => checkpointStore.revert(turnId));
 }
 
 async function startTurn(event: Electron.IpcMainEvent, req: ChatStartRequest): Promise<void> {
@@ -182,19 +186,26 @@ async function startTurn(event: Electron.IpcMainEvent, req: ChatStartRequest): P
     const messages = hasSystem
       ? req.messages
       : [buildSystemMessage({ includeSkills: enableTools, query: lastUser?.content ?? "", customInstructions: req.customInstructions, personalityId: req.personalityId, adaptiveTone: req.adaptiveTone }), ...req.messages];
+    // Snapshot file pre-images only when a workspace is selected, so a turn's
+    // edits can be reverted. Prune old manifests opportunistically at turn start.
+    const workspaceRoot = req.workspaceRoot ?? "";
+    const checkpoint = workspaceRoot ? checkpointStore.recorder(req.turnId) : undefined;
+    if (workspaceRoot) checkpointStore.prune();
     await runTurn({
       provider,
       model: req.config.model,
       messages,
       tools: toolDefinitions,
       toolRegistry,
-      workspaceRoot: req.workspaceRoot ?? "",
+      workspaceRoot,
       signal: controller.signal,
       onEvent: send,
       requestApproval: (callId) => broker.request(callId),
       autoApprove: req.autoApproveTools === true,
       stt: req.stt,
       email: req.email,
+      turnId: req.turnId,
+      checkpoint,
     });
   } catch (err) {
     send({ type: "turn-error", message: err instanceof Error ? err.message : String(err), messages: [] });

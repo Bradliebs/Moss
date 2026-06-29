@@ -50,6 +50,9 @@ interface MessageView {
   usage?: TokenUsage;
   turnUsage?: TokenUsage;
   historyIndex?: number;
+  /** id of the turn that produced this reply; present on a turn's final
+   *  assistant message so the revert affordance can look up its file changes */
+  turnId?: string;
 }
 
 type ViewItem = MessageView | ToolView;
@@ -257,6 +260,79 @@ function CopyButton({
   );
 }
 
+/** Shows how many files a completed turn changed and lets the user undo them.
+ *  Lazily queries the checkpoint store on mount (and after the turn id changes);
+ *  renders nothing when the turn changed no files or the bridge is unavailable.
+ *  After a revert it reports the outcome and disables the button, since a turn's
+ *  checkpoint is consumed by reverting it. */
+function TurnRevert({ turnId }: { turnId: string }): React.ReactElement | null {
+  const [count, setCount] = useState<number | null>(null);
+  const [state, setState] = useState<"idle" | "reverting" | "reverted" | "error">("idle");
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    const bridge = window.moss?.checkpoint;
+    if (!bridge) {
+      setCount(0);
+      return;
+    }
+    void bridge
+      .list(turnId)
+      .then((files) => {
+        if (!cancelled) setCount(files.length);
+      })
+      .catch(() => {
+        if (!cancelled) setCount(0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [turnId]);
+
+  if (!count || state === "reverted") {
+    return state === "reverted" ? (
+      <div className="mt-1.5 text-[11px] text-neutral-500 dark:text-neutral-400">{message}</div>
+    ) : null;
+  }
+
+  const label = `${count} file${count === 1 ? "" : "s"} changed`;
+  return (
+    <div className="mt-1.5 flex items-center gap-2 text-[11px] text-neutral-500 dark:text-neutral-400">
+      <span title="Files this turn created or modified in the workspace.">{label}</span>
+      <button
+        className="rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 font-medium text-amber-700 transition hover:bg-amber-500/20 disabled:opacity-50 dark:text-amber-300"
+        disabled={state === "reverting"}
+        title="Undo this turn's file changes, restoring each file to its state before the turn."
+        onClick={() => {
+          const bridge = window.moss?.checkpoint;
+          if (!bridge) return;
+          setState("reverting");
+          void bridge
+            .revert(turnId)
+            .then((res) => {
+              const undone = `Reverted ${res.reverted} file${res.reverted === 1 ? "" : "s"}`;
+              if (res.errors.length > 0) {
+                setState("error");
+                setMessage(`${undone}; ${res.errors.length} failed`);
+              } else {
+                setState("reverted");
+                setMessage(undone);
+              }
+            })
+            .catch((err: unknown) => {
+              setState("error");
+              setMessage(`Revert failed: ${err instanceof Error ? err.message : String(err)}`);
+            });
+        }}
+      >
+        {state === "reverting" ? "Reverting…" : "Revert"}
+      </button>
+      {state === "error" ? <span className="text-red-500 dark:text-red-400">{message}</span> : null}
+    </div>
+  );
+}
+
 /** Copy text to the clipboard, with rich HTML when provided so pastes keep
  *  their formatting. Prefers the Electron bridge (works without a secure
  *  context), then the async Clipboard API, then a textarea/execCommand
@@ -315,14 +391,19 @@ function messagesToItems(messages: AgentMessage[]): ViewItem[] {
   let turnInput = 0;
   let turnOutput = 0;
   let turnRounds = 0;
+  let turnId: string | undefined;
   let lastTurnReply: MessageView | null = null;
   function closeTurn(): void {
     if (lastTurnReply && turnRounds > 1 && (turnInput || turnOutput)) {
       lastTurnReply.turnUsage = { inputTokens: turnInput, outputTokens: turnOutput };
     }
+    if (lastTurnReply && turnId) {
+      lastTurnReply.turnId = turnId;
+    }
     turnInput = 0;
     turnOutput = 0;
     turnRounds = 0;
+    turnId = undefined;
     lastTurnReply = null;
   }
   for (let mi = 0; mi < messages.length; mi++) {
@@ -331,6 +412,7 @@ function messagesToItems(messages: AgentMessage[]): ViewItem[] {
       closeTurn();
       items.push({ kind: "message", role: "user", content: m.content, images: m.images, historyIndex: mi });
     } else if (m.role === "assistant") {
+      if (m.turnId) turnId = m.turnId;
       if (m.usage) {
         turnInput += m.usage.inputTokens ?? 0;
         turnOutput += m.usage.outputTokens ?? 0;
@@ -921,6 +1003,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
                   title="Copy this reply to the clipboard."
                 />
               ) : null}
+              {it.role === "assistant" && it.turnId ? <TurnRevert turnId={it.turnId} /> : null}
             </div>
           ) : (
             <div key={i} className="mr-auto max-w-2xl animate-fade-in rounded-2xl border border-neutral-300/60 dark:border-neutral-700/60 bg-white/80 dark:bg-neutral-900/80 px-4 py-2.5 text-sm shadow-sm">
