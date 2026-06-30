@@ -941,7 +941,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
 
       <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
         {showWelcome ? (
-          <WelcomeScreen onPick={(text) => send(text)} />
+          <WelcomeScreen onPick={(text) => send(text)} needsSetup={!settings.model} onOpenSettings={onOpenSettings} />
         ) : (
           items.map((it, i) =>
           it.kind === "message" ? (

@@ -27,4 +27,12 @@ describe("WelcomeScreen", () => {
     fireEvent.click(screen.getByText("Explain what this project does."));
     expect(onPick).toHaveBeenCalledWith("Explain what this project does.");
   });
+
+  it("shows a setup call-to-action instead of suggestions when no model is configured", () => {
+    const onOpenSettings = vi.fn();
+    render(<WelcomeScreen onPick={() => {}} needsSetup onOpenSettings={onOpenSettings} />);
+    expect(screen.queryByText("Explain what this project does.")).toBeNull();
+    fireEvent.click(screen.getByText("Open Settings"));
+    expect(onOpenSettings).toHaveBeenCalled();
+  });
 });
