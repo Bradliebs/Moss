@@ -24,7 +24,7 @@ const env = vi.hoisted(() => ({
 
 vi.mock("electron", () => {
   class BrowserWindow {
-    webContents = { openDevTools: vi.fn() };
+    webContents = { openDevTools: vi.fn(), on: vi.fn() };
     constructor() {
       env.windows += 1;
     }
@@ -35,6 +35,7 @@ vi.mock("electron", () => {
   }
   return {
     app: {
+      isPackaged: false,
       getAppPath: () => "/app",
       getPath: () => "/tmp",
       whenReady: () => Promise.resolve(),

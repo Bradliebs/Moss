@@ -4,7 +4,8 @@
 // renderer at the Vite dev server (dev) or the built bundle (prod), and
 // registers IPC handlers.
 
-import { join } from "node:path";
+import { appendFileSync, mkdirSync } from "node:fs";
+import { dirname, join } from "node:path";
 
 import { app, BrowserWindow, session } from "electron";
 
@@ -18,6 +19,57 @@ const devServerUrl = process.env.VITE_DEV_SERVER_URL;
 
 let mainWindow: BrowserWindow | null = null;
 
+function fmtError(err: unknown): string {
+  return err instanceof Error ? (err.stack ?? err.message) : String(err);
+}
+
+/** Path to the persistent main-process log under userData. A packaged Windows
+ *  GUI app has no attached console, so without this file a startup failure is
+ *  completely invisible. Location: %APPDATA%/Moss/moss-main.log on Windows. */
+function logFilePath(): string {
+  return join(app.getPath("userData"), "moss-main.log");
+}
+
+/** Best-effort append to the persistent log. Only writes for packaged builds
+ *  (in dev/test the console logger already captures everything, and we must not
+ *  litter the filesystem during tests). Never throws. */
+function fileLog(line: string): void {
+  if (!app.isPackaged) return;
+  try {
+    const path = logFilePath();
+    mkdirSync(dirname(path), { recursive: true });
+    appendFileSync(path, `[${new Date().toISOString()}] ${line}\n`, "utf8");
+  } catch {
+    // Logging is best-effort; there is nothing useful to do if it fails.
+  }
+}
+
+// Catch otherwise-silent crashes in the main process. On a fresh machine these
+// are the difference between a diagnosable error and "nothing happens".
+process.on("uncaughtException", (err) => {
+  log.error("uncaughtException", err);
+  fileLog(`uncaughtException: ${fmtError(err)}`);
+});
+process.on("unhandledRejection", (reason) => {
+  log.error("unhandledRejection", reason);
+  fileLog(`unhandledRejection: ${fmtError(reason)}`);
+});
+
+/** Replace a failed renderer load with a readable error page so the user sees a
+ *  reportable message instead of a blank/black window. Guarded against re-entry
+ *  so a failure to load the fallback itself cannot loop. */
+let showingLoadError = false;
+function showLoadError(detail: string): void {
+  if (showingLoadError || !mainWindow) return;
+  showingLoadError = true;
+  const body = `<!doctype html><meta charset="utf-8"><body style="font-family:system-ui,sans-serif;background:#0b0b0f;color:#e6e6ea;margin:0;padding:32px">
+<h2>Moss could not load its interface</h2>
+<p>${detail.replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" })[c] ?? c)}</p>
+<p style="color:#9a9aa5">A log was written to:<br><code>${logFilePath()}</code></p>
+</body>`;
+  void mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(body)}`);
+}
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1100,
@@ -30,11 +82,28 @@ function createWindow(): void {
     },
   });
 
+  mainWindow.webContents.on("did-fail-load", (_e, errorCode, errorDescription, validatedURL) => {
+    // -3 is ERR_ABORTED, which fires on benign in-flight navigations; ignore it.
+    if (errorCode === -3) return;
+    const detail = `Load failed (${errorCode}) ${errorDescription} ${validatedURL}`;
+    log.error(detail);
+    fileLog(detail);
+    showLoadError(detail);
+  });
+  mainWindow.webContents.on("render-process-gone", (_e, details) => {
+    const detail = `Renderer process gone: ${details.reason} (exit ${details.exitCode})`;
+    log.error(detail);
+    fileLog(detail);
+    showLoadError(detail);
+  });
+
   if (devServerUrl) {
     void mainWindow.loadURL(devServerUrl);
     mainWindow.webContents.openDevTools({ mode: "detach" });
   } else {
-    void mainWindow.loadFile(join(app.getAppPath(), "dist", "index.html"));
+    const indexPath = join(app.getAppPath(), "dist", "index.html");
+    fileLog(`loading renderer from ${indexPath}`);
+    void mainWindow.loadFile(indexPath);
   }
 
   mainWindow.on("closed", () => {
@@ -45,13 +114,28 @@ function createWindow(): void {
 app
   .whenReady()
   .then(() => {
-    memoryStore.reload();
-    registerChatIpc();
-    // The renderer captures microphone audio for speech-to-text. This is a
-    // local, trusted app, so grant only the media permission it needs.
-    session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
-      callback(permission === "media");
-    });
+    fileLog(`app ready (packaged=${app.isPackaged}, appPath=${app.getAppPath()})`);
+    // Each startup step is isolated: a failure in one must not prevent the
+    // window from appearing, otherwise the app fails silently with no UI.
+    try {
+      memoryStore.reload();
+    } catch (err) {
+      fileLog(`memoryStore.reload failed: ${fmtError(err)}`);
+    }
+    try {
+      registerChatIpc();
+    } catch (err) {
+      fileLog(`registerChatIpc failed: ${fmtError(err)}`);
+    }
+    try {
+      // The renderer captures microphone audio for speech-to-text. This is a
+      // local, trusted app, so grant only the media permission it needs.
+      session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
+        callback(permission === "media");
+      });
+    } catch (err) {
+      fileLog(`setPermissionRequestHandler failed: ${fmtError(err)}`);
+    }
     createWindow();
     // Connect MCP servers in the background; tool availability updates the
     // registry the next time a turn starts, so this need not block the window.
@@ -60,7 +144,10 @@ app
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
     });
   })
-  .catch((err) => log.error("startup failed", err));
+  .catch((err) => {
+    log.error("startup failed", err);
+    fileLog(`startup failed: ${fmtError(err)}`);
+  });
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
