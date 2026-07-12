@@ -13,7 +13,7 @@ import { useState } from "react";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { ChatEventPayload, MossEvent } from "@common/types";
+import type { ChatEventPayload, MossEvent, TaskSnapshot, TaskState } from "@common/types";
 
 import { ChatPanel } from "./ChatPanel";
 
@@ -114,6 +114,33 @@ function emit(turnId: string, event: MossEvent): void {
   });
 }
 
+function taskSnapshot(state: TaskState, blocker?: TaskSnapshot["blocker"]): TaskSnapshot {
+  return {
+    id: "task-1",
+    revision: 1,
+    state,
+    spec: {
+      objective: "Complete the durable task",
+      acceptanceCriteria: [{ id: "requested-outcome", description: "Requested outcome", mandatory: true }],
+      constraints: [],
+      assumptions: [],
+      budget: { maxActions: 64 },
+    },
+    steps: [{
+      id: "execute-request",
+      description: "Execute request",
+      state: ["completed", "failed", "cancelled"].includes(state) ? "completed" : "running",
+      dependsOn: [],
+      requiredCapabilities: [],
+    }],
+    attempts: [],
+    evidence: [],
+    blocker,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  };
+}
+
 beforeEach(() => {
   eventHandler = null;
   mockSession.value = { id: "s1", title: "New chat", messages: [], createdAt: 0, updatedAt: 0 };
@@ -133,6 +160,10 @@ beforeEach(() => {
         }),
       },
       tool: { approve: vi.fn() },
+      task: {
+        resume: vi.fn(async () => taskSnapshot("executing")),
+        cancel: vi.fn(async () => taskSnapshot("cancelled")),
+      },
       shell: { openExternal: vi.fn() },
       mcp: { status: vi.fn(() => Promise.resolve([])) },
     },
@@ -150,6 +181,37 @@ describe("ChatPanel", () => {
     render(<Harness />);
     expect(window.moss.chat.onEvent).toHaveBeenCalledTimes(1);
     expect(eventHandler).toBeTypeOf("function");
+  });
+
+  it("renders a terminal task snapshot that arrives after turn-complete", () => {
+    render(<Harness />);
+    const turnId = startTurn();
+    emit(turnId, { type: "turn-complete", messages: [{ role: "assistant", content: "done" }] });
+    emit(turnId, { type: "task-state", task: taskSnapshot("completed") });
+
+    expect(screen.getByLabelText("Task status").textContent).toContain("completed");
+    expect(screen.getByLabelText("Task status").textContent).toContain("Complete the durable task");
+  });
+
+  it("resumes and cancels a blocked durable task", async () => {
+    render(<Harness />);
+    const turnId = startTurn();
+    emit(turnId, {
+      type: "task-state",
+      task: taskSnapshot("blocked", { kind: "verification", summary: "Tests failed", resumable: true, createdAt: "2026-01-01T00:00:00.000Z" }),
+    });
+
+    fireEvent.click(screen.getByText("Resume"));
+    await waitFor(() => expect(window.moss.task.resume).toHaveBeenCalledWith("task-1"));
+    expect(screen.getByLabelText("Task status").textContent).toContain("executing");
+    expect(window.moss.chat.send).toHaveBeenCalledWith(expect.objectContaining({
+      taskId: "task-1",
+      taskSpec: expect.objectContaining({ objective: "Complete the durable task" }),
+    }));
+
+    fireEvent.click(screen.getByText("Cancel"));
+    await waitFor(() => expect(window.moss.task.cancel).toHaveBeenCalledWith("task-1"));
+    expect(screen.getByLabelText("Task status").textContent).toContain("cancelled");
   });
 
   it("stamps a per-turn token subtotal on the final reply of a multi-round turn", () => {

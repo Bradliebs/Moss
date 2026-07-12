@@ -12,6 +12,7 @@ import { app, BrowserWindow, session } from "electron";
 import { createLogger } from "../common/logger";
 import { mcpManager } from "./backend/moss/mcp/mcp-manager";
 import { memoryStore } from "./backend/moss/memory/memory-store";
+import { taskEngine } from "./backend/moss/task/task-engine";
 import { registerChatIpc } from "./ipc/chat-ipc";
 
 const log = createLogger("Main");
@@ -127,6 +128,12 @@ app
     } catch (err) {
       fileLog(`registerChatIpc failed: ${fmtError(err)}`);
     }
+    // Active work is never replayed blindly after a crash. Persist it as an
+    // explicit resumable pause so the renderer can inspect and resume safely.
+    void taskEngine.recoverInterruptedTasks().catch((err) => {
+      log.error("Task recovery failed", err);
+      fileLog(`task recovery failed: ${fmtError(err)}`);
+    });
     try {
       // The renderer captures microphone audio for speech-to-text. This is a
       // local, trusted app, so grant only the media permission it needs.

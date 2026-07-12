@@ -12,6 +12,11 @@ const AUTO_ALLOW = new Set<string>([
   "search_files",
   "glob_files",
   "search_codebase",
+  "browser_inspect",
+  "browser_assert_url",
+  "browser_assert_text",
+  "desktop_inspect",
+  "desktop_assert_control",
   // Self-management tools operate on local app data, not user files, and are
   // low-risk; requiring approval on every memory/skill access would be noise.
   "m_remember",
@@ -20,6 +25,8 @@ const AUTO_ALLOW = new Set<string>([
   "m_list_memories",
   "m_list_skills",
   "m_get_skill",
+  "m_list_capabilities",
+  "m_capability_status",
 ]);
 
 export function classifyTool(name: string): Permission {
@@ -156,8 +163,11 @@ export interface PolicyInput {
   name: string;
   /** the shell command string, when name === "run_command" */
   command?: string;
+  args?: Readonly<Record<string, unknown>>;
   autoApprove: boolean;
 }
+
+const IRREVERSIBLE_ACTION_PATTERN = /\b(delete|destroy|remove|submit|publish|pay|send|confirm|purchase)\b/i;
 
 /** Resolve whether a tool call runs, prompts, or is denied. Centralizes the
  *  whole policy so the agent runner stays thin and the rules stay testable. */
@@ -165,6 +175,14 @@ export function resolvePermission(input: PolicyInput): PolicyDecision {
   const base = classifyTool(input.name);
   if (base === "deny") return { action: "deny", autoApproved: false };
   if (base === "allow") return { action: "run", autoApproved: false };
+
+  if (
+    (input.name === "browser_click" || input.name === "desktop_invoke")
+    && typeof input.args?.name === "string"
+    && IRREVERSIBLE_ACTION_PATTERN.test(input.args.name)
+  ) {
+    return { action: "prompt", autoApproved: false, risk: "destructive" };
+  }
 
   // base === "ask": mutating or elevated tools.
   if (input.name === "run_command") {

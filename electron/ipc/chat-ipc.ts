@@ -3,6 +3,8 @@
 // Wires renderer requests to the agent runner. One AbortController + one
 // ApprovalBroker per in-flight turn.
 
+import { randomUUID } from "node:crypto";
+
 import { clipboard, dialog, ipcMain, shell } from "electron";
 
 import { IPC } from "../../common/ipc-contract";
@@ -14,14 +16,22 @@ import type {
   SkillCreateRequest,
   SkillUpdateRequest,
   SkillRenameRequest,
+  TaskSpec,
   ToolApprovalDecision,
   TranscribeRequest,
   TranscribeResult,
 } from "../../common/types";
 import { runTurn } from "../backend/moss/agent-runner";
+import type { CompletionContext } from "../backend/moss/agent-runner";
 import { ApprovalBroker } from "../backend/moss/approval-broker";
+import { createBrowserTools } from "../backend/moss/browser/browser-tools";
+import { createPlaywrightDriverFactory } from "../backend/moss/browser/playwright-driver";
+import { routeLiveCapabilities } from "../backend/moss/capabilities/live-capabilities";
+import { createBundledCapabilityTools } from "../backend/moss/capabilities/bundled-catalog";
 import { checkpointStore } from "../backend/moss/checkpoint/checkpoint-store";
 import { codebaseIndex } from "../backend/moss/codebase/codebase-index";
+import { createDesktopTools } from "../backend/moss/desktop/desktop-tools";
+import { createWindowsUiaDriverFactory } from "../backend/moss/desktop/windows-uia-driver";
 import {
   addMcpServer,
   ensureMcpConfig,
@@ -32,12 +42,18 @@ import {
   type McpServerConfig,
 } from "../backend/moss/mcp/mcp-config";
 import { mcpManager } from "../backend/moss/mcp/mcp-manager";
+import { RunJournal } from "../backend/moss/learning/run-journal";
+import { createRetrospective } from "../backend/moss/learning/retrospective";
+import { LessonStore } from "../backend/moss/learning/lesson-store";
 import { memoryStore } from "../backend/moss/memory/memory-store";
 import { createProvider } from "../backend/moss/providers";
 import { skillsStore } from "../backend/moss/skills/skills-store";
 import { transcribeAudio } from "../backend/moss/stt";
 import { buildSystemMessage } from "../backend/moss/system-prompt";
+import { taskEngine } from "../backend/moss/task/task-engine";
+import { taskStore } from "../backend/moss/task/task-store";
 import { TOOL_DEFINITIONS, TOOL_REGISTRY } from "../backend/moss/tools";
+import { detectWorkspaceVerificationChecks, VerificationRegistry } from "../backend/moss/verify/verification-registry";
 
 interface Inflight {
   controller: AbortController;
@@ -45,8 +61,14 @@ interface Inflight {
 }
 
 const inflight = new Map<string, Inflight>();
+const runJournal = new RunJournal();
+const lessonStore = new LessonStore();
+const verificationRegistry = new VerificationRegistry();
+let bundledCapabilityTools: ReturnType<typeof createBundledCapabilityTools> | undefined;
+let capabilityHistoryCache = new Map<string, { successCount: number; failureCount: number }>();
 
 export function registerChatIpc(): void {
+  void refreshCapabilityHistory();
   ipcMain.on(IPC.chatStart, (event, req: ChatStartRequest) => {
     void startTurn(event, req);
   });
@@ -62,6 +84,14 @@ export function registerChatIpc(): void {
   ipcMain.on(IPC.toolApprove, (_event, decision: ToolApprovalDecision) => {
     inflight.get(decision.turnId)?.broker.resolve(decision.callId, decision.approved);
   });
+
+  ipcMain.handle(IPC.taskCreate, (_event, spec: TaskSpec, id?: string) => taskEngine.create(spec, id));
+  ipcMain.handle(IPC.taskList, () => taskStore.list());
+  ipcMain.handle(IPC.taskGet, (_event, id: string) => taskStore.get(id));
+  ipcMain.handle(IPC.taskStart, (_event, id: string) => taskEngine.start(id));
+  ipcMain.handle(IPC.taskPause, (_event, id: string, summary: string) => taskEngine.pause(id, summary));
+  ipcMain.handle(IPC.taskResume, (_event, id: string) => taskEngine.start(id));
+  ipcMain.handle(IPC.taskCancel, (_event, id: string) => taskEngine.cancel(id));
 
   ipcMain.handle(IPC.providerListModels, async (_event, config: ChatStartRequest["config"]) => {
     const provider = createProvider(config);
@@ -162,7 +192,11 @@ async function startTurn(event: Electron.IpcMainEvent, req: ChatStartRequest): P
   const broker = new ApprovalBroker();
   inflight.set(req.turnId, { controller, broker });
 
+  let terminalEvent: Extract<MossEvent, { type: "turn-complete" | "turn-aborted" | "turn-error" }> | undefined;
   const send = (mossEvent: MossEvent) => {
+    if (mossEvent.type === "turn-complete" || mossEvent.type === "turn-aborted" || mossEvent.type === "turn-error") {
+      terminalEvent = mossEvent;
+    }
     if (!event.sender.isDestroyed()) {
       event.sender.send(IPC.chatEvent, { turnId: req.turnId, event: mossEvent });
     }
@@ -171,20 +205,26 @@ async function startTurn(event: Electron.IpcMainEvent, req: ChatStartRequest): P
   try {
     const provider = createProvider(req.config);
     const enableTools = req.enableTools !== false;
+    const automationTools = enableTools ? createAutomationTools(req) : [];
+    bundledCapabilityTools ??= createBundledCapabilityTools();
     // Merge built-in tools with any connected MCP tools for this turn. MCP
     // servers connect at runtime, so the merge is recomputed per turn rather
     // than baked into the static built-in registry.
     const mcpTools = enableTools ? mcpManager.getTools() : [];
+    const browserTools = automationTools.filter((tool) => tool.name.startsWith("browser_"));
+    const desktopTools = automationTools.filter((tool) => tool.name.startsWith("desktop_"));
+    const routed = enableTools
+      ? routeLiveCapabilities([
+          { source: "built-in", tools: [...TOOL_REGISTRY.values(), ...bundledCapabilityTools] },
+          { source: "mcp", tools: mcpTools },
+          { source: "browser", tools: browserTools },
+          { source: "desktop", tools: desktopTools },
+        ], req, process.platform, capabilityHistoryCache)
+      : { tools: [], unmet: [] };
     const toolDefinitions = enableTools
-      ? [
-          ...TOOL_DEFINITIONS,
-          ...mcpTools.map((t) => ({ name: t.name, description: t.description, parameters: t.parameters })),
-        ]
+      ? routed.tools.map((tool) => ({ name: tool.name, description: tool.description, parameters: tool.parameters }))
       : [];
-    const toolRegistry =
-      mcpTools.length > 0
-        ? new Map([...TOOL_REGISTRY, ...mcpTools.map((t) => [t.name, t] as const)])
-        : TOOL_REGISTRY;
+    const toolRegistry = new Map(routed.tools.map((tool) => [tool.name, tool]));
     // Prepend a fresh system message (base instructions + skills index + memory)
     // unless the renderer already supplied one. The latest user message drives
     // query-aware memory selection.
@@ -200,6 +240,14 @@ async function startTurn(event: Electron.IpcMainEvent, req: ChatStartRequest): P
     if (workspaceRoot) checkpointStore.prune();
     // Give the fix/verify cycle extra rounds to converge when verification runs.
     const verifyEnabled = req.verify?.enabled === true && (req.verify.commands?.length ?? 0) > 0;
+    let attemptId: string | undefined;
+    let acceptedCompletion: CompletionContext | undefined;
+    const task = req.taskSpec ? await ensureTurnTask(req.taskId ?? req.turnId, req.taskSpec, send) : undefined;
+    if (task) {
+      const attempt = await taskEngine.beginAttempt(task.id, "execute-request");
+      attemptId = attempt.attempt.id;
+      send({ type: "task-state", task: attempt.task });
+    }
     await runTurn({
       provider,
       model: req.config.model,
@@ -217,11 +265,208 @@ async function startTurn(event: Electron.IpcMainEvent, req: ChatStartRequest): P
       turnId: req.turnId,
       checkpoint,
       verify: req.verify,
+      ...(task
+        ? {
+            completionGuard: (context: CompletionContext) => {
+              const verificationFailed = context.latestVerification?.ok === false;
+              const hasExecutionEvidence = context.successfulToolCalls > 0 || !enableTools;
+              const accept = !verificationFailed && context.failedToolCalls === 0 && hasExecutionEvidence;
+              if (accept) acceptedCompletion = context;
+              return {
+                accept,
+                feedback: verificationFailed
+                  ? "Verification failed. Diagnose the failure, repair the task, and run verification again before completing."
+                  : context.failedToolCalls > 0
+                    ? "One or more tools failed. Recover with corrected arguments, an alternate tool, or a revised plan before completing."
+                    : "Do not stop yet. Use the available tools to inspect or perform the requested task, then verify the result before completing.",
+              };
+            },
+          }
+        : {}),
       ...(verifyEnabled ? { maxRounds: 12 } : {}),
     });
+    if (task && attemptId) {
+      await finalizeTurnTask(task.id, attemptId, acceptedCompletion, terminalEvent, workspaceRoot, controller.signal, send);
+    }
   } catch (err) {
     send({ type: "turn-error", message: err instanceof Error ? err.message : String(err), messages: [] });
   } finally {
     inflight.delete(req.turnId);
   }
+}
+
+function createAutomationTools(req: ChatStartRequest) {
+  const automation = req.automation;
+  if (!automation) return [];
+  const tools = [];
+  if (automation.browserEnabled && automation.browserAllowedDomains.length > 0) {
+    tools.push(...createBrowserTools({
+      driverFactory: createPlaywrightDriverFactory({
+        headless: automation.browserHeadless,
+        allowedDomains: automation.browserAllowedDomains,
+      }),
+      allowedDomains: automation.browserAllowedDomains,
+    }));
+  }
+  if (
+    automation.desktopEnabled
+    && automation.desktopAllowedProcesses.length > 0
+    && automation.desktopAllowedWindows.length > 0
+  ) {
+    tools.push(...createDesktopTools({
+      driverFactory: createWindowsUiaDriverFactory(),
+      allowedProcesses: automation.desktopAllowedProcesses,
+      allowedWindows: automation.desktopAllowedWindows,
+    }));
+  }
+  return tools;
+}
+
+async function ensureTurnTask(
+  taskId: string,
+  spec: TaskSpec,
+  send: (event: MossEvent) => void,
+): Promise<NonNullable<Awaited<ReturnType<typeof taskStore.get>>>> {
+  let task = await taskStore.get(taskId);
+  if (!task) task = await taskEngine.create(spec, taskId);
+  if (task.state === "intake") {
+    task = await taskEngine.setPlan(task.id, [
+      {
+        id: "execute-request",
+        description: "Inspect, execute, and verify the user's request",
+        state: "pending",
+        dependsOn: [],
+        requiredCapabilities: [],
+      },
+    ]);
+  }
+  send({ type: "task-state", task });
+  return task;
+}
+
+async function finalizeTurnTask(
+  taskId: string,
+  attemptId: string,
+  completion: CompletionContext | undefined,
+  terminalEvent: Extract<MossEvent, { type: "turn-complete" | "turn-aborted" | "turn-error" }> | undefined,
+  workspaceRoot: string,
+  signal: AbortSignal,
+  send: (event: MossEvent) => void,
+): Promise<void> {
+  const usage = completion?.messages.reduce(
+    (total, message) => ({
+      inputTokens: (total.inputTokens ?? 0) + (message.usage?.inputTokens ?? 0),
+      outputTokens: (total.outputTokens ?? 0) + (message.usage?.outputTokens ?? 0),
+    }),
+    {} as { inputTokens?: number; outputTokens?: number },
+  );
+  await taskEngine.recordUsage(taskId, attemptId, {
+    actions: (completion?.successfulToolCalls ?? 0) + (completion?.failedToolCalls ?? 0),
+    usage,
+  });
+
+  let task;
+  if (terminalEvent?.type === "turn-complete" && completion) {
+    task = await taskEngine.finishAttempt(taskId, attemptId, "succeeded");
+    task = await taskEngine.beginVerification(taskId);
+    send({ type: "task-state", task });
+    const criterion = task.spec.acceptanceCriteria.find((item) => item.mandatory)!;
+    const structuredEvidence = !completion.latestVerification && completion.mutations > 0 && workspaceRoot
+      ? await verificationRegistry.runChecks(
+          await detectWorkspaceVerificationChecks(workspaceRoot, criterion.id),
+          workspaceRoot,
+          signal,
+        )
+      : [];
+    if (structuredEvidence.length > 0) {
+      for (const evidence of structuredEvidence) {
+        task = await taskEngine.recordEvidence(taskId, {
+          id: evidence.checkId,
+          criterionId: criterion.id,
+          kind: evidence.kind === "command" ? "command" : "external",
+          passed: evidence.ok,
+          summary: evidence.details ? `${evidence.summary}\n${evidence.details}` : evidence.summary,
+          capturedAt: evidence.timestamp,
+          attemptId,
+        });
+      }
+    } else {
+      task = await taskEngine.recordEvidence(taskId, {
+        id: randomUUID(),
+        criterionId: criterion.id,
+        kind: completion.latestVerification ? "command" : "model-review",
+        passed: completion.latestVerification?.ok ?? completion.failedToolCalls === 0,
+        summary: completion.latestVerification
+          ? "Configured verification completed"
+          : completion.mutations > 0
+            ? "No deterministic workspace verification command was available; completion passed model review"
+            : "Non-mutating task completed without tool or verification failures",
+        capturedAt: new Date().toISOString(),
+        attemptId,
+      });
+    }
+    const currentEvidence = task.evidence.filter(
+      (item) => item.criterionId === criterion.id && item.attemptId === attemptId,
+    );
+    const failedEvidence = currentEvidence.filter((item) => !item.passed);
+    if (failedEvidence.length > 0) {
+      task = await taskEngine.block(taskId, {
+        kind: "verification",
+        summary: failedEvidence.map((item) => item.summary).join("\n"),
+        resumable: true,
+        createdAt: new Date().toISOString(),
+      });
+    } else {
+      task = await taskEngine.complete(taskId);
+    }
+  } else if (terminalEvent?.type === "turn-aborted") {
+    await taskEngine.finishAttempt(taskId, attemptId, "interrupted", "User aborted the task");
+    task = await taskEngine.cancel(taskId);
+  } else {
+    const message = terminalEvent?.type === "turn-error" ? terminalEvent.message : "Task execution ended unexpectedly";
+    await taskEngine.finishAttempt(taskId, attemptId, "failed", message);
+    task = await taskEngine.block(taskId, {
+      kind: "external",
+      summary: message,
+      resumable: true,
+      createdAt: new Date().toISOString(),
+    });
+  }
+  send({ type: "task-state", task });
+  await recordTaskLearning(task, completion?.usedToolNames ?? []).catch(() => undefined);
+}
+
+async function recordTaskLearning(
+  task: NonNullable<Awaited<ReturnType<typeof taskStore.get>>>,
+  capabilityIds: string[],
+): Promise<void> {
+  const outcome = task.state === "completed" ? "completed" : task.state === "cancelled" ? "cancelled" : "blocked";
+  const record = await runJournal.append({
+    taskId: task.id,
+    objectiveClass: task.spec.objective.slice(0, 200).trim() || "task",
+    capabilityIds,
+    attempts: task.attempts.map((attempt, index) => ({
+      capabilityId: "agent-runner",
+      attempt: index + 1,
+      result: attempt.outcome === "succeeded" ? "succeeded" : outcome === "blocked" ? "blocked" : "failed",
+      summary: attempt.error ?? attempt.outcome ?? "unknown",
+    })),
+    failures: task.attempts.filter((attempt) => attempt.error).map((attempt) => ({ category: "execution", summary: attempt.error! })),
+    recoveryChoices: [],
+    criteria: task.spec.acceptanceCriteria.map((criterion) => ({
+      criterionId: criterion.id,
+      passed: task.evidence.some((evidence) => evidence.criterionId === criterion.id && evidence.passed),
+      summary: criterion.description,
+    })),
+    outcome,
+    durationMs: Math.max(0, new Date(task.updatedAt).getTime() - new Date(task.createdAt).getTime()),
+    costUsd: task.attempts.reduce((total, attempt) => total + attempt.estimatedCostUsd, 0),
+    userOverrides: [],
+  });
+  await lessonStore.merge(createRetrospective(record));
+  await refreshCapabilityHistory();
+}
+
+async function refreshCapabilityHistory(): Promise<void> {
+  capabilityHistoryCache = await lessonStore.capabilityHistory();
 }

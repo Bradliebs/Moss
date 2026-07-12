@@ -102,6 +102,16 @@ describe("resolvePermission", () => {
     });
   });
 
+  it("always prompts irreversible browser and desktop actions", () => {
+    for (const name of ["browser_click", "desktop_invoke"]) {
+      expect(resolvePermission({ name, args: { name: "Confirm purchase" }, autoApprove: true })).toEqual({
+        action: "prompt",
+        autoApproved: false,
+        risk: "destructive",
+      });
+    }
+  });
+
   it("treats other shell commands as mutating", () => {
     expect(resolvePermission({ name: "run_command", command: "npm install", autoApprove: false }).action).toBe("prompt");
     expect(resolvePermission({ name: "run_command", command: "npm install", autoApprove: true })).toEqual({

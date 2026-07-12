@@ -16,6 +16,8 @@ import type {
   SkillCreateRequest,
   SkillUpdateRequest,
   SkillRenameRequest,
+  TaskSnapshot,
+  TaskSpec,
   ToolApprovalDecision,
   TranscribeRequest,
   TranscribeResult,
@@ -39,6 +41,15 @@ declare global {
       };
       tool: {
         approve: (decision: ToolApprovalDecision) => void;
+      };
+      task: {
+        create: (spec: TaskSpec, id?: string) => Promise<TaskSnapshot>;
+        list: () => Promise<TaskSnapshot[]>;
+        get: (id: string) => Promise<TaskSnapshot | null>;
+        start: (id: string) => Promise<TaskSnapshot>;
+        pause: (id: string, summary: string) => Promise<TaskSnapshot>;
+        resume: (id: string) => Promise<TaskSnapshot>;
+        cancel: (id: string) => Promise<TaskSnapshot>;
       };
       provider: {
         listModels: (config: ProviderConfig) => Promise<string[]>;

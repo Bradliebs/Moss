@@ -17,6 +17,11 @@ files:
   - package.json
 
 asar: true
+extraResources:
+  - from: electron/backend/moss/capabilities/catalog-artifacts
+    to: catalog-artifacts
+    filter:
+      - "**/*"
 # No native modules are compiled, so skip the rebuild step.
 npmRebuild: false
 

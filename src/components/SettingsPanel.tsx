@@ -366,6 +366,69 @@ export function SettingsPanel({ onClose }: { onClose: () => void }): React.React
           </section>
 
           <section className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-400">Browser automation</h3>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                className="accent-emerald-500"
+                checked={settings.browserEnabled === true}
+                disabled={!settings.enableTools}
+                onChange={(e) => updateSettings({ browserEnabled: e.target.checked })}
+              />
+              Enable isolated browser sessions
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-neutral-600 dark:text-neutral-400">Allowed domains</span>
+              <textarea
+                className="h-20 w-full resize-y rounded bg-neutral-200 dark:bg-neutral-800 px-2 py-1 font-mono text-xs"
+                placeholder={"example.com\ndocs.example.com"}
+                value={settings.browserAllowedDomains ?? ""}
+                onChange={(e) => updateSettings({ browserAllowedDomains: e.target.value })}
+              />
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                className="accent-emerald-500"
+                checked={settings.browserHeadless !== false}
+                onChange={(e) => updateSettings({ browserHeadless: e.target.checked })}
+              />
+              Run browser headlessly
+            </label>
+          </section>
+
+          <section className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-400">Windows desktop automation</h3>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                className="accent-emerald-500"
+                checked={settings.desktopEnabled === true}
+                disabled={!settings.enableTools}
+                onChange={(e) => updateSettings({ desktopEnabled: e.target.checked })}
+              />
+              Enable semantic UI Automation
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-neutral-600 dark:text-neutral-400">Allowed process names</span>
+              <textarea
+                className="h-16 w-full resize-y rounded bg-neutral-200 dark:bg-neutral-800 px-2 py-1 font-mono text-xs"
+                placeholder={"notepad.exe\nCode.exe"}
+                value={settings.desktopAllowedProcesses ?? ""}
+                onChange={(e) => updateSettings({ desktopAllowedProcesses: e.target.value })}
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-neutral-600 dark:text-neutral-400">Allowed exact window titles</span>
+              <textarea
+                className="h-16 w-full resize-y rounded bg-neutral-200 dark:bg-neutral-800 px-2 py-1 font-mono text-xs"
+                value={settings.desktopAllowedWindows ?? ""}
+                onChange={(e) => updateSettings({ desktopAllowedWindows: e.target.value })}
+              />
+            </label>
+          </section>
+
+          <section className="space-y-2">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-400">Custom instructions</h3>
             <textarea
               className="h-24 w-full resize-y rounded bg-neutral-200 dark:bg-neutral-800 px-2 py-1"
@@ -389,6 +452,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }): React.React
             <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-400">Personality</h3>
             <select
               className="w-full rounded bg-neutral-200 dark:bg-neutral-800 px-2 py-1"
+              aria-label="Personality"
               value={settings.personalityId}
               onChange={(e) => updateSettings({ personalityId: e.target.value })}
             >

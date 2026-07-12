@@ -16,6 +16,9 @@ export interface ToolContext {
   /** when present, mutating tools snapshot a file's pre-image before changing
    *  it so the turn's edits can be reverted */
   checkpoint?: CheckpointRecorder;
+  /** Trusted runtime state: true only when the user approved this exact tool
+   *  call through the approval broker. Never sourced from model arguments. */
+  approvalGranted?: boolean;
 }
 
 export interface ToolResult {

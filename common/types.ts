@@ -38,6 +38,17 @@ export interface EmbedConfig {
   model: string;
 }
 
+/** Task-scoped browser and Windows desktop automation policy. Empty allowlists
+ *  disable the corresponding capability even when its master switch is true. */
+export interface AutomationConfig {
+  browserEnabled: boolean;
+  browserAllowedDomains: string[];
+  browserHeadless?: boolean;
+  desktopEnabled: boolean;
+  desktopAllowedProcesses: string[];
+  desktopAllowedWindows: string[];
+}
+
 /** Outcome of a codebase reindex, surfaced to the settings UI. */
 export interface CodebaseReindexResult {
   ok: boolean;
@@ -68,6 +79,125 @@ export interface VerifyConfig {
   commands: string[];
   /** max times verification runs per turn before the loop stops re-checking */
   maxCycles?: number;
+}
+
+// --- Durable task execution -------------------------------------------------
+
+export type TaskState =
+  | "intake"
+  | "planning"
+  | "executing"
+  | "verifying"
+  | "reflecting"
+  | "waiting_for_approval"
+  | "paused"
+  | "blocked"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export type TaskStepState = "pending" | "running" | "completed" | "failed" | "skipped";
+
+export interface TaskBudget {
+  /** Maximum wall-clock runtime in milliseconds; 0 or absent means unlimited. */
+  maxDurationMs?: number;
+  /** Maximum model input and output tokens combined; 0 or absent means unlimited. */
+  maxTokens?: number;
+  /** Maximum tool calls across all attempts; 0 or absent means unlimited. */
+  maxActions?: number;
+  /** Maximum estimated provider cost in USD; 0 or absent means unlimited. */
+  maxCostUsd?: number;
+}
+
+export interface TaskAcceptanceCriterion {
+  id: string;
+  description: string;
+  mandatory: boolean;
+}
+
+export interface TaskEvidence {
+  id: string;
+  criterionId: string;
+  kind: "command" | "file" | "process" | "http" | "browser" | "desktop" | "external" | "model-review";
+  passed: boolean;
+  summary: string;
+  capturedAt: string;
+  attemptId?: string;
+}
+
+export interface TaskStep {
+  id: string;
+  description: string;
+  state: TaskStepState;
+  dependsOn: string[];
+  requiredCapabilities: string[];
+  startedAt?: string;
+  completedAt?: string;
+  error?: string;
+}
+
+export type TaskBlockerKind =
+  | "approval"
+  | "verification"
+  | "credential"
+  | "permission"
+  | "missing-capability"
+  | "unavailable-service"
+  | "unsupported-environment"
+  | "budget"
+  | "user-decision"
+  | "external";
+
+export interface TaskBlocker {
+  kind: TaskBlockerKind;
+  summary: string;
+  resumable: boolean;
+  createdAt: string;
+  resolution?: string;
+}
+
+export interface TaskAttempt {
+  id: string;
+  stepId?: string;
+  startedAt: string;
+  completedAt?: string;
+  outcome?: "succeeded" | "failed" | "interrupted";
+  actionCount: number;
+  usage: TokenUsage;
+  estimatedCostUsd: number;
+  error?: string;
+}
+
+export interface TaskSpec {
+  objective: string;
+  acceptanceCriteria: TaskAcceptanceCriterion[];
+  constraints: string[];
+  assumptions: string[];
+  workspaceRoot?: string;
+  budget?: TaskBudget;
+}
+
+export interface TaskLease {
+  ownerId: string;
+  acquiredAt: string;
+  expiresAt: string;
+}
+
+/** Materialized durable task state. It is persisted after each transition so
+ *  main-process execution can resume after a renderer reload or app restart. */
+export interface TaskSnapshot {
+  id: string;
+  spec: TaskSpec;
+  state: TaskState;
+  steps: TaskStep[];
+  evidence: TaskEvidence[];
+  attempts: TaskAttempt[];
+  blocker?: TaskBlocker;
+  lease?: TaskLease;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+  revision: number;
 }
 
 export type ChatRole = "system" | "user" | "assistant" | "tool";
@@ -138,12 +268,16 @@ export type MossEvent =
   | { type: "tool-approval-request"; callId: string; name: string; arguments: string; risk?: ToolRisk }
   | { type: "tool-result"; callId: string; name: string; ok: boolean; content: string; autoApproved: boolean; risk?: ToolRisk; durationMs?: number }
   | { type: "notice"; level: "info" | "warn"; message: string }
+  | { type: "task-state"; task: TaskSnapshot }
   | { type: "turn-complete"; messages: AgentMessage[] }
   | { type: "turn-aborted"; messages: AgentMessage[] }
   | { type: "turn-error"; message: string; messages: AgentMessage[] };
 
 export interface ChatStartRequest {
   turnId: string;
+  /** Existing durable task to continue. Distinct from the ephemeral turn ID
+   *  used for streaming, approvals, cancellation, and checkpoints. */
+  taskId?: string;
   config: ProviderConfig;
   messages: AgentMessage[];
   /** absolute path tools are sandboxed to; empty = no filesystem access */
@@ -169,6 +303,10 @@ export interface ChatStartRequest {
   verify?: VerifyConfig;
   /** embeddings config so the search_codebase tool can embed queries */
   embed?: EmbedConfig;
+  /** When present, execute this turn as a durable autonomous task. Callers may
+   *  omit it for ordinary chat that should stop after one assistant response. */
+  taskSpec?: TaskSpec;
+  automation?: AutomationConfig;
 }
 
 export interface ToolApprovalDecision {

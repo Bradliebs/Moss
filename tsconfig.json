@@ -15,9 +15,9 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "baseUrl": ".",
+    "forceConsistentCasingInFileNames": true,
     "paths": {
-      "@common/*": ["common/*"]
+      "@common/*": ["./common/*"]
     }
   },
   "include": ["src", "common"],

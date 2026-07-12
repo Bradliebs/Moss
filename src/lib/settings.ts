@@ -33,6 +33,12 @@ export interface MossSettings {
   enableTools: boolean;
   /** when true, tools that mutate files or run commands run without prompting */
   autoApproveTools: boolean;
+  browserEnabled: boolean;
+  browserAllowedDomains: string;
+  browserHeadless: boolean;
+  desktopEnabled: boolean;
+  desktopAllowedProcesses: string;
+  desktopAllowedWindows: string;
   /** user-authored persona/instructions appended to the system prompt; the
    *  built-in safety section is always kept regardless of this value */
   customInstructions: string;
@@ -76,6 +82,12 @@ const DEFAULT_SETTINGS: MossSettings = {
   model: "",
   enableTools: true,
   autoApproveTools: false,
+  browserEnabled: false,
+  browserAllowedDomains: "",
+  browserHeadless: true,
+  desktopEnabled: false,
+  desktopAllowedProcesses: "",
+  desktopAllowedWindows: "",
   customInstructions: "",
   personalityId: DEFAULT_PERSONALITY_ID,
   adaptiveTone: false,

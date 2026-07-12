@@ -7,11 +7,14 @@
 import type { AgentMessage, EmailConfig, EmbedConfig, MossEvent, SttConfig, TokenUsage, ToolCall, ToolDefinition, VerifyConfig } from "../../../common/types";
 import type { CheckpointRecorder } from "./checkpoint/checkpoint-store";
 import { resolvePermission } from "./permission";
+import { classifyTool } from "./permission";
 import type { CommandRisk } from "./permission";
 import { ProviderError } from "./providers/types";
 import type { ChatProvider } from "./providers/types";
 import type { Tool, ToolResult } from "./tools";
+import { RecoveryPolicy } from "./task/recovery-policy";
 import { formatVerifyReport, runVerify } from "./verify/verifier";
+import type { VerifyResult } from "./verify/verifier";
 
 const MAX_ROUNDS = 8;
 /** Default cap on how many times verification runs per turn, so a stubborn
@@ -28,6 +31,7 @@ const STREAM_RETRY_BASE_MS = 500;
 const MAX_TOOL_RESULT_CHARS = 8000;
 /** Per-tool execution timeout backstop for a hung or non-cooperative tool. */
 const TOOL_TIMEOUT_MS = 180_000;
+const recoveryPolicy = new RecoveryPolicy();
 
 export interface RunTurnOptions {
   provider: ChatProvider;
@@ -60,6 +64,26 @@ export interface RunTurnOptions {
   streamRetryBaseMs?: number;
   /** per-tool execution timeout (ms); overridable for tests. */
   toolTimeoutMs?: number;
+  /** Optional task-level completion gate. Ordinary chat omits this and keeps
+   *  the historical behavior; durable tasks use it to reject unsupported
+   *  completion claims and drive another model round. */
+  completionGuard?: (context: CompletionContext) => Promise<CompletionDecision> | CompletionDecision;
+}
+
+export interface CompletionContext {
+  assistantText: string;
+  successfulToolCalls: number;
+  failedToolCalls: number;
+  mutations: number;
+  latestVerification?: VerifyResult;
+  messages: AgentMessage[];
+  usedToolNames: string[];
+}
+
+export interface CompletionDecision {
+  accept: boolean;
+  /** Model-facing instruction used when completion is rejected. */
+  feedback?: string;
 }
 
 export async function runTurn(opts: RunTurnOptions): Promise<void> {
@@ -81,6 +105,12 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
   const verifyCommands = opts.verify?.enabled ? (opts.verify.commands ?? []).filter((c) => c.trim()) : [];
   let verifyCyclesLeft =
     verifyCommands.length > 0 && opts.workspaceRoot ? opts.verify?.maxCycles ?? DEFAULT_VERIFY_CYCLES : 0;
+  let successfulToolCalls = 0;
+  let failedToolCalls = 0;
+  let mutations = 0;
+  let latestVerification: VerifyResult | undefined;
+  const failedActionSignatures: string[] = [];
+  const usedToolNames = new Set<string>();
 
   try {
     for (let round = 0; round < maxRounds; round++) {
@@ -152,14 +182,34 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
       pendingText = "";
 
       if (calls.length === 0) {
+        if (opts.completionGuard) {
+          const decision = await opts.completionGuard({
+            assistantText: assistantMsg.content,
+            successfulToolCalls,
+            failedToolCalls,
+            mutations,
+            latestVerification,
+            messages: [...newMessages],
+            usedToolNames: [...usedToolNames].sort(),
+          });
+          if (!decision.accept) {
+            const feedback =
+              decision.feedback?.trim() ||
+              "Completion was not accepted. Continue working, resolve remaining failures, and provide verification evidence.";
+            conversation.push({ role: "user", content: feedback });
+            onEvent({ type: "notice", level: "warn", message: "Completion rejected; continuing task" });
+            continue;
+          }
+        }
         onEvent({ type: "turn-complete", messages: newMessages });
         return;
       }
 
       for (const call of calls) {
+        usedToolNames.add(call.name);
         onEvent({ type: "tool-call", callId: call.id, name: call.name, arguments: call.arguments });
         const startedAt = Date.now();
-        const { result, autoApproved, risk } = await executeCall(call, opts);
+        const { result, autoApproved, risk } = await executeCallWithRecovery(call, opts, failedActionSignatures);
         const durationMs = Date.now() - startedAt;
         const toolMsg: AgentMessage = {
           role: "tool",
@@ -177,8 +227,11 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
         // provider; only newMessages and the renderer keep it.
         const convToolMsg = { role: "tool" as const, content: truncateForModel(result.content), toolCallId: call.id };
         conversation.push(convToolMsg);
-        if (MUTATING_FS_TOOLS.has(call.name) && result.ok) {
+        if (result.ok) successfulToolCalls++;
+        else failedToolCalls++;
+        if (result.ok && isVerificationMutation(call.name, risk)) {
           mutatedThisRound = true;
+          mutations++;
           lastConvToolMsg = convToolMsg;
         }
         onEvent({
@@ -204,6 +257,7 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
         const verifyResult = await runVerify(verifyCommands, opts.workspaceRoot, signal, {
           commandTimeoutMs: opts.toolTimeoutMs,
         });
+        latestVerification = verifyResult;
         const report = formatVerifyReport(verifyResult);
         if (report) {
           lastConvToolMsg.content = `${lastConvToolMsg.content}\n\n${report}`;
@@ -218,7 +272,7 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
       }
     }
 
-    onEvent({ type: "turn-error", message: `Stopped after ${MAX_ROUNDS} tool rounds`, messages: newMessages });
+    onEvent({ type: "turn-error", message: `Stopped after ${maxRounds} tool rounds`, messages: newMessages });
   } catch (err) {
     if (signal.aborted) {
       onEvent({ type: "turn-aborted", messages: newMessages });
@@ -231,6 +285,52 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
     }
     onEvent({ type: "turn-error", message: err instanceof Error ? err.message : String(err), messages: newMessages });
   }
+}
+
+async function executeCallWithRecovery(
+  call: ToolCall,
+  opts: RunTurnOptions,
+  failedActionSignatures: string[],
+): Promise<ExecOutcome> {
+  const signature = `${call.name}:${call.arguments}`;
+  let retryCount = 0;
+  for (;;) {
+    const outcome = await executeCall(call, opts);
+    if (outcome.result.ok) return outcome;
+    const decision = recoveryPolicy.decide(outcome.result.content, {
+      retryCount,
+      actionSignature: signature,
+      previousActionSignatures: failedActionSignatures,
+    });
+    const canSafelyRetry = decision.action === "retry-with-backoff" && classifyTool(call.name) === "allow";
+    if (canSafelyRetry) {
+      retryCount++;
+      opts.onEvent({
+        type: "notice",
+        level: "warn",
+        message: `${call.name} failed transiently; retrying (${retryCount})`,
+      });
+      await delay(decision.retryAfterMs ?? 0, opts.signal);
+      if (opts.signal.aborted) return outcome;
+      continue;
+    }
+    failedActionSignatures.push(signature);
+    const safeAction = decision.action === "retry-with-backoff" ? "replan" : decision.action;
+    if (safeAction === "fail") return outcome;
+    return {
+      ...outcome,
+      result: {
+        ok: false,
+        content: `${outcome.result.content}\n\nRecovery classification: ${decision.classification}. Required action: ${safeAction}. ${decision.reason}`,
+      },
+    };
+  }
+}
+
+function isVerificationMutation(name: string, risk?: CommandRisk): boolean {
+  if (MUTATING_FS_TOOLS.has(name)) return true;
+  if (name === "run_command") return risk === "mutating" || risk === "destructive";
+  return name.startsWith("mcp__") && risk !== "readonly";
 }
 
 interface ExecOutcome {
@@ -260,12 +360,14 @@ async function executeCall(call: ToolCall, opts: RunTurnOptions): Promise<ExecOu
   const decision = resolvePermission({
     name: call.name,
     command: call.name === "run_command" ? String(args.command ?? "") : undefined,
+    args,
     autoApprove: opts.autoApprove === true,
   });
   if (decision.action === "deny") {
     return { result: { ok: false, content: `Denied by policy: ${call.name}` }, autoApproved: false };
   }
 
+  let approvalGranted = false;
   if (decision.action === "prompt") {
     opts.onEvent({
       type: "tool-approval-request",
@@ -276,11 +378,12 @@ async function executeCall(call: ToolCall, opts: RunTurnOptions): Promise<ExecOu
     });
     const approved = await opts.requestApproval(call.id);
     if (!approved) return { result: { ok: false, content: `User denied: ${call.name}` }, autoApproved: false };
+    approvalGranted = true;
   }
 
   try {
     const result = await runWithTimeout(
-      (sig) => tool.execute(args, { workspaceRoot: opts.workspaceRoot, signal: sig, stt: opts.stt, email: opts.email, embed: opts.embed, checkpoint: opts.checkpoint }),
+      (sig) => tool.execute(args, { workspaceRoot: opts.workspaceRoot, signal: sig, stt: opts.stt, email: opts.email, embed: opts.embed, checkpoint: opts.checkpoint, approvalGranted }),
       opts.signal,
       opts.toolTimeoutMs ?? TOOL_TIMEOUT_MS,
       call.name,

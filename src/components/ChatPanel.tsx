@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import type { AgentMessage, ChatEventPayload, TokenUsage } from "@common/types";
+import type { AgentMessage, ChatEventPayload, TaskSnapshot, TokenUsage } from "@common/types";
 import { PERSONALITY_PRESETS } from "@common/personalities";
 
 import { useDictation } from "../lib/dictation";
@@ -171,6 +171,7 @@ function renderContent(content: string) {
                   checked={it.checked}
                   readOnly
                   disabled
+                  aria-label={it.content.map((part) => part.value).join("") || "Task item"}
                   className="mt-0.5 accent-emerald-500"
                 />
                 <span>{it.content.map((p, pi) => renderInline(p, pi))}</span>
@@ -472,6 +473,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
   const [attachments, setAttachments] = useState<string[]>([]);
   const [dragging, setDragging] = useState(false);
   const [status, setStatus] = useState("");
+  const [task, setTask] = useState<TaskSnapshot | null>(null);
   const [mcpToolCount, setMcpToolCount] = useState(0);
   const [mcpDownCount, setMcpDownCount] = useState(0);
   const [showToolAudit, setShowToolAudit] = useState(false);
@@ -490,6 +492,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
   );
 
   const turnIdRef = useRef<string | null>(null);
+  const taskTurnIdRef = useRef<string | null>(null);
   const turnSessionRef = useRef<string | null>(null);
   const turnBaseRef = useRef<AgentMessage[]>([]);
   // The event feed is subscribed once, so its handler closes over first-render
@@ -508,7 +511,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
 
   useEffect(() => {
     const off = window.moss.chat.onEvent((payload: ChatEventPayload) => {
-      if (payload.turnId !== turnIdRef.current) return;
+      if (payload.turnId !== turnIdRef.current && payload.turnId !== taskTurnIdRef.current) return;
       handleEvent(payload);
     });
     return off;
@@ -537,7 +540,10 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
 
   function handleEvent(payload: ChatEventPayload): void {
     const ev = payload.event;
-    if (ev.type === "text-delta") {
+    if (ev.type === "task-state") {
+      setTask(ev.task);
+      if (["completed", "failed", "cancelled"].includes(ev.task.state)) taskTurnIdRef.current = null;
+    } else if (ev.type === "text-delta") {
       setActivity((prev) => {
         const next = [...prev];
         const last = next[next.length - 1];
@@ -603,9 +609,15 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
   /** Launch a turn: wire the turn refs, mark busy, and stream the request.
    *  Shared by the composer (send), regenerate, and edit/resend so the commit
    *  path in handleEvent rebuilds the session from the same base + user message. */
-  function runTurn(sessionId: string, base: AgentMessage[], userMsg: AgentMessage): void {
+  function runTurn(
+    sessionId: string,
+    base: AgentMessage[],
+    userMsg: AgentMessage,
+    durableTask?: TaskSnapshot,
+  ): void {
     const turnId = crypto.randomUUID();
     turnIdRef.current = turnId;
+    taskTurnIdRef.current = turnId;
     turnSessionRef.current = sessionId;
     turnBaseRef.current = base;
     turnPendingUserRef.current = userMsg;
@@ -615,11 +627,20 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
     setStatus("");
     window.moss.chat.send({
       turnId,
+      ...(durableTask ? { taskId: durableTask.id } : {}),
       config: toProviderConfig(settings),
       messages: [...base, userMsg],
       workspaceRoot: settings.workspaceRoot ?? undefined,
       enableTools: settings.enableTools,
       autoApproveTools: settings.autoApproveTools,
+      automation: {
+        browserEnabled: settings.browserEnabled === true,
+        browserAllowedDomains: (settings.browserAllowedDomains ?? "").split(/[\n,]/).map((value) => value.trim()).filter(Boolean),
+        browserHeadless: settings.browserHeadless !== false,
+        desktopEnabled: settings.desktopEnabled === true,
+        desktopAllowedProcesses: (settings.desktopAllowedProcesses ?? "").split(/[\n,]/).map((value) => value.trim()).filter(Boolean),
+        desktopAllowedWindows: (settings.desktopAllowedWindows ?? "").split("\n").map((value) => value.trim()).filter(Boolean),
+      },
       customInstructions: settings.customInstructions,
       personalityId: getSessionPersonality(sessionId) ?? settings.personalityId,
       adaptiveTone: settings.adaptiveTone,
@@ -637,6 +658,20 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
           .filter(Boolean),
       },
       embed: toEmbedConfig(settings),
+      taskSpec: durableTask?.spec ?? {
+        objective: userMsg.content || "Complete the attached task",
+        acceptanceCriteria: [
+          {
+            id: "requested-outcome",
+            description: "The requested outcome is completed with tool-backed evidence and applicable verification passing",
+            mandatory: true,
+          },
+        ],
+        constraints: ["Do not claim completion while a tool or verification check is failing"],
+        assumptions: [],
+        workspaceRoot: settings.workspaceRoot ?? undefined,
+        budget: { maxActions: 64, maxTokens: 200000, maxDurationMs: 30 * 60 * 1000 },
+      },
     });
   }
 
@@ -651,6 +686,27 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
     setInput("");
     setAttachments([]);
     runTurn(sessionId, base, userMsg);
+  }
+
+  async function resumeTask(): Promise<void> {
+    if (!task) return;
+    try {
+      const sessionId = ensureCurrentSession();
+      const resumed = await window.moss.task.resume(task.id);
+      setTask(resumed);
+      runTurn(sessionId, getSessionMessages(sessionId), { role: "user", content: resumed.spec.objective }, resumed);
+    } catch (error) {
+      setStatus(`Could not resume task: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  async function cancelTask(): Promise<void> {
+    if (!task) return;
+    try {
+      setTask(await window.moss.task.cancel(task.id));
+    } catch (error) {
+      setStatus(`Could not cancel task: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   /** Re-run the user turn at the given history index, dropping that turn's
@@ -749,6 +805,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
         {models.length > 0 ? (
           <select
             className="w-56 rounded-md border border-neutral-300/60 dark:border-neutral-700/60 bg-neutral-200 dark:bg-neutral-800 px-2 py-1 transition focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+            aria-label="Model"
             value={settings.model}
             onChange={(e) => updateSettings({ model: e.target.value })}
           >
@@ -808,7 +865,6 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
               type="button"
               className={tools.autoApproved > 0 ? "text-xs text-amber-400/80 hover:underline" : "text-xs text-neutral-400 dark:text-neutral-600 hover:underline"}
               title={`${tools.total} tool call(s) ran in this conversation; ${tools.autoApproved} ran without asking because auto-approve was on. Click to review.`}
-              aria-expanded={showToolAudit}
               onClick={() => setShowToolAudit((v) => !v)}
             >
               {tools.total} tool{tools.total === 1 ? "" : "s"}
@@ -822,7 +878,6 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
                     <button
                       type="button"
                       onClick={() => setAuditHideReadonly((v) => !v)}
-                      aria-pressed={auditHideReadonly}
                       className={
                         auditHideReadonly
                           ? "rounded bg-neutral-300 dark:bg-neutral-700 px-1 text-[10px] uppercase text-neutral-800 dark:text-neutral-200"
@@ -834,7 +889,6 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
                     <button
                       type="button"
                       onClick={() => setAuditSortByRisk((v) => !v)}
-                      aria-pressed={auditSortByRisk}
                       className={
                         auditSortByRisk
                           ? "rounded bg-neutral-300 dark:bg-neutral-700 px-1 text-[10px] uppercase text-neutral-800 dark:text-neutral-200"
@@ -887,14 +941,14 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
             >
               ctx {formatTokens(contextUsed)}/{formatTokens(settings.contextLimit)}
             </span>
-            <span className="h-1 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800" aria-hidden="true">
-              <span
-                className={`block h-full rounded-full ${
-                  contextUsed >= settings.contextLimit ? "bg-amber-400" : "bg-emerald-500/60"
-                }`}
-                style={{ width: `${Math.min(100, Math.round((contextUsed / settings.contextLimit) * 100))}%` }}
-              />
-            </span>
+            <progress
+              className={`h-1 w-full overflow-hidden rounded-full ${
+                contextUsed >= settings.contextLimit ? "accent-amber-400" : "accent-emerald-500"
+              }`}
+              max={settings.contextLimit}
+              value={Math.min(contextUsed, settings.contextLimit)}
+              aria-label="Context window usage"
+            />
           </span>
         ) : null}
         {settings.enableTools && mcpToolCount > 0 ? (
@@ -1072,6 +1126,45 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
         ))}
       </div>
 
+      {task ? (
+        <section className="border-t border-neutral-200 dark:border-neutral-800 bg-white/70 dark:bg-neutral-900/70 px-4 py-2 text-xs" aria-label="Task status">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="font-semibold text-neutral-900 dark:text-neutral-100">Task</span>
+            <span className={
+              task.state === "completed"
+                ? "text-emerald-600 dark:text-emerald-400"
+                : task.state === "blocked" || task.state === "failed"
+                  ? "text-red-600 dark:text-red-400"
+                  : task.state === "paused" || task.state === "waiting_for_approval"
+                    ? "text-amber-600 dark:text-amber-400"
+                    : "text-sky-600 dark:text-sky-400"
+            }>{task.state.replaceAll("_", " ")}</span>
+            <span className="min-w-0 flex-1 truncate text-neutral-500 dark:text-neutral-400">
+              {task.steps.find((step) => step.state === "running")?.description ?? task.spec.objective}
+            </span>
+            <span className="tabular-nums text-neutral-500 dark:text-neutral-400">
+              {task.attempts.length} {task.attempts.length === 1 ? "attempt" : "attempts"} · {task.evidence.filter((item) => item.passed).length}/{task.spec.acceptanceCriteria.filter((item) => item.mandatory).length} evidence
+            </span>
+            {task.spec.budget?.maxActions ? (
+              <span className="tabular-nums text-neutral-500 dark:text-neutral-400">
+                {task.attempts.reduce((total, attempt) => total + attempt.actionCount, 0)}/{task.spec.budget.maxActions} actions
+              </span>
+            ) : null}
+            {(task.state === "paused" || task.state === "blocked" || task.state === "waiting_for_approval") ? (
+              <button className="rounded bg-neutral-200 dark:bg-neutral-800 px-2 py-0.5 hover:bg-neutral-300 dark:hover:bg-neutral-700" onClick={() => void resumeTask()}>
+                Resume
+              </button>
+            ) : null}
+            {!(["completed", "failed", "cancelled"].includes(task.state)) ? (
+              <button className="text-red-600 dark:text-red-400 hover:text-red-500" onClick={() => void cancelTask()}>
+                Cancel
+              </button>
+            ) : null}
+          </div>
+          {task.blocker ? <p className="mt-1 whitespace-pre-wrap text-amber-700 dark:text-amber-300">{task.blocker.summary}</p> : null}
+        </section>
+      ) : null}
+
       <footer
         className="relative border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-950/60 px-4 py-3 backdrop-blur-sm"
         onDragEnter={(e) => {
@@ -1151,6 +1244,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
           <input
             ref={fileInputRef}
             type="file"
+            aria-label="Attach files"
             accept="image/*,.txt,.md,.json,.csv,.tsv,.log,.xml,.yml,.yaml,.toml,.ini,.html,.css,.ts,.tsx,.js,.jsx,.py,.sh,.sql,.rs,.go,.java,.c,.cpp,.rb"
             multiple
             className="hidden"

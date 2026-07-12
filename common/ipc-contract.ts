@@ -13,6 +13,14 @@ export const IPC = {
   chatEvent: "moss:chat:event",
   /** renderer -> main: approve or deny a pending tool call */
   toolApprove: "moss:tool:approve",
+  /** renderer -> main (invoke): durable task lifecycle */
+  taskCreate: "moss:task:create",
+  taskList: "moss:task:list",
+  taskGet: "moss:task:get",
+  taskStart: "moss:task:start",
+  taskPause: "moss:task:pause",
+  taskResume: "moss:task:resume",
+  taskCancel: "moss:task:cancel",
   /** renderer -> main (invoke): list available models for a provider config */
   providerListModels: "moss:provider:listModels",
   /** renderer -> main (invoke): open a folder picker, returns path or null */

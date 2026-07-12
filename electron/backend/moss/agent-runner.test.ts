@@ -13,6 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AgentMessage, MossEvent, ToolDefinition } from "../../../common/types";
 import { runTurn } from "./agent-runner";
+import type { CompletionContext, CompletionDecision } from "./agent-runner";
 import { ProviderError } from "./providers/types";
 import type { ChatProvider, ProviderStreamEvent } from "./providers/types";
 import type { Tool, ToolResult } from "./tools";
@@ -79,6 +80,7 @@ async function run(
     workspaceRoot?: string;
     verify?: { enabled: boolean; commands: string[]; maxCycles?: number };
     maxRounds?: number;
+    completionGuard?: (context: CompletionContext) => CompletionDecision;
   },
 ): Promise<Harness> {
   const events: MossEvent[] = [];
@@ -116,6 +118,7 @@ async function run(
     ...(opts?.checkpoint !== undefined ? { checkpoint: opts.checkpoint } : {}),
     ...(opts?.verify !== undefined ? { verify: opts.verify } : {}),
     ...(opts?.maxRounds !== undefined ? { maxRounds: opts.maxRounds } : {}),
+    ...(opts?.completionGuard !== undefined ? { completionGuard: opts.completionGuard } : {}),
   });
 
   return { events, approvals };
@@ -136,6 +139,30 @@ describe("runTurn", () => {
     expect(types(h)).toEqual(["text-delta", "text-delta", "turn-complete"]);
     const complete = h.events.at(-1) as Extract<MossEvent, { type: "turn-complete" }>;
     expect(complete.messages).toEqual([{ role: "assistant", content: "Hello world" }]);
+  });
+
+  it("continues when a task completion guard rejects a premature stop", async () => {
+    const provider = scriptedProvider([
+      [{ type: "text-delta", text: "done too early" }],
+      [call("c1", "read_file")],
+      [{ type: "text-delta", text: "done with evidence" }],
+    ]);
+    const guard = vi.fn((context: CompletionContext): CompletionDecision => ({
+      accept: context.successfulToolCalls > 0,
+      feedback: "Inspect the workspace before completing.",
+    }));
+
+    const h = await run(provider, [tool("read_file", { ok: true, content: "body" })], { completionGuard: guard });
+
+    expect(guard).toHaveBeenCalledTimes(2);
+    expect(types(h)).toEqual([
+      "text-delta",
+      "notice",
+      "tool-call",
+      "tool-result",
+      "text-delta",
+      "turn-complete",
+    ]);
   });
 
   it("emits token usage from the provider stream", async () => {
@@ -245,6 +272,36 @@ describe("runTurn", () => {
 
     const res = h.events.find((e) => e.type === "tool-result") as Extract<MossEvent, { type: "tool-result" }>;
     expect(res).toMatchObject({ ok: false, content: "disk exploded" });
+  });
+
+  it("retries a transient failure for a statically read-only tool", async () => {
+    let attempts = 0;
+    const provider = scriptedProvider([[call("c1", "read_file")], [{ type: "text-delta", text: "done" }]]);
+    const read = tool("read_file", async () => {
+      attempts++;
+      return attempts === 1
+        ? { ok: false, content: "Service temporarily unavailable" }
+        : { ok: true, content: "recovered" };
+    });
+
+    const h = await run(provider, [read]);
+
+    expect(attempts).toBe(2);
+    expect(h.events).toContainEqual(expect.objectContaining({ type: "tool-result", ok: true, content: "recovered" }));
+  });
+
+  it("forces replanning after an identical failed action signature repeats", async () => {
+    const provider = scriptedProvider([
+      [call("c1", "read_file", '{"path":"missing"}')],
+      [call("c2", "read_file", '{"path":"missing"}')],
+      [{ type: "text-delta", text: "done" }],
+    ]);
+    const h = await run(provider, [tool("read_file", { ok: false, content: "Path is unavailable" })]);
+    const results = h.events.filter((event) => event.type === "tool-result");
+
+    expect(results[1]).toMatchObject({ ok: false });
+    expect((results[1] as Extract<MossEvent, { type: "tool-result" }>).content).toContain("Required action: replan");
+    expect((results[1] as Extract<MossEvent, { type: "tool-result" }>).content).toContain("repeated-action loop");
   });
 
   it("emits turn-aborted when the signal is already aborted", async () => {
@@ -630,6 +687,20 @@ describe("runTurn verification loop", () => {
     const ns = notices(h);
     expect(ns).toHaveLength(1);
     expect(ns[0].level).toBe("info");
+  });
+
+  it("runs verification after a mutating shell command", async () => {
+    const provider = scriptedProvider([
+      [call("c1", "run_command", '{"command":"npm install"}')],
+      [{ type: "text-delta", text: "done" }],
+    ]);
+    const h = await run(provider, [tool("run_command", { ok: true, content: "installed" })], {
+      autoApprove: true,
+      workspaceRoot: cwd,
+      verify: { enabled: true, commands: ["exit 0"] },
+    });
+
+    expect(notices(h).some((notice) => notice.message === "Verification passed")).toBe(true);
   });
 
   it("emits a warning notice when verification fails", async () => {
