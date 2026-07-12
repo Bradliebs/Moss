@@ -20,10 +20,17 @@
     "dist": "npm run build && electron-builder --win nsis"
   },
   "dependencies": {
+    "@fontsource-variable/jetbrains-mono": "^5.2.8",
+    "@fontsource-variable/manrope": "^5.2.8",
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "lucide-react": "^1.24.0",
     "playwright": "^1.55.1",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "react-markdown": "^10.1.0",
+    "rehype-sanitize": "^6.0.0",
+    "remark-gfm": "^4.0.1",
+    "shiki": "^4.3.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.11",

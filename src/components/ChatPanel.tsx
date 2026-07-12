@@ -1,13 +1,14 @@
 // src/components/ChatPanel.tsx
 
 import { useEffect, useRef, useState } from "react";
+import { Check, Copy, RefreshCw } from "lucide-react";
 
 import type { AgentMessage, ChatEventPayload, TaskSnapshot, TokenUsage } from "@common/types";
 import { PERSONALITY_PRESETS } from "@common/personalities";
 
 import { useDictation } from "../lib/dictation";
 import { imageAttachmentError, isLikelyVisionModel, textAttachmentError, textLanguageForFile } from "../lib/attachments";
-import { markdownToHtml, parseMarkdown, segmentToMarkdown, type InlineSegment } from "../lib/markdown";
+import { markdownToHtml } from "../lib/markdown";
 import { estimateCost, formatUsd } from "../lib/pricing";
 import {
   clearSession,
@@ -27,6 +28,7 @@ import {
 } from "../lib/sessions";
 import { modelsStore, toEmbedConfig, toProviderConfig, updateSettings, useSettings } from "../lib/settings";
 import { type ToolStatus, toolStatusColor } from "../lib/toolStatus";
+import { RichResponse } from "./RichResponse";
 import { WelcomeScreen } from "./WelcomeScreen";
 
 interface ToolView {
@@ -53,6 +55,7 @@ interface MessageView {
   /** id of the turn that produced this reply; present on a turn's final
    *  assistant message so the revert affordance can look up its file changes */
   turnId?: string;
+  sourceUserIndex?: number;
 }
 
 type ViewItem = MessageView | ToolView;
@@ -63,180 +66,7 @@ function formatTokens(n: number): string {
   return n.toLocaleString("en-US");
 }
 
-/** Render one inline piece (text, bold, inline code, or link) of a reply.
- *  Links are shown as styled, non-navigating text with the URL on hover; only
- *  http(s)/mailto URLs get a tooltip so a tooltip never carries a script URL. */
-function renderInline(seg: InlineSegment, key: number) {
-  if (seg.type === "bold") {
-    return (
-      <strong key={key} className="font-semibold text-neutral-900 dark:text-neutral-100">
-        {seg.value}
-      </strong>
-    );
-  }
-  if (seg.type === "inlineCode") {
-    return (
-      <code key={key} className="rounded bg-neutral-50/70 dark:bg-neutral-950/70 px-1 py-0.5 text-[0.85em] text-emerald-200">
-        {seg.value}
-      </code>
-    );
-  }
-  if (seg.type === "strike") {
-    return (
-      <span key={key} className="text-neutral-600 dark:text-neutral-400 line-through">
-        {seg.value}
-      </span>
-    );
-  }
-  if (seg.type === "link") {
-    const safeHref = /^(https?:|mailto:)/i.test(seg.href) ? seg.href : undefined;
-    return (
-      <span
-        key={key}
-        className={`text-emerald-300 underline decoration-emerald-500/40${safeHref ? " cursor-pointer" : ""}`}
-        title={safeHref}
-        onClick={safeHref ? () => void window.moss.shell?.openExternal(safeHref) : undefined}
-      >
-        {seg.value}
-      </span>
-    );
-  }
-  return <span key={key}>{seg.value}</span>;
-}
-
-/** Render an assistant reply with fenced code blocks, inline code, bold,
- *  headings, links, and lists split out for readability; prose is preserved. */
-function renderContent(content: string) {
-  return parseMarkdown(content).map((seg, i) => {
-    if (seg.type === "code") {
-      return (
-        <div key={i} className="group/code relative">
-          <CopyButton
-            text={seg.value}
-            className="absolute right-1.5 top-1.5 rounded bg-neutral-200/80 dark:bg-neutral-800/80 px-1.5 py-0.5 text-[10px] text-neutral-600 dark:text-neutral-400 opacity-0 transition hover:text-neutral-900 dark:hover:text-neutral-100 group-hover/code:opacity-100"
-            title="Copy this code block to the clipboard."
-          />
-          <pre className="my-2 overflow-x-auto rounded-lg border border-neutral-300/60 dark:border-neutral-700/60 bg-neutral-50 dark:bg-neutral-950 p-2.5 text-xs text-neutral-800 dark:text-neutral-200">
-            <code>{seg.value}</code>
-          </pre>
-        </div>
-      );
-    }
-    if (seg.type === "heading") {
-      const size = seg.level <= 1 ? "text-base" : seg.level === 2 ? "text-sm" : "text-xs";
-      return (
-        <div key={i} className={`mb-1 mt-2 font-semibold text-neutral-900 dark:text-neutral-100 ${size}`}>
-          {seg.content.map((p, pi) => renderInline(p, pi))}
-        </div>
-      );
-    }
-    if (seg.type === "hr") {
-      return <hr key={i} className="my-3 border-neutral-300/60 dark:border-neutral-700/60" />;
-    }
-    if (seg.type === "blockquote") {
-      return (
-        <blockquote key={i} className="my-2 border-l-2 border-neutral-400 dark:border-neutral-600 pl-3 text-neutral-600 dark:text-neutral-400">
-          {seg.content.map((p, pi) => renderInline(p, pi))}
-        </blockquote>
-      );
-    }
-    if (seg.type === "list") {
-      const cls = `my-1 ml-5 space-y-0.5 ${seg.ordered ? "list-decimal" : "list-disc"}`;
-      const items = seg.items.map((parts, li) => (
-        <li key={li}>{parts.map((p, pi) => renderInline(p, pi))}</li>
-      ));
-      return seg.ordered ? (
-        <ol key={i} className={cls}>
-          {items}
-        </ol>
-      ) : (
-        <ul key={i} className={cls}>
-          {items}
-        </ul>
-      );
-    }
-    if (seg.type === "taskList") {
-      return (
-        <div key={i} className="group/blk relative">
-          <CopyButton
-            text={segmentToMarkdown(seg)}
-            className="absolute right-1.5 top-0 rounded bg-neutral-200/80 dark:bg-neutral-800/80 px-1.5 py-0.5 text-[10px] text-neutral-600 dark:text-neutral-400 opacity-0 transition hover:text-neutral-900 dark:hover:text-neutral-100 group-hover/blk:opacity-100"
-            title="Copy this task list as markdown to the clipboard."
-          />
-          <ul className="my-1 ml-1 space-y-0.5">
-            {seg.items.map((it, li) => (
-              <li key={li} className="flex items-start gap-1.5">
-                <input
-                  type="checkbox"
-                  checked={it.checked}
-                  readOnly
-                  disabled
-                  aria-label={it.content.map((part) => part.value).join("") || "Task item"}
-                  className="mt-0.5 accent-emerald-500"
-                />
-                <span>{it.content.map((p, pi) => renderInline(p, pi))}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      );
-    }
-    if (seg.type === "table") {
-      return (
-        <div key={i} className="group/blk relative my-2 overflow-x-auto">
-          <CopyButton
-            text={segmentToMarkdown(seg)}
-            className="absolute right-1.5 top-1.5 z-10 rounded bg-neutral-200/80 dark:bg-neutral-800/80 px-1.5 py-0.5 text-[10px] text-neutral-600 dark:text-neutral-400 opacity-0 transition hover:text-neutral-900 dark:hover:text-neutral-100 group-hover/blk:opacity-100"
-            title="Copy this table as markdown to the clipboard."
-          />
-          <table className="w-full border-collapse text-xs">
-            <thead>
-              <tr>
-                {seg.header.map((cell, ci) => (
-                  <th
-                    key={ci}
-                    className="border border-neutral-300/60 dark:border-neutral-700/60 px-2 py-1 text-left font-semibold text-neutral-800 dark:text-neutral-200"
-                  >
-                    {cell.map((p, pi) => renderInline(p, pi))}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {seg.rows.map((row, ri) => (
-                <tr key={ri}>
-                  {row.map((cell, ci) => (
-                    <td
-                      key={ci}
-                      className="border border-neutral-300/60 dark:border-neutral-700/60 px-2 py-1 align-top text-neutral-700 dark:text-neutral-300"
-                    >
-                      {cell.map((p, pi) => renderInline(p, pi))}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      );
-    }
-    return renderInline(seg, i);
-  });
-}
-
-/** Copy button that briefly swaps its label to "Copied" so the otherwise
- *  silent clipboard write gives visible confirmation. */
-function CopyButton({
-  text,
-  html,
-  className,
-  title,
-}: {
-  text: string;
-  html?: string;
-  className: string;
-  title: string;
-}): React.ReactElement {
+function ResponseActions({ content, onRegenerate }: { content: string; onRegenerate?: () => void }): React.ReactElement {
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
@@ -246,18 +76,26 @@ function CopyButton({
     [],
   );
   return (
-    <button
-      className={className}
-      onClick={() => {
-        copyToClipboard(text, html);
+    <div className="response-actions" aria-label="Response actions">
+      <button
+        type="button"
+        aria-label={copied ? "Response copied" : "Copy response"}
+        title={copied ? "Copied" : "Copy response"}
+        onClick={() => {
+        copyToClipboard(content, markdownToHtml(content));
         setCopied(true);
         if (timer.current) clearTimeout(timer.current);
         timer.current = setTimeout(() => setCopied(false), 1200);
       }}
-      title={title}
-    >
-      {copied ? "Copied" : "Copy"}
-    </button>
+      >
+        {copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
+      </button>
+      {onRegenerate ? (
+        <button type="button" aria-label="Regenerate response" title="Regenerate response" onClick={onRegenerate}>
+          <RefreshCw size={14} aria-hidden="true" />
+        </button>
+      ) : null}
+    </div>
   );
 }
 
@@ -393,6 +231,7 @@ function messagesToItems(messages: AgentMessage[]): ViewItem[] {
   let turnOutput = 0;
   let turnRounds = 0;
   let turnId: string | undefined;
+  let sourceUserIndex: number | undefined;
   let lastTurnReply: MessageView | null = null;
   function closeTurn(): void {
     if (lastTurnReply && turnRounds > 1 && (turnInput || turnOutput)) {
@@ -411,6 +250,7 @@ function messagesToItems(messages: AgentMessage[]): ViewItem[] {
     const m = messages[mi];
     if (m.role === "user") {
       closeTurn();
+      sourceUserIndex = mi;
       items.push({ kind: "message", role: "user", content: m.content, images: m.images, historyIndex: mi });
     } else if (m.role === "assistant") {
       if (m.turnId) turnId = m.turnId;
@@ -426,6 +266,7 @@ function messagesToItems(messages: AgentMessage[]): ViewItem[] {
           content: m.content,
           interrupted: m.interrupted,
           usage: m.usage,
+          sourceUserIndex,
         };
         items.push(reply);
         lastTurnReply = reply;
@@ -799,7 +640,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
   const showWelcome = items.length === 0;
 
   return (
-    <div className="flex h-screen flex-1 flex-col bg-transparent text-neutral-900 dark:text-neutral-100">
+    <div className="flex h-screen min-w-0 flex-1 flex-col bg-transparent text-neutral-900 dark:text-neutral-100">
       <header className="flex flex-wrap items-center gap-2 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-950/60 px-4 py-2 text-sm backdrop-blur-sm">
         <span className="font-semibold tracking-tight text-neutral-800 dark:text-neutral-200">Moss</span>
         {models.length > 0 ? (
@@ -993,7 +834,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
         </button>
       </header>
 
-      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+      <div ref={scrollRef} className="flex-1 space-y-5 overflow-y-auto px-4 py-5 sm:px-6">
         {showWelcome ? (
           <WelcomeScreen onPick={(text) => send(text)} needsSetup={!settings.model} onOpenSettings={onOpenSettings} />
         ) : (
@@ -1004,10 +845,16 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
               className={
                 it.role === "user"
                   ? "group ml-auto max-w-2xl animate-fade-in whitespace-pre-wrap rounded-2xl border border-emerald-500/20 bg-emerald-600/15 px-4 py-2.5 shadow-sm"
-                  : "group mr-auto max-w-2xl animate-fade-in whitespace-pre-wrap rounded-2xl border border-neutral-300/50 dark:border-neutral-700/50 bg-neutral-200/80 dark:bg-neutral-800/80 px-4 py-2.5 shadow-sm"
+                  : "assistant-response group mx-auto w-full max-w-[52rem] animate-fade-in"
               }
             >
-              {it.role === "assistant" ? renderContent(it.content) : it.content}
+              {it.role === "assistant" ? (
+                <RichResponse
+                  content={it.content}
+                  streaming={busy && i === items.length - 1}
+                  onCopy={(text) => copyToClipboard(text)}
+                />
+              ) : it.content}
               {it.role === "user" && it.images && it.images.length > 0 ? (
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {it.images.map((src, ii) => (
@@ -1041,29 +888,25 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
                   </button>
                 </div>
               ) : null}
-              {it.role === "assistant" && it.usage && (it.usage.inputTokens || it.usage.outputTokens) ? (
-                <span
-                  className="ml-2 align-middle text-[10px] text-neutral-400 dark:text-neutral-600"
-                  title="Token usage for this reply (input / output)."
-                >
-                  {formatTokens(it.usage.inputTokens ?? 0)}/{formatTokens(it.usage.outputTokens ?? 0)} tok
-                </span>
-              ) : null}
-              {it.role === "assistant" && it.turnUsage ? (
-                <span
-                  className="ml-2 align-middle text-[10px] text-neutral-400 dark:text-neutral-600"
-                  title="Total token usage for this exchange across all tool rounds (input / output)."
-                >
-                  turn {formatTokens(it.turnUsage.inputTokens ?? 0)}/{formatTokens(it.turnUsage.outputTokens ?? 0)} tok
-                </span>
-              ) : null}
               {it.role === "assistant" && it.content ? (
-                <CopyButton
-                  text={it.content}
-                  html={markdownToHtml(it.content)}
-                  className="ml-2 align-middle text-[10px] text-neutral-400 dark:text-neutral-600 opacity-0 transition hover:text-neutral-700 dark:hover:text-neutral-300 group-hover:opacity-100"
-                  title="Copy this reply to the clipboard."
-                />
+                <div className="response-footer">
+                  <ResponseActions
+                    content={it.content}
+                    onRegenerate={it.sourceUserIndex !== undefined && !busy ? () => regenerateAt(it.sourceUserIndex!) : undefined}
+                  />
+                  <div className="response-usage">
+                    {it.usage && (it.usage.inputTokens || it.usage.outputTokens) ? (
+                      <span title="Token usage for this reply (input / output).">
+                        {formatTokens(it.usage.inputTokens ?? 0)}/{formatTokens(it.usage.outputTokens ?? 0)} tok
+                      </span>
+                    ) : null}
+                    {it.turnUsage ? (
+                      <span title="Total token usage for this exchange across all tool rounds (input / output).">
+                        turn {formatTokens(it.turnUsage.inputTokens ?? 0)}/{formatTokens(it.turnUsage.outputTokens ?? 0)} tok
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
               ) : null}
               {it.role === "assistant" && it.turnId ? <TurnRevert turnId={it.turnId} /> : null}
             </div>

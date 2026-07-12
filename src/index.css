@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "@fontsource-variable/manrope";
+@import "@fontsource-variable/jetbrains-mono";
 
 /* Class-based dark mode: the renderer toggles .dark on <html> from settings.theme
    so existing dark utilities stay the default and light is opt-in. */
@@ -6,9 +8,23 @@
 
 :root {
   color-scheme: light;
+  --response-ink: #202328;
+  --response-muted: #687078;
+  --response-line: rgba(35, 42, 48, 0.14);
+  --response-soft: rgba(255, 255, 255, 0.48);
+  --response-code: #f1f3f4;
+  --response-accent: #087f64;
+  --response-accent-line: rgba(8, 127, 100, 0.45);
 }
 :root.dark {
   color-scheme: dark;
+  --response-ink: #e7e9ea;
+  --response-muted: #90989f;
+  --response-line: rgba(226, 232, 240, 0.13);
+  --response-soft: rgba(28, 30, 33, 0.58);
+  --response-code: #111315;
+  --response-accent: #4ed2ad;
+  --response-accent-line: rgba(78, 210, 173, 0.45);
 }
 
 html,
@@ -24,7 +40,7 @@ body {
     radial-gradient(1000px 700px at 100% 0%, #dde7f6 0%, transparent 50%),
     #f6f7f9;
   color: #1c1c1f;
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: "Manrope Variable", sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -81,8 +97,232 @@ body {
   animation: moss-fade-in 160ms ease-out both;
 }
 
+.assistant-response {
+  color: var(--response-ink);
+}
+
+.rich-response {
+  font-size: 0.9375rem;
+  line-height: 1.72;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+.rich-response > :first-child {
+  margin-top: 0;
+}
+
+.rich-response > :last-child {
+  margin-bottom: 0;
+}
+
+.rich-response p {
+  margin: 0.75rem 0;
+}
+
+.rich-response h1,
+.rich-response h2,
+.rich-response h3,
+.rich-response h4 {
+  margin: 1.6rem 0 0.55rem;
+  color: var(--response-ink);
+  font-weight: 720;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.rich-response h1 { font-size: 1.45rem; }
+.rich-response h2 { font-size: 1.2rem; }
+.rich-response h3 { font-size: 1.02rem; }
+.rich-response h4 { font-size: 0.94rem; }
+
+.rich-response ul,
+.rich-response ol {
+  margin: 0.75rem 0;
+  padding-left: 1.4rem;
+}
+
+.rich-response ul { list-style: disc; }
+.rich-response ol { list-style: decimal; }
+.rich-response li { margin: 0.28rem 0; padding-left: 0.2rem; }
+.rich-response li > ul,
+.rich-response li > ol { margin: 0.25rem 0; }
+
+.rich-response a {
+  color: var(--response-accent);
+  text-decoration: underline;
+  text-decoration-color: var(--response-accent-line);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.rich-response blockquote {
+  margin: 1rem 0;
+  border-left: 3px solid var(--response-accent);
+  padding: 0.12rem 0 0.12rem 1rem;
+  color: var(--response-muted);
+}
+
+.rich-response hr {
+  margin: 1.6rem 0;
+  border: 0;
+  border-top: 1px solid var(--response-line);
+}
+
+.rich-response :not(pre) > code {
+  border: 1px solid var(--response-line);
+  border-radius: 4px;
+  background: var(--response-code);
+  padding: 0.12rem 0.36rem;
+  font-family: "JetBrains Mono Variable", monospace;
+  font-size: 0.84em;
+}
+
+.rich-response table {
+  display: block;
+  width: 100%;
+  margin: 1rem 0;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+
+.rich-response th,
+.rich-response td {
+  min-width: 8rem;
+  border-bottom: 1px solid var(--response-line);
+  padding: 0.62rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.rich-response th {
+  background: var(--response-soft);
+  font-weight: 700;
+}
+
+.rich-response input[type="checkbox"] {
+  margin: 0 0.45rem 0 0;
+  accent-color: var(--response-accent);
+}
+
+.rich-response .contains-task-list {
+  padding-left: 0;
+  list-style: none;
+}
+
+.rich-response .task-list-item {
+  list-style: none;
+}
+
+.response-code {
+  margin: 1.1rem 0;
+  overflow: hidden;
+  border: 1px solid var(--response-line);
+  border-radius: 7px;
+  background: var(--response-code);
+}
+
+.response-code figcaption {
+  display: flex;
+  min-height: 2.15rem;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--response-line);
+  padding: 0 0.55rem 0 0.8rem;
+  color: var(--response-muted);
+  font-family: "JetBrains Mono Variable", monospace;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+}
+
+.response-code pre,
+.response-code-highlight pre {
+  margin: 0;
+  overflow-x: auto;
+  background: transparent !important;
+  padding: 1rem;
+  font-family: "JetBrains Mono Variable", monospace;
+  font-size: 0.78rem;
+  line-height: 1.65;
+}
+
+.response-code-highlight code {
+  display: grid;
+  min-width: max-content;
+  font-family: inherit;
+}
+
+.response-icon-button,
+.response-actions button {
+  display: inline-flex;
+  width: 1.85rem;
+  height: 1.85rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  color: var(--response-muted);
+  transition: color 120ms ease, background 120ms ease;
+}
+
+.response-icon-button:hover,
+.response-actions button:hover {
+  background: var(--response-soft);
+  color: var(--response-ink);
+}
+
+.response-footer {
+  display: flex;
+  min-height: 2.35rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--response-line);
+  padding-top: 0.38rem;
+}
+
+.response-actions,
+.response-usage {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.response-usage {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  color: var(--response-muted);
+  font-size: 0.65rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.stream-caret {
+  display: inline-block;
+  width: 0.5rem;
+  height: 1rem;
+  margin-left: 0.18rem;
+  background: var(--response-accent);
+  vertical-align: -0.16rem;
+  animation: moss-caret 950ms steps(1, end) infinite;
+}
+
+@keyframes moss-caret {
+  50% { opacity: 0.15; }
+}
+
+@media (max-width: 640px) {
+  .rich-response { font-size: 0.9rem; line-height: 1.66; }
+  .rich-response h1 { font-size: 1.25rem; }
+  .rich-response h2 { font-size: 1.1rem; }
+  .response-footer { align-items: flex-start; }
+  .response-usage { max-width: 70%; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .animate-fade-in {
+  .animate-fade-in,
+  .stream-caret {
     animation: none;
   }
 }

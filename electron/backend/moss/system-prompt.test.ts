@@ -45,6 +45,13 @@ describe("buildSystemMessage", () => {
     expect(msg.content).toContain("You are Moss");
   });
 
+  it("guides concise, task-appropriate Markdown structure", () => {
+    const msg = buildSystemMessage({ includeSkills: false });
+    expect(msg.content).toContain("Format responses for effortless scanning");
+    expect(msg.content).toContain("tables only for useful comparisons");
+    expect(msg.content).toContain("do not add headings");
+  });
+
   it("includes the untrusted-content safety guidance", () => {
     const msg = buildSystemMessage({ includeSkills: false });
     expect(msg.content).toContain("untrusted data");

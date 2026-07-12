@@ -345,7 +345,7 @@ describe("ChatPanel", () => {
     expect(code.closest("pre")).not.toBeNull();
   });
 
-  it("copies an assistant reply to the clipboard when Copy is clicked", () => {
+  it("copies an assistant reply to the clipboard from its response action", () => {
     const writeText = vi.fn();
     Object.assign(navigator, { clipboard: { writeText } });
     mockSession.value = {
@@ -359,7 +359,7 @@ describe("ChatPanel", () => {
       updatedAt: 0,
     };
     render(<Harness />);
-    fireEvent.click(screen.getByText("Copy"));
+    fireEvent.click(screen.getByRole("button", { name: "Copy response" }));
     expect(writeText).toHaveBeenCalledWith("the answer");
   });
 
@@ -377,11 +377,11 @@ describe("ChatPanel", () => {
       updatedAt: 0,
     };
     render(<Harness />);
-    fireEvent.click(screen.getByTitle("Copy this code block to the clipboard."));
+    fireEvent.click(screen.getByRole("button", { name: "Copy code" }));
     expect(writeText).toHaveBeenCalledWith("code body");
   });
 
-  it("shows 'Copied' feedback after clicking the reply Copy button", () => {
+  it("shows copied feedback after clicking the reply copy action", () => {
     Object.assign(navigator, { clipboard: { writeText: vi.fn() } });
     mockSession.value = {
       id: "s1",
@@ -394,8 +394,30 @@ describe("ChatPanel", () => {
       updatedAt: 0,
     };
     render(<Harness />);
-    fireEvent.click(screen.getByText("Copy"));
-    expect(screen.getByText("Copied")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Copy response" }));
+    expect(screen.getByRole("button", { name: "Response copied" })).toBeTruthy();
+  });
+
+  it("regenerates a response from its originating user message", () => {
+    mockSession.value = {
+      id: "s1",
+      title: "New chat",
+      messages: [
+        { role: "user", content: "first question" },
+        { role: "assistant", content: "first answer" },
+        { role: "user", content: "second question" },
+        { role: "assistant", content: "second answer" },
+      ],
+      createdAt: 0,
+      updatedAt: 0,
+    };
+    render(<Harness />);
+
+    const actions = screen.getAllByRole("button", { name: "Regenerate response" });
+    fireEvent.click(actions[1]);
+    const payload = vi.mocked(window.moss.chat.send).mock.calls[0][0];
+    expect(payload.messages).toHaveLength(3);
+    expect(payload.messages.at(-1)).toEqual({ role: "user", content: "second question" });
   });
 
   it("renders bold inline markdown as a strong element", () => {
@@ -484,7 +506,7 @@ describe("ChatPanel", () => {
     expect(screen.getByText("closed")).toBeDefined();
   });
 
-  it("renders strikethrough markdown with a line-through span", () => {
+  it("renders strikethrough markdown with semantic markup", () => {
     mockSession.value = {
       id: "s1",
       title: "New chat",
@@ -496,10 +518,10 @@ describe("ChatPanel", () => {
       updatedAt: 0,
     };
     render(<Harness />);
-    expect(screen.getByText("gone").className).toContain("line-through");
+    expect(screen.getByText("gone").tagName).toBe("DEL");
   });
 
-  it("copies a rendered table back to its markdown source", () => {
+  it("copies a response containing a table as its markdown source", () => {
     const writeText = vi.fn();
     Object.assign(navigator, { clipboard: { writeText } });
     mockSession.value = {
@@ -513,11 +535,11 @@ describe("ChatPanel", () => {
       updatedAt: 0,
     };
     render(<Harness />);
-    fireEvent.click(screen.getByTitle("Copy this table as markdown to the clipboard."));
+    fireEvent.click(screen.getByRole("button", { name: "Copy response" }));
     expect(writeText).toHaveBeenCalledWith("| A | B |\n| --- | --- |\n| one | two |");
   });
 
-  it("copies a rendered task list back to its markdown source", () => {
+  it("copies a response containing a task list as its markdown source", () => {
     const writeText = vi.fn();
     Object.assign(navigator, { clipboard: { writeText } });
     mockSession.value = {
@@ -531,11 +553,11 @@ describe("ChatPanel", () => {
       updatedAt: 0,
     };
     render(<Harness />);
-    fireEvent.click(screen.getByTitle("Copy this task list as markdown to the clipboard."));
+    fireEvent.click(screen.getByRole("button", { name: "Copy response" }));
     expect(writeText).toHaveBeenCalledWith("- [ ] open\n- [x] closed");
   });
 
-  it("renders a link as non-navigating text with the URL in the title", () => {
+  it("renders a safe link with the URL in the title", () => {
     mockSession.value = {
       id: "s1",
       title: "New chat",
@@ -548,7 +570,7 @@ describe("ChatPanel", () => {
     };
     render(<Harness />);
     const link = screen.getByText("docs");
-    expect(link.tagName).toBe("SPAN");
+    expect(link.tagName).toBe("A");
     expect(link.getAttribute("title")).toBe("https://example.com");
   });
 

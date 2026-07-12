@@ -1,0 +1,168 @@
+import { Check, Copy } from "lucide-react";
+import { Children, isValidElement, useEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
+import ReactMarkdown, { type Components } from "react-markdown";
+import rehypeSanitize from "rehype-sanitize";
+import remarkGfm from "remark-gfm";
+import { createBundledHighlighter, createSingletonShorthands } from "shiki/core";
+import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
+
+const { codeToHtml } = createSingletonShorthands(createBundledHighlighter({
+  engine: () => createJavaScriptRegexEngine(),
+  langs: {
+    bash: () => import("@shikijs/langs/bash"),
+    css: () => import("@shikijs/langs/css"),
+    html: () => import("@shikijs/langs/html"),
+    javascript: () => import("@shikijs/langs/javascript"),
+    json: () => import("@shikijs/langs/json"),
+    markdown: () => import("@shikijs/langs/markdown"),
+    powershell: () => import("@shikijs/langs/powershell"),
+    python: () => import("@shikijs/langs/python"),
+    sql: () => import("@shikijs/langs/sql"),
+    tsx: () => import("@shikijs/langs/tsx"),
+    typescript: () => import("@shikijs/langs/typescript"),
+    yaml: () => import("@shikijs/langs/yaml"),
+  },
+  themes: {
+    "github-dark": () => import("@shikijs/themes/github-dark"),
+    "github-light": () => import("@shikijs/themes/github-light"),
+  },
+}));
+
+const LANGUAGE_ALIASES: Record<string, string> = {
+  js: "javascript",
+  md: "markdown",
+  ps1: "powershell",
+  py: "python",
+  sh: "bash",
+  shell: "bash",
+  ts: "typescript",
+  yml: "yaml",
+};
+const HIGHLIGHTED_LANGUAGES = new Set([
+  "bash", "css", "html", "javascript", "json", "markdown", "powershell",
+  "python", "sql", "tsx", "typescript", "yaml",
+]);
+
+interface RichResponseProps {
+  content: string;
+  streaming?: boolean;
+  onCopy: (text: string) => void;
+}
+
+function safeExternalUrl(value?: string): string | undefined {
+  return value && /^(https?:|mailto:)/i.test(value) ? value : undefined;
+}
+
+function IconCopyButton({ text, onCopy }: { text: string; onCopy: (text: string) => void }): ReactElement {
+  const [copied, setCopied] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current);
+  }, []);
+
+  return (
+    <button
+      type="button"
+      className="response-icon-button"
+      aria-label={copied ? "Code copied" : "Copy code"}
+      title={copied ? "Copied" : "Copy code"}
+      onClick={() => {
+        onCopy(text);
+        setCopied(true);
+        if (timer.current) clearTimeout(timer.current);
+        timer.current = setTimeout(() => setCopied(false), 1200);
+      }}
+    >
+      {copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
+    </button>
+  );
+}
+
+function textFromNode(node: ReactNode): string {
+  return Children.toArray(node)
+    .map((child) => (typeof child === "string" || typeof child === "number" ? String(child) : ""))
+    .join("")
+    .replace(/\n$/, "");
+}
+
+function CodeBlock({ children, onCopy }: { children: ReactNode; onCopy: (text: string) => void }): ReactElement {
+  const codeElement = Children.toArray(children).find((child) => isValidElement(child));
+  const codeProps = isValidElement<{ className?: string; children?: ReactNode }>(codeElement)
+    ? codeElement.props
+    : undefined;
+  const language = codeProps?.className?.match(/language-([\w-]+)/)?.[1] ?? "text";
+  const normalizedLanguage = LANGUAGE_ALIASES[language] ?? language;
+  const highlightLanguage = HIGHLIGHTED_LANGUAGES.has(normalizedLanguage) ? normalizedLanguage : "text";
+  const code = textFromNode(codeProps?.children);
+  const [highlighted, setHighlighted] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    void codeToHtml(code, {
+      lang: highlightLanguage,
+      themes: { light: "github-light", dark: "github-dark" },
+      defaultColor: false,
+    })
+      .then((html) => {
+        if (active) setHighlighted(html);
+      })
+      .catch(() => {
+        if (active) setHighlighted("");
+      });
+    return () => {
+      active = false;
+    };
+  }, [code, highlightLanguage]);
+
+  return (
+    <figure className="response-code">
+      <figcaption>
+        <span>{language}</span>
+        <IconCopyButton text={code} onCopy={onCopy} />
+      </figcaption>
+      {highlighted ? (
+        <div className="response-code-highlight" dangerouslySetInnerHTML={{ __html: highlighted }} />
+      ) : (
+        <pre><code>{code}</code></pre>
+      )}
+    </figure>
+  );
+}
+
+function markdownComponents(onCopy: (text: string) => void): Components {
+  return {
+    a: ({ href, children }) => {
+      const safeHref = safeExternalUrl(href);
+      return (
+        <a
+          href={safeHref}
+          title={safeHref}
+          onClick={(event) => {
+            event.preventDefault();
+            if (safeHref) void window.moss.shell?.openExternal(safeHref);
+          }}
+        >
+          {children}
+        </a>
+      );
+    },
+    pre: ({ children }) => <CodeBlock onCopy={onCopy}>{children}</CodeBlock>,
+    input: (props) => <input {...props} disabled aria-label="Task item" />,
+  };
+}
+
+export function RichResponse({ content, streaming = false, onCopy }: RichResponseProps): ReactElement {
+  return (
+    <div className={`rich-response${streaming ? " is-streaming" : ""}`} data-testid="rich-response">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeSanitize]}
+        components={markdownComponents(onCopy)}
+      >
+        {content}
+      </ReactMarkdown>
+      {streaming ? <span className="stream-caret" aria-label="Moss is writing" /> : null}
+    </div>
+  );
+}
