@@ -75,11 +75,22 @@ describe("formatVerifyReport", () => {
     expect(report).toBe("[verification] PASS: npm test");
   });
 
-  it("renders a FAIL line with the command output", () => {
+  it("renders a FAIL line with the command output and a surgical-fix focus line", () => {
     const report = formatVerifyReport({
       ok: false,
       results: [{ command: "npm test", ok: false, output: "1 failing" }],
     });
-    expect(report).toBe("[verification] FAIL: npm test\n1 failing");
+    expect(report).toBe(
+      "[verification] FAIL: npm test\n1 failing\n" +
+        "[verification] Focus: fix only what the failing check above requires; do not modify files unrelated to it or re-touch checks that already passed.",
+    );
+  });
+
+  it("omits the focus line when verification passes", () => {
+    const report = formatVerifyReport({
+      ok: true,
+      results: [{ command: "npm test", ok: true, output: "all good" }],
+    });
+    expect(report).not.toContain("Focus:");
   });
 });

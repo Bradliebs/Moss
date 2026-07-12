@@ -13,6 +13,7 @@ import { app } from "electron";
 
 import { createLogger } from "../../../../common/logger";
 import type { Skill } from "../../../../common/types";
+import { writeFileAtomicSync } from "../persistence/atomic-file";
 import { buildSkillMarkdown, parseSkillMarkdown, slugifySkillName } from "./skill-parse";
 
 const log = createLogger("Skills");
@@ -41,8 +42,7 @@ export class SkillsStore {
 
   private saveDisabled(ids: Set<string>): void {
     try {
-      mkdirSync(this.dir(), { recursive: true });
-      writeFileSync(this.disabledFile(), `${JSON.stringify([...ids], null, 2)}\n`, "utf8");
+      writeFileAtomicSync(this.disabledFile(), `${JSON.stringify([...ids], null, 2)}\n`);
     } catch (err) {
       log.error("failed to save disabled skills", err);
     }
@@ -111,7 +111,7 @@ export class SkillsStore {
       return null;
     }
     if (!parsed) return null;
-    writeFileSync(file, buildSkillMarkdown(parsed.name, description, instructions, parsed.createdBy), "utf8");
+    writeFileAtomicSync(file, buildSkillMarkdown(parsed.name, description, instructions, parsed.createdBy));
     return this.get(id);
   }
 

@@ -1,9 +1,9 @@
 // src/components/ChatPanel.tsx
 
 import { useEffect, useRef, useState } from "react";
-import { Check, Copy, RefreshCw } from "lucide-react";
+import { Check, Copy, FileText, RefreshCw, X } from "lucide-react";
 
-import type { AgentMessage, ChatEventPayload, TaskSnapshot, TokenUsage } from "@common/types";
+import type { AgentMessage, ChatEventPayload, ConfidenceMode, DocumentAttachment, Skill, TaskSnapshot, TokenUsage } from "@common/types";
 import { PERSONALITY_PRESETS } from "@common/personalities";
 
 import { useDictation } from "../lib/dictation";
@@ -31,6 +31,20 @@ import { type ToolStatus, toolStatusColor } from "../lib/toolStatus";
 import { RichResponse } from "./RichResponse";
 import { WelcomeScreen } from "./WelcomeScreen";
 
+/** Short chip labels and colors for the opt-in shadow confidence indicator. */
+const CONFIDENCE_LABEL: Record<ConfidenceMode, string> = {
+  settled: "Settled",
+  reasoned: "Tool-backed",
+  "web-fresh": "Web-fresh",
+  "needs-review": "Needs review",
+};
+const CONFIDENCE_CLASS: Record<ConfidenceMode, string> = {
+  settled: "bg-neutral-300 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-200",
+  reasoned: "bg-emerald-200 text-emerald-900 dark:bg-emerald-900 dark:text-emerald-100",
+  "web-fresh": "bg-sky-200 text-sky-900 dark:bg-sky-900 dark:text-sky-100",
+  "needs-review": "bg-amber-200 text-amber-900 dark:bg-amber-900 dark:text-amber-100",
+};
+
 interface ToolView {
   kind: "tool";
   callId: string;
@@ -48,6 +62,7 @@ interface MessageView {
   role: "user" | "assistant";
   content: string;
   images?: string[];
+  documents?: DocumentAttachment[];
   interrupted?: boolean;
   usage?: TokenUsage;
   turnUsage?: TokenUsage;
@@ -251,7 +266,7 @@ function messagesToItems(messages: AgentMessage[]): ViewItem[] {
     if (m.role === "user") {
       closeTurn();
       sourceUserIndex = mi;
-      items.push({ kind: "message", role: "user", content: m.content, images: m.images, historyIndex: mi });
+      items.push({ kind: "message", role: "user", content: m.content, images: m.images, documents: m.documents, historyIndex: mi });
     } else if (m.role === "assistant") {
       if (m.turnId) turnId = m.turnId;
       if (m.usage) {
@@ -312,9 +327,15 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
   const [activity, setActivity] = useState<ViewItem[]>([]);
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState<string[]>([]);
+  const [documents, setDocuments] = useState<DocumentAttachment[]>([]);
+  const [pendingAttachmentReads, setPendingAttachmentReads] = useState(0);
+  const [skills, setSkills] = useState<Skill[]>([]);
+  const [selectedSkillIndex, setSelectedSkillIndex] = useState(0);
+  const [skillMenuDismissed, setSkillMenuDismissed] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [status, setStatus] = useState("");
   const [task, setTask] = useState<TaskSnapshot | null>(null);
+  const [confidence, setConfidence] = useState<{ mode: ConfidenceMode; note: string } | null>(null);
   const [mcpToolCount, setMcpToolCount] = useState(0);
   const [mcpDownCount, setMcpDownCount] = useState(0);
   const [showToolAudit, setShowToolAudit] = useState(false);
@@ -346,9 +367,36 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
   // nested children (each child fires its own dragenter/dragleave pair).
   const dragDepth = useRef(0);
 
+  const slashMatch = input.match(/^\/([^\s]*)$/);
+  const skillQuery = slashMatch?.[1].toLowerCase() ?? "";
+  const matchingSkills = slashMatch
+    ? skills.filter(
+        (skill) =>
+          skill.enabled &&
+          (skill.name.toLowerCase().includes(skillQuery) || skill.description.toLowerCase().includes(skillQuery)),
+      )
+    : [];
+  const skillMenuOpen = !skillMenuDismissed && slashMatch !== null && matchingSkills.length > 0;
+
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [history, activity, pendingUser]);
+
+  useEffect(() => {
+    if (!slashMatch || !window.moss.skills?.list) return;
+    let cancelled = false;
+    void window.moss.skills
+      .list()
+      .then((availableSkills) => {
+        if (!cancelled) setSkills(availableSkills);
+      })
+      .catch(() => {
+        if (!cancelled) setSkills([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [slashMatch !== null]);
 
   useEffect(() => {
     const off = window.moss.chat.onEvent((payload: ChatEventPayload) => {
@@ -421,6 +469,10 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
       // Transient turn-progress note (e.g. a stream retry); shown on the status
       // line and cleared when the turn lands, like Aborted/Error.
       setStatus(ev.message);
+    } else if (ev.type === "confidence") {
+      // Shadow label for the finished turn; shown as an opt-in chip until the
+      // next turn launches.
+      setConfidence({ mode: ev.mode, note: ev.note });
     } else if (ev.type === "turn-complete" || ev.type === "turn-aborted" || ev.type === "turn-error") {
       const sessionId = turnSessionRef.current;
       if (sessionId) {
@@ -466,6 +518,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
     setActivity([]);
     setBusy(true);
     setStatus("");
+    setConfidence(null);
     window.moss.chat.send({
       turnId,
       ...(durableTask ? { taskId: durableTask.id } : {}),
@@ -499,33 +552,28 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
           .filter(Boolean),
       },
       embed: toEmbedConfig(settings),
-      taskSpec: durableTask?.spec ?? {
-        objective: userMsg.content || "Complete the attached task",
-        acceptanceCriteria: [
-          {
-            id: "requested-outcome",
-            description: "The requested outcome is completed with tool-backed evidence and applicable verification passing",
-            mandatory: true,
-          },
-        ],
-        constraints: ["Do not claim completion while a tool or verification check is failing"],
-        assumptions: [],
-        workspaceRoot: settings.workspaceRoot ?? undefined,
-        budget: { maxActions: 64, maxTokens: 200000, maxDurationMs: 30 * 60 * 1000 },
-      },
+      ...(durableTask ? { taskSpec: durableTask.spec } : {}),
+      dailyBudgetUsd: settings.dailyBudgetUsd || 0,
+      modelRates: settings.modelRates,
+      gatedMemory: settings.gatedMemory,
+      showConfidence: settings.showConfidence,
+      injectionMode: settings.injectionMode,
+      contextLimit: settings.contextLimit,
     });
   }
 
   function send(textArg?: string): void {
     const text = (textArg ?? input).trim();
-    if ((!text && attachments.length === 0) || busy || !settings.model) return;
+    if ((!text && attachments.length === 0 && documents.length === 0) || pendingAttachmentReads > 0 || busy || !settings.model) return;
     const sessionId = ensureCurrentSession();
-    setSessionTitle(sessionId, text);
+    setSessionTitle(sessionId, text || documents[0]?.name || "");
     const base = getSessionMessages(sessionId);
     const userMsg: AgentMessage = { role: "user", content: text };
     if (attachments.length > 0) userMsg.images = attachments;
+    if (documents.length > 0) userMsg.documents = documents;
     setInput("");
     setAttachments([]);
+    setDocuments([]);
     runTurn(sessionId, base, userMsg);
   }
 
@@ -571,6 +619,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
     if (!userMsg || userMsg.role !== "user") return;
     setInput(userMsg.content);
     setAttachments(userMsg.images ?? []);
+    setDocuments(userMsg.documents ?? []);
     setSessionMessages(sessionId, history.slice(0, index));
   }
 
@@ -578,9 +627,15 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
     if (turnIdRef.current) window.moss.chat.abort(turnIdRef.current);
   }
 
-  /** Read picked files: images become data-URL attachments for vision models;
-   *  text files (.txt/.md) are inlined into the message as a fenced block so
-   *  their content reaches text-only models without any new dependency. */
+  function selectSkill(skill: Skill): void {
+    setInput(`/${skill.name} `);
+    setSelectedSkillIndex(0);
+    setSkillMenuDismissed(true);
+  }
+
+  /** Read picked files into structured message attachments. Provider adapters
+   *  expand document text only when building the model request, keeping the
+   *  composer and visible transcript compact. */
   function addFiles(fileList: FileList | null): void {
     if (!fileList) return;
     for (const file of Array.from(fileList)) {
@@ -593,11 +648,14 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
           continue;
         }
         const reader = new FileReader();
+        setPendingAttachmentReads((count) => count + 1);
         reader.onload = () => {
           if (typeof reader.result === "string") {
             setAttachments((prev) => [...prev, reader.result as string]);
           }
         };
+        reader.onerror = () => setStatus(`${file.name}: could not read file`);
+        reader.onloadend = () => setPendingAttachmentReads((count) => Math.max(0, count - 1));
         reader.readAsDataURL(file);
       } else if (lang !== null) {
         const error = textAttachmentError(file);
@@ -606,12 +664,17 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
           continue;
         }
         const reader = new FileReader();
+        setPendingAttachmentReads((count) => count + 1);
         reader.onload = () => {
           if (typeof reader.result === "string") {
-            const block = `\`\`\`${lang}\n${reader.result}\n\`\`\``;
-            setInput((prev) => (prev ? `${prev}\n\n${block}` : block));
+            setDocuments((prev) => [
+              ...prev,
+              { name: file.name, mediaType: file.type || "text/plain", text: reader.result as string },
+            ]);
           }
         };
+        reader.onerror = () => setStatus(`${file.name}: could not read file`);
+        reader.onloadend = () => setPendingAttachmentReads((count) => Math.max(0, count - 1));
         reader.readAsText(file);
       } else {
         setStatus(`${file.name}: unsupported file type`);
@@ -633,7 +696,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
 
   const items: ViewItem[] = [
     ...messagesToItems(history),
-    ...(pendingUser ? [{ kind: "message", role: "user", content: pendingUser.content, images: pendingUser.images } as MessageView] : []),
+    ...(pendingUser ? [{ kind: "message", role: "user", content: pendingUser.content, images: pendingUser.images, documents: pendingUser.documents } as MessageView] : []),
     ...activity,
   ];
 
@@ -867,6 +930,20 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
                   ))}
                 </div>
               ) : null}
+              {it.role === "user" && it.documents && it.documents.length > 0 ? (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {it.documents.map((document, documentIndex) => (
+                    <span
+                      key={`${document.name}-${documentIndex}`}
+                      className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-emerald-500/20 bg-white/50 px-2 py-1 text-xs text-neutral-700 dark:bg-neutral-900/40 dark:text-neutral-200"
+                      title={document.name}
+                    >
+                      <FileText size={14} className="shrink-0" aria-hidden="true" />
+                      <span className="truncate">{document.name}</span>
+                    </span>
+                  ))}
+                </div>
+              ) : null}
               {it.role === "assistant" && it.interrupted ? (
                 <span className="ml-1 text-xs italic text-neutral-500 dark:text-neutral-400">(interrupted)</span>
               ) : null}
@@ -1033,7 +1110,19 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
           </div>
         ) : null}
         {status ? <div className="mb-2 text-xs text-neutral-600 dark:text-neutral-400">{status}</div> : null}
+        {confidence ? (
+          <div className="mb-2" title={confidence.note}>
+            <span className={`rounded px-1.5 py-0.5 text-xs ${CONFIDENCE_CLASS[confidence.mode]}`}>
+              {CONFIDENCE_LABEL[confidence.mode]}
+            </span>
+          </div>
+        ) : null}
         {dictation.error ? <div className="mb-2 text-xs text-red-600 dark:text-red-400">{dictation.error}</div> : null}
+        {pendingAttachmentReads > 0 ? (
+          <div className="mb-2 text-xs text-neutral-600 dark:text-neutral-400">
+            Attaching {pendingAttachmentReads} {pendingAttachmentReads === 1 ? "file" : "files"}...
+          </div>
+        ) : null}
         {attachments.length > 0 && settings.model && !isLikelyVisionModel(settings.model) ? (
           <div className="mb-2 text-xs text-amber-600 dark:text-amber-400">The selected model may not support images.</div>
         ) : null}
@@ -1064,13 +1153,66 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
             </button>
           </div>
         ) : null}
+        {documents.length > 0 ? (
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {documents.map((document, documentIndex) => (
+              <span
+                key={`${document.name}-${documentIndex}`}
+                className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-neutral-300/60 bg-neutral-100 px-2 py-1 text-xs text-neutral-700 dark:border-neutral-700/60 dark:bg-neutral-800 dark:text-neutral-200"
+                title={document.name}
+              >
+                <FileText size={14} className="shrink-0" aria-hidden="true" />
+                <span className="max-w-52 truncate">{document.name}</span>
+                <button
+                  type="button"
+                  className="text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
+                  onClick={() => setDocuments((prev) => prev.filter((_, index) => index !== documentIndex))}
+                  title={`Remove ${document.name}`}
+                  aria-label={`Remove ${document.name}`}
+                >
+                  <X size={13} aria-hidden="true" />
+                </button>
+              </span>
+            ))}
+          </div>
+        ) : null}
+        {skillMenuOpen ? (
+          <div
+            className="mb-2 max-h-56 overflow-y-auto rounded-md border border-neutral-300/70 bg-white p-1 shadow-lg dark:border-neutral-700 dark:bg-neutral-900"
+            role="listbox"
+            aria-label="Skills"
+          >
+            {matchingSkills.map((skill, index) => (
+              <button
+                key={skill.id}
+                type="button"
+                role="option"
+                aria-selected={index === selectedSkillIndex}
+                className={`flex w-full items-start gap-3 rounded px-2 py-2 text-left ${
+                  index === selectedSkillIndex
+                    ? "bg-emerald-100 text-neutral-900 dark:bg-emerald-900/40 dark:text-neutral-100"
+                    : "text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                }`}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => selectSkill(skill)}
+              >
+                <span className="shrink-0 font-mono text-sm text-emerald-700 dark:text-emerald-400">/{skill.name}</span>
+                <span className="min-w-0 truncate text-xs text-neutral-500 dark:text-neutral-400">{skill.description}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
         <div className="flex gap-2">
           <textarea
             className="flex-1 resize-none rounded-xl border border-neutral-300/60 dark:border-neutral-700/60 bg-neutral-200 dark:bg-neutral-800 px-3 py-2 transition focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
             rows={2}
             placeholder="Message…"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              setInput(e.target.value);
+              setSelectedSkillIndex(0);
+              setSkillMenuDismissed(false);
+            }}
             onPaste={(e) => {
               if (e.clipboardData.files.length > 0) {
                 e.preventDefault();
@@ -1078,8 +1220,27 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
               }
             }}
             onKeyDown={(e) => {
+              if (skillMenuOpen && e.key === "ArrowDown") {
+                e.preventDefault();
+                setSelectedSkillIndex((index) => (index + 1) % matchingSkills.length);
+                return;
+              }
+              if (skillMenuOpen && e.key === "ArrowUp") {
+                e.preventDefault();
+                setSelectedSkillIndex((index) => (index - 1 + matchingSkills.length) % matchingSkills.length);
+                return;
+              }
+              if (skillMenuOpen && e.key === "Escape") {
+                e.preventDefault();
+                setSkillMenuDismissed(true);
+                return;
+              }
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
+                if (skillMenuOpen) {
+                  selectSkill(matchingSkills[selectedSkillIndex] ?? matchingSkills[0]);
+                  return;
+                }
                 send();
               }
             }}
@@ -1101,7 +1262,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
             onClick={() => fileInputRef.current?.click()}
             title="Attach an image or text file"
           >
-            Attach{attachments.length > 0 ? ` (${attachments.length})` : ""}
+            Attach{attachments.length + documents.length > 0 ? ` (${attachments.length + documents.length})` : ""}
           </button>
           <button
             className={`rounded-xl px-3 py-2 transition disabled:opacity-50 ${
@@ -1127,7 +1288,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
             <button
               className="rounded-xl bg-emerald-600 px-4 py-2 font-medium text-white shadow transition hover:bg-emerald-500 disabled:opacity-50"
               onClick={() => send()}
-              disabled={!settings.model}
+              disabled={!settings.model || pendingAttachmentReads > 0}
             >
               Send
             </button>

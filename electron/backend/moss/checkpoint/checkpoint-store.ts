@@ -17,6 +17,7 @@ import { app } from "electron";
 
 import { createLogger } from "../../../../common/logger";
 import type { CheckpointFile, CheckpointRevertResult } from "../../../../common/types";
+import { writeFileAtomic } from "../persistence/atomic-file";
 
 const log = createLogger("Checkpoint");
 
@@ -80,9 +81,7 @@ export class CheckpointStore {
   }
 
   private async saveTurn(turn: TurnCheckpoint): Promise<void> {
-    const path = this.file(turn.turnId);
-    await mkdir(dirname(path), { recursive: true });
-    await writeFile(path, `${JSON.stringify(turn, null, 2)}\n`, "utf8");
+    await writeFileAtomic(this.file(turn.turnId), `${JSON.stringify(turn, null, 2)}\n`);
   }
 
   /** A recorder bound to one turn. Pre-images are captured at most once per path. */

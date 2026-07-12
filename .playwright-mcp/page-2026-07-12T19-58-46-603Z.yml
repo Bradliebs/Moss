@@ -1,0 +1,138 @@
+- generic [active] [ref=f37e1]:
+  - region "Cookie preferences":
+    - button "Cookie options" [ref=f37e2] [cursor=pointer]
+  - link "Skip to main content\" " [ref=f37e8] [cursor=pointer]:
+    - /url: "#main-content"
+    - generic [ref=f37e9]: Skip to main content"
+    - generic [ref=f37e10]: 
+  - banner [ref=f37e11]:
+    - generic [ref=f37e13]:
+      - link "Home" [ref=f37e15] [cursor=pointer]:
+        - /url: /
+      - generic [ref=f37e18]: The ICO exists to empower you through information.
+      - generic [ref=f37e22]:
+        - text: 
+        - generic [ref=f37e25]:
+          - generic [ref=f37e26]: Search
+          - searchbox "Search" [ref=f37e27]
+          - button " Search" [ref=f37e28]:
+            - generic [ref=f37e29]: 
+            - generic [ref=f37e30]: Search
+    - generic [ref=f37e32]:
+      - text: 
+      - navigation [ref=f37e33]:
+        - list [ref=f37e34]:
+          - listitem [ref=f37e35]:
+            - link "Home" [ref=f37e36] [cursor=pointer]:
+              - /url: /
+              - text: 
+          - listitem [ref=f37e38]:
+            - link "For the public" [ref=f37e39] [cursor=pointer]:
+              - /url: /for-the-public/
+              - text: 
+          - listitem [ref=f37e41]:
+            - link "For organisations" [ref=f37e42] [cursor=pointer]:
+              - /url: /for-organisations/
+              - text: 
+          - listitem [ref=f37e44]:
+            - link "Make a complaint" [ref=f37e45] [cursor=pointer]:
+              - /url: /make-a-complaint/
+              - text: 
+          - listitem [ref=f37e47]:
+            - link "Action we've taken" [ref=f37e48] [cursor=pointer]:
+              - /url: /action-weve-taken/
+              - text: 
+          - listitem [ref=f37e50]:
+            - link "About the ICO" [ref=f37e51] [cursor=pointer]:
+              - /url: /about-the-ico/
+              - text: 
+  - main [ref=f37e53]:
+    - navigation "breadcrumb" [ref=f37e55]:
+      - list [ref=f37e56]:
+        - listitem [ref=f37e57]:
+          - generic [ref=f37e58]:
+            - link "About the Information Commissioner's Office" [ref=f37e59] [cursor=pointer]:
+              - /url: /about-the-ico/
+            - text: /
+        - listitem [ref=f37e60]:
+          - generic [ref=f37e61]:
+            - link "What we do" [ref=f37e62] [cursor=pointer]:
+              - /url: /about-the-ico/what-we-do/
+            - text: /
+        - listitem [ref=f37e63]:
+          - generic [ref=f37e64]:
+            - link "Register of fee payers and certificate downloads" [ref=f37e65] [cursor=pointer]:
+              - /url: /about-the-ico/what-we-do/register-of-fee-payers/
+            - text: /
+        - listitem [ref=f37e66]:
+          - generic [ref=f37e67]:
+            - link "Search the register" [ref=f37e68] [cursor=pointer]:
+              - /url: /ESDWebPages/Search
+            - text: /
+        - listitem [ref=f37e69]: Mr Manveer Singh Tumber
+    - generic [ref=f37e70]:
+      - heading "Mr Manveer Singh Tumber" [level=1] [ref=f37e73]
+      - generic [ref=f37e74]:
+        - generic [ref=f37e76]:
+          - generic [ref=f37e77]:
+            - term [ref=f37e78]: Registration reference
+            - definition [ref=f37e79]: ZC168628
+            - term [ref=f37e80]: Date registered
+            - definition [ref=f37e81]: 07 June 2026
+            - term [ref=f37e82]: Registration expires
+            - definition [ref=f37e83]: 06 June 2027
+            - term [ref=f37e84]: Payment tier
+            - definition [ref=f37e85]: Tier 1
+            - term [ref=f37e86]: Data controller
+            - definition [ref=f37e87]: Mr Manveer Singh Tumber
+            - term [ref=f37e88]: Address
+            - definition [ref=f37e89]:
+              - generic [ref=f37e90]: 120 Brent Road
+              - generic [ref=f37e91]: SOUTHALL
+              - generic [ref=f37e92]: Middlesex
+              - generic [ref=f37e93]: UB2 5LA
+            - term [ref=f37e94]: Other names
+            - definition [ref=f37e95]:
+              - list [ref=f37e96]:
+                - listitem [ref=f37e97]: 5 Rivers Labs
+                - listitem [ref=f37e98]: LiveRoad
+          - link "Back to search" [ref=f37e100] [cursor=pointer]:
+            - /url: /ESDWebPages/Search
+        - link " Registration certificate PDF" [ref=f37e103] [cursor=pointer]:
+          - /url: /ESDWebPages/RegistrationCertificate/ZC168628
+          - generic [ref=f37e104]: 
+          - generic [ref=f37e105]:
+            - generic [ref=f37e106]: Registration certificate
+            - generic [ref=f37e107]: PDF
+  - contentinfo [ref=f37e108]:
+    - generic [ref=f37e110]:
+      - list [ref=f37e112]:
+        - listitem [ref=f37e113]:
+          - link "Contact us" [ref=f37e114] [cursor=pointer]:
+            - /url: /global/contact-us/
+        - listitem [ref=f37e115]:
+          - link "Privacy notice" [ref=f37e116] [cursor=pointer]:
+            - /url: /global/privacy-notice/
+        - listitem [ref=f37e117]:
+          - link "Cookies" [ref=f37e118] [cursor=pointer]:
+            - /url: /global/cookies/
+        - listitem [ref=f37e119]:
+          - link "Accessibility" [ref=f37e120] [cursor=pointer]:
+            - /url: /global/accessibility/
+        - listitem [ref=f37e121]:
+          - link "Cymraeg" [ref=f37e122] [cursor=pointer]:
+            - /url: /about-the-ico/who-we-are/wales-office/
+        - listitem [ref=f37e123]:
+          - link "Publications" [ref=f37e124] [cursor=pointer]:
+            - /url: /global/request-publications/
+        - listitem [ref=f37e125]:
+          - link "Disclaimer" [ref=f37e126] [cursor=pointer]:
+            - /url: /global/disclaimer/
+        - listitem [ref=f37e127]:
+          - link "© Copyright" [ref=f37e128] [cursor=pointer]:
+            - /url: /global/copyright-and-re-use-of-materials/
+      - paragraph [ref=f37e133]:
+        - text: All text content is available under the
+        - link "Open Government Licence v3.0" [ref=f37e134] [cursor=pointer]:
+          - /url: http://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/
+        - text: ", except where otherwise stated."

@@ -1,0 +1,126 @@
+- generic [active] [ref=f36e1]:
+  - region "Cookie preferences":
+    - button "Cookie options" [ref=f36e2] [cursor=pointer]
+  - link "Skip to main content\" " [ref=f36e8] [cursor=pointer]:
+    - /url: "#main-content"
+    - generic [ref=f36e9]: Skip to main content"
+    - generic [ref=f36e10]: 
+  - banner [ref=f36e11]:
+    - generic [ref=f36e13]:
+      - link "Home" [ref=f36e15] [cursor=pointer]:
+        - /url: /
+      - generic [ref=f36e18]: The ICO exists to empower you through information.
+      - generic [ref=f36e22]:
+        - text: 
+        - generic [ref=f36e25]:
+          - generic [ref=f36e26]: Search
+          - searchbox "Search" [ref=f36e27]
+          - button " Search" [ref=f36e28]:
+            - generic [ref=f36e29]: 
+            - generic [ref=f36e30]: Search
+    - generic [ref=f36e32]:
+      - text: 
+      - navigation [ref=f36e33]:
+        - list [ref=f36e34]:
+          - listitem [ref=f36e35]:
+            - link "Home" [ref=f36e36] [cursor=pointer]:
+              - /url: /
+              - text: 
+          - listitem [ref=f36e38]:
+            - link "For the public" [ref=f36e39] [cursor=pointer]:
+              - /url: /for-the-public/
+              - text: 
+          - listitem [ref=f36e41]:
+            - link "For organisations" [ref=f36e42] [cursor=pointer]:
+              - /url: /for-organisations/
+              - text: 
+          - listitem [ref=f36e44]:
+            - link "Make a complaint" [ref=f36e45] [cursor=pointer]:
+              - /url: /make-a-complaint/
+              - text: 
+          - listitem [ref=f36e47]:
+            - link "Action we've taken" [ref=f36e48] [cursor=pointer]:
+              - /url: /action-weve-taken/
+              - text: 
+          - listitem [ref=f36e50]:
+            - link "About the ICO" [ref=f36e51] [cursor=pointer]:
+              - /url: /about-the-ico/
+              - text: 
+  - main [ref=f36e53]:
+    - navigation "breadcrumb" [ref=f36e55]:
+      - list [ref=f36e56]:
+        - listitem [ref=f36e57]:
+          - generic [ref=f36e58]:
+            - link "About the Information Commissioner's Office" [ref=f36e59] [cursor=pointer]:
+              - /url: /about-the-ico/
+            - text: /
+        - listitem [ref=f36e60]:
+          - generic [ref=f36e61]:
+            - link "What we do" [ref=f36e62] [cursor=pointer]:
+              - /url: /about-the-ico/what-we-do/
+            - text: /
+        - listitem [ref=f36e63]:
+          - generic [ref=f36e64]:
+            - link "Register of fee payers and certificate downloads" [ref=f36e65] [cursor=pointer]:
+              - /url: /about-the-ico/what-we-do/register-of-fee-payers/
+            - text: /
+        - listitem [ref=f36e66]:
+          - generic [ref=f36e67]:
+            - link "Search the register" [ref=f36e68] [cursor=pointer]:
+              - /url: /ESDWebPages/Search
+            - text: /
+        - listitem [ref=f36e69]: Search results
+    - generic [ref=f36e70]:
+      - heading "Search results" [level=1] [ref=f36e73]
+      - generic [ref=f36e76]:
+        - paragraph [ref=f36e78]: 5 registrations found
+        - list [ref=f36e80]:
+          - listitem [ref=f36e81]:
+            - link "5 Rivers Accountancy Ltd" [ref=f36e82] [cursor=pointer]:
+              - /url: /ESDWebPages/DoSearch/37143
+          - listitem [ref=f36e83]:
+            - link "5 RIVERS FC CIC" [ref=f36e84] [cursor=pointer]:
+              - /url: /ESDWebPages/DoSearch/2685644
+          - listitem [ref=f36e85]:
+            - link "5 Rivers Real Estate Limited" [ref=f36e86] [cursor=pointer]:
+              - /url: /ESDWebPages/DoSearch/2820746
+          - listitem [ref=f36e87]:
+            - link "5 Rivers Sports Bar & Grill" [ref=f36e88] [cursor=pointer]:
+              - /url: /ESDWebPages/DoSearch/1450257
+          - listitem [ref=f36e89]:
+            - link "Mr Manveer Singh Tumber" [ref=f36e90] [cursor=pointer]:
+              - /url: /ESDWebPages/DoSearch/3034807
+        - link "Back to search" [ref=f36e92] [cursor=pointer]:
+          - /url: /ESDWebPages/Search
+  - contentinfo [ref=f36e93]:
+    - generic [ref=f36e95]:
+      - list [ref=f36e97]:
+        - listitem [ref=f36e98]:
+          - link "Contact us" [ref=f36e99] [cursor=pointer]:
+            - /url: /global/contact-us/
+        - listitem [ref=f36e100]:
+          - link "Privacy notice" [ref=f36e101] [cursor=pointer]:
+            - /url: /global/privacy-notice/
+        - listitem [ref=f36e102]:
+          - link "Cookies" [ref=f36e103] [cursor=pointer]:
+            - /url: /global/cookies/
+        - listitem [ref=f36e104]:
+          - link "Accessibility" [ref=f36e105] [cursor=pointer]:
+            - /url: /global/accessibility/
+        - listitem [ref=f36e106]:
+          - link "Cymraeg" [ref=f36e107] [cursor=pointer]:
+            - /url: /about-the-ico/who-we-are/wales-office/
+        - listitem [ref=f36e108]:
+          - link "Publications" [ref=f36e109] [cursor=pointer]:
+            - /url: /global/request-publications/
+        - listitem [ref=f36e110]:
+          - link "Disclaimer" [ref=f36e111] [cursor=pointer]:
+            - /url: /global/disclaimer/
+        - listitem [ref=f36e112]:
+          - link "© Copyright" [ref=f36e113] [cursor=pointer]:
+            - /url: /global/copyright-and-re-use-of-materials/
+      - paragraph [ref=f36e118]:
+        - text: All text content is available under the
+        - link "Open Government Licence v3.0" [ref=f36e119] [cursor=pointer]:
+          - /url: http://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/
+        - text: ", except where otherwise stated."

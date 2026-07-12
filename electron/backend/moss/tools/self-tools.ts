@@ -5,6 +5,7 @@
 // workspace sandbox (they touch app data, not user files).
 
 import type { MemoryCategory } from "../../../../common/types";
+import { memoryReviewQueue } from "../governed/review-queue";
 import { memoryStore } from "../memory/memory-store";
 import { slugifySkillName } from "../skills/skill-parse";
 import { skillsStore } from "../skills/skills-store";
@@ -27,15 +28,26 @@ export const rememberTool: Tool = {
     },
     required: ["fact"],
   },
-  async execute(args) {
+  async execute(args, ctx) {
     const fact = String(args.fact ?? "");
     const category = CATEGORIES.includes(args.category as MemoryCategory)
       ? (args.category as MemoryCategory)
       : "fact";
+    // When gated memory is on, stage the write for human review rather than
+    // committing it, so the agent cannot silently persist facts.
+    if (ctx.gatedMemory) {
+      const pending = memoryReviewQueue.enqueue(fact, category, "assistant");
+      return pending
+        ? {
+            ok: true,
+            content: `Queued for your review (${pending.category}): ${pending.fact}. It will be saved to memory only after you approve it in Settings.`,
+          }
+        : { ok: false, content: "Nothing to remember -- the fact was empty." };
+    }
     const entry = memoryStore.add(fact, category, "assistant");
     return entry
       ? { ok: true, content: `Remembered (${entry.category}): ${entry.fact}` }
-      : { ok: false, content: "Nothing to remember — the fact was empty." };
+      : { ok: false, content: "Nothing to remember -- the fact was empty." };
   },
 };
 

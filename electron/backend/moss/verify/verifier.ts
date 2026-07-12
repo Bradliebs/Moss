@@ -102,12 +102,19 @@ function runOne(
 }
 
 /** Render a verify result into a compact report for the model, prefixed so it
- *  is clearly distinguishable from the tool output it is appended to. */
+ *  is clearly distinguishable from the tool output it is appended to. On failure
+ *  a focus line steers the model to a surgical fix -- change only what the
+ *  failing check needs, without re-touching checks that already passed. */
 export function formatVerifyReport(result: VerifyResult): string {
   if (result.results.length === 0) return "";
   const lines = result.results.map((r) => {
     const status = r.ok ? "PASS" : "FAIL";
     return r.ok ? `[verification] ${status}: ${r.command}` : `[verification] ${status}: ${r.command}\n${r.output}`;
   });
+  if (!result.ok) {
+    lines.push(
+      "[verification] Focus: fix only what the failing check above requires; do not modify files unrelated to it or re-touch checks that already passed.",
+    );
+  }
   return lines.join("\n");
 }

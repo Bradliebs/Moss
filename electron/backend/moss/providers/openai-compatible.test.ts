@@ -152,6 +152,28 @@ describe("toOpenAiMessages", () => {
     ]);
   });
 
+  it("expands structured document attachments only in the provider payload", () => {
+    const message = {
+      role: "user" as const,
+      content: "summarize this",
+      documents: [{ name: "notes.txt", mediaType: "text/plain", text: "private file body" }],
+    };
+
+    expect(toOpenAiMessages([message])).toEqual([
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "summarize this" },
+          {
+            type: "text",
+            text: "--- BEGIN ATTACHED FILE: notes.txt (text/plain) ---\nprivate file body\n--- END ATTACHED FILE: notes.txt ---",
+          },
+        ],
+      },
+    ]);
+    expect(message.content).toBe("summarize this");
+  });
+
   it("keeps a plain string for a user message with no images", () => {
     expect(toOpenAiMessages([{ role: "user", content: "hi" }])).toEqual([{ role: "user", content: "hi" }]);
   });

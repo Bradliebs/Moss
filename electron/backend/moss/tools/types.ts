@@ -19,6 +19,9 @@ export interface ToolContext {
   /** Trusted runtime state: true only when the user approved this exact tool
    *  call through the approval broker. Never sourced from model arguments. */
   approvalGranted?: boolean;
+  /** when true, m_remember queues a proposal for human review instead of
+   *  writing straight to durable memory */
+  gatedMemory?: boolean;
 }
 
 export interface ToolResult {

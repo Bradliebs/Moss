@@ -1,0 +1,756 @@
+- generic [active] [ref=f17e1]:
+  - dialog [ref=f17e2]:
+    - generic [ref=f17e3]:
+      - generic [ref=f17e5]:
+        - img "logo" [ref=f17e7]
+        - link "Cookiebot by Usercentrics - opens in a new window" [ref=f17e8] [cursor=pointer]:
+          - /url: https://www.cookiebot.com/en/what-is-behind-powered-by-cookiebot/?utm_source=banner_cb&utm_medium=referral&utm_content=v2
+      - tabpanel "Consent" [ref=f17e36]:
+        - generic [ref=f17e38]:
+          - heading "This website uses cookies" [level=2] [ref=f17e39]
+          - generic [ref=f17e40]: We use cookies to personalise content and ads, to provide social media features and to analyse our traffic. We also share information about your use of our site with our social media, advertising and analytics partners who may combine it with other information that you’ve provided to them or that they’ve collected from your use of their services.
+        - generic [ref=f17e41]:
+          - group "Consent Selection" [ref=f17e47]:
+            - generic [ref=f17e49]:
+              - generic [ref=f17e50]:
+                - strong [ref=f17e52]: Necessary
+                - generic [ref=f17e53]:
+                  - checkbox "Necessary" [checked] [disabled]
+              - generic [ref=f17e54]:
+                - strong [ref=f17e56] [cursor=pointer]: Preferences
+                - switch "Preferences" [checked] [ref=f17e58] [cursor=pointer]
+              - generic [ref=f17e59]:
+                - strong [ref=f17e61] [cursor=pointer]: Statistics
+                - switch "Statistics" [checked] [ref=f17e63] [cursor=pointer]
+              - generic [ref=f17e64]:
+                - strong [ref=f17e66] [cursor=pointer]: Marketing
+                - switch "Marketing" [checked] [ref=f17e68] [cursor=pointer]
+          - link "Show details" [ref=f17e70] [cursor=pointer]:
+            - /url: "#"
+      - generic [ref=f17e74]:
+        - button "Allow selection" [ref=f17e75] [cursor=pointer]
+        - button "Allow all cookies" [ref=f17e76] [cursor=pointer]
+  - link "Open Staff Message Dialog":
+    - /url: javascript:;
+  - generic [ref=f17e79]:
+    - link [ref=f17e81] [cursor=pointer]:
+      - /url: /
+      - img "Appliances Direct" [ref=f17e82]
+    - link [ref=f17e84] [cursor=pointer]:
+      - /url: https://www.laptopsdirect.co.uk/?tref=apdtabld
+      - img "Laptops Direct" [ref=f17e85]
+    - link [ref=f17e87] [cursor=pointer]:
+      - /url: https://www.dronesdirect.co.uk/?tref=apdtabdrones
+      - img "Drones Direct" [ref=f17e88]
+    - link [ref=f17e90] [cursor=pointer]:
+      - /url: https://www.betterbathrooms.com/?tref=apdtabdbb
+      - img "Better Bathrooms" [ref=f17e91]
+    - link [ref=f17e93] [cursor=pointer]:
+      - /url: https://furniture123.co.uk/?tref=apdtabf123
+      - img "Furniture 123" [ref=f17e94]
+    - link [ref=f17e96] [cursor=pointer]:
+      - /url: https://www.outdoorlivinghottubs.co.uk/?tref=apdtabol
+      - img "Outdoor Living" [ref=f17e97]
+  - banner [ref=f17e98]:
+    - generic [ref=f17e99]:
+      - generic [ref=f17e103] [cursor=pointer]:
+        - paragraph [ref=f17e104]: Get sales advice from our team
+        - text: 0871 984 4416
+        - generic [ref=f17e105]: Calls cost 13p per min plus your network access charge
+      - generic [ref=f17e107]:
+        - generic "Appliances Direct" [ref=f17e108]:
+          - link [ref=f17e109] [cursor=pointer]:
+            - /url: /
+        - generic [ref=f17e135]:
+          - generic [ref=f17e136]: Search for Anything...
+          - generic [ref=f17e137]:
+            - combobox "Search for Anything..." [ref=f17e138]
+            - button "Search" [ref=f17e139] [cursor=pointer]:
+              - generic [ref=f17e141]: 
+          - listbox "Search for Anything..."
+        - generic [ref=f17e142]:
+          - generic [ref=f17e144]:
+            - generic [ref=f17e145]:
+              - strong
+              - generic [ref=f17e146]: Account
+            - paragraph
+          - link "Track Order" [ref=f17e149] [cursor=pointer]:
+            - /url: /CustomerAccount/Login
+          - generic "Your basket contains" [ref=f17e152]: Basket
+      - navigation [ref=f17e156]:
+        - list [ref=f17e157]:
+          - listitem [ref=f17e158]:
+            - link "Cooking" [ref=f17e159] [cursor=pointer]:
+              - /url: /content/cooking
+          - listitem [ref=f17e160]:
+            - link "Refrigeration" [ref=f17e161] [cursor=pointer]:
+              - /url: /c/refrigeration
+          - listitem [ref=f17e162]:
+            - link "Laundry" [ref=f17e163] [cursor=pointer]:
+              - /url: /c/washers-and-dryers
+          - listitem [ref=f17e164]:
+            - link "Dishwashers" [ref=f17e165] [cursor=pointer]:
+              - /url: /c/dishwashers
+          - listitem [ref=f17e166]:
+            - link "Air Conditioning & Heating" [ref=f17e167] [cursor=pointer]:
+              - /url: /c/heating-and-air-conditioning
+          - listitem [ref=f17e168]:
+            - link "Small Appliances" [ref=f17e169] [cursor=pointer]:
+              - /url: /c/small-appliances
+          - listitem [ref=f17e170]:
+            - link "Sinks & Taps" [ref=f17e171] [cursor=pointer]:
+              - /url: /c/sinks-and-taps
+          - listitem [ref=f17e172]:
+            - link "Phones" [ref=f17e173] [cursor=pointer]:
+              - /url: /ct/phones/smartphones
+          - listitem [ref=f17e174]:
+            - link "TVs" [ref=f17e175] [cursor=pointer]:
+              - /url: /c/tv-and-home-entertainment
+          - listitem [ref=f17e176]:
+            - link "Commercial Catering Equipment" [ref=f17e177] [cursor=pointer]:
+              - /url: /content/catering-equipment
+          - listitem [ref=f17e178]:
+            - link "BBQ & Garden" [ref=f17e179] [cursor=pointer]:
+              - /url: /content/outdoor-living
+          - listitem [ref=f17e180]:
+            - link "Bathroom" [ref=f17e181] [cursor=pointer]:
+              - /url: /content/catlanding-bathrooms
+          - listitem [ref=f17e182]:
+            - link "Deals" [ref=f17e183] [cursor=pointer]:
+              - /url: /content/deals
+          - listitem [ref=f17e185]:
+            - link "Help & Advice" [ref=f17e186] [cursor=pointer]:
+              - /url: /help-and-advice
+    - generic [ref=f17e189]:
+      - link "Exclusive Deals Exclusive Deals & Promotions" [ref=f17e191] [cursor=pointer]:
+        - /url: /help-and-advice/finance-and-savings/promotions
+        - generic [ref=f17e192]:
+          - img "Exclusive Deals" [ref=f17e193]
+          - generic [ref=f17e194]: Exclusive Deals & Promotions
+      - link "Trustpilot Reviews Rated Excellent" [ref=f17e196] [cursor=pointer]:
+        - /url: https://uk.trustpilot.com/review/www.appliancesdirect.co.uk
+        - generic [ref=f17e197]:
+          - img "Trustpilot Reviews" [ref=f17e198]
+          - generic [ref=f17e199]: Rated Excellent
+      - link "Delivery Choose your delivery day" [ref=f17e201] [cursor=pointer]:
+        - /url: /help-and-advice/delivery-and-services/delivery
+        - generic [ref=f17e202]:
+          - img "Delivery" [ref=f17e203]
+          - generic [ref=f17e204]: Choose your delivery day
+      - link "0% Interest 0% Interest for 4 months" [ref=f17e206] [cursor=pointer]:
+        - /url: /help-and-advice/finance-and-savings/paypal-credit
+        - generic [ref=f17e207]:
+          - img "0% Interest" [ref=f17e208]
+          - generic [ref=f17e209]: 0% Interest for 4 months
+  - generic [ref=f17e212]:
+    - generic [ref=f17e213]:
+      - generic [ref=f17e214]:
+        - list:
+          - listitem [ref=f17e215]:
+            - heading [level=2] [ref=f17e216]:
+              - link "Home" [ref=f17e217] [cursor=pointer]:
+                - /url: /
+              - text: »
+          - listitem [ref=f17e218]:
+            - heading [level=2] [ref=f17e219]:
+              - link "Air Conditioning" [ref=f17e220] [cursor=pointer]:
+                - /url: https://www.appliancesdirect.co.uk/c/heating-and-air-conditioning
+              - text: »
+          - listitem [ref=f17e221]:
+            - heading [level=2] [ref=f17e222]:
+              - link "Air Conditioners" [ref=f17e223] [cursor=pointer]:
+                - /url: https://www.appliancesdirect.co.uk/ct/heating-and-air-conditioning/air-conditioners
+              - text: »
+          - listitem [ref=f17e224]:
+            - heading [level=2] [ref=f17e225]:
+              - link "electriQ" [ref=f17e226] [cursor=pointer]:
+                - /url: https://www.appliancesdirect.co.uk/bct/heating-and-air-conditioning/air-conditioners/electriq
+              - text: »
+          - listitem [ref=f17e227]:
+            - heading "EcoPlus10HPW" [level=2] [ref=f17e228]
+      - generic [ref=f17e229]:
+        - heading "product title" [level=1] [ref=f17e230]:
+          - generic [ref=f17e231]: electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater
+        - generic [ref=f17e233]:
+          - checkbox "compare product" [ref=f17e234]
+          - checkbox "mark product for compare" [ref=f17e236] [cursor=pointer]: Compare
+      - generic [ref=f17e237]:
+        - generic [ref=f17e238]: "SKU: EcoPlus10HPW"
+        - generic [ref=f17e239]: "Quickfind Code: 2056369"
+      - generic [ref=f17e240]:
+        - generic [ref=f17e241]:
+          - generic [ref=f17e242]:
+            - generic [ref=f17e243] [cursor=pointer]:
+              - group "1 / 13" [ref=f17e244]:
+                - link [ref=f17e245]:
+                  - /url: /Images/EcoPlus10HPW_1_Supersize.jpg?v=70
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e246]
+              - group "2 / 13" [ref=f17e247]:
+                - link [ref=f17e248]:
+                  - /url: /Images/EcoPlus10HPW_2_Supersize.jpg?v=70
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e249]
+              - group "3 / 13" [ref=f17e250]:
+                - link [ref=f17e251]:
+                  - /url: /Images/EcoPlus10HPW_3_Supersize.jpg?v=70
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e252]
+              - group "4 / 13" [ref=f17e253]:
+                - link [ref=f17e254]:
+                  - /url: /Images/EcoPlus10HPW_4_Supersize.jpg?v=81
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e255]
+              - group "5 / 13" [ref=f17e256]:
+                - link [ref=f17e257]:
+                  - /url: /Images/EcoPlus10HPW_5_Supersize.jpg?v=82
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e258]
+              - group "6 / 13" [ref=f17e259]:
+                - link [ref=f17e260]:
+                  - /url: /Images/EcoPlus10HPW_6_Supersize.jpg?v=77
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e261]
+              - group "7 / 13" [ref=f17e262]:
+                - link [ref=f17e263]:
+                  - /url: /Images/EcoPlus10HPW_7_Supersize.jpg?v=82
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e264]
+              - group "8 / 13" [ref=f17e265]:
+                - link [ref=f17e266]:
+                  - /url: /Images/EcoPlus10HPW_8_Supersize.jpg?v=82
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e267]
+              - group "9 / 13" [ref=f17e268]:
+                - link [ref=f17e269]:
+                  - /url: /Images/EcoPlus10HPW_9_Supersize.jpg?v=79
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e270]
+              - group "10 / 13" [ref=f17e271]:
+                - link [ref=f17e272]:
+                  - /url: /Images/EcoPlus10HPW_10_Supersize.jpg?v=78
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e273]
+              - group "11 / 13" [ref=f17e274]:
+                - link [ref=f17e275]:
+                  - /url: /Images/EcoPlus10HPW_11_Supersize.jpg?v=77
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e276]
+              - group "12 / 13" [ref=f17e277]:
+                - link [ref=f17e278]:
+                  - /url: /Images/EcoPlus10HPW_12_Supersize.jpg?v=76
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e279]
+              - group "13 / 13" [ref=f17e280]:
+                - link [ref=f17e281]:
+                  - /url: /Images/EcoPlus10HPW_13_Supersize.jpg?v=74
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e282]
+              - group "1 / 13" [ref=f17e283]:
+                - link [ref=f17e284]:
+                  - /url: /Images/EcoPlus10HPW_1_Supersize.jpg?v=70
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e285]
+              - group "2 / 13" [ref=f17e286]:
+                - link [ref=f17e287]:
+                  - /url: /Images/EcoPlus10HPW_2_Supersize.jpg?v=70
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e288]
+              - group "3 / 13" [ref=f17e289]:
+                - link [ref=f17e290]:
+                  - /url: /Images/EcoPlus10HPW_3_Supersize.jpg?v=70
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e291]
+              - group "4 / 13" [ref=f17e292]:
+                - link [ref=f17e293]:
+                  - /url: /Images/EcoPlus10HPW_4_Supersize.jpg?v=81
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e294]
+              - group "5 / 13" [ref=f17e295]:
+                - link [ref=f17e296]:
+                  - /url: /Images/EcoPlus10HPW_5_Supersize.jpg?v=82
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e297]
+              - group "6 / 13" [ref=f17e298]:
+                - link [ref=f17e299]:
+                  - /url: /Images/EcoPlus10HPW_6_Supersize.jpg?v=77
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e300]
+              - group "7 / 13" [ref=f17e301]:
+                - link [ref=f17e302]:
+                  - /url: /Images/EcoPlus10HPW_7_Supersize.jpg?v=82
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e303]
+              - group "8 / 13" [ref=f17e304]:
+                - link [ref=f17e305]:
+                  - /url: /Images/EcoPlus10HPW_8_Supersize.jpg?v=82
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e306]
+              - group "9 / 13" [ref=f17e307]:
+                - link [ref=f17e308]:
+                  - /url: /Images/EcoPlus10HPW_9_Supersize.jpg?v=79
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e309]
+              - group "10 / 13" [ref=f17e310]:
+                - link [ref=f17e311]:
+                  - /url: /Images/EcoPlus10HPW_10_Supersize.jpg?v=78
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e312]
+              - group "11 / 13" [ref=f17e313]:
+                - link [ref=f17e314]:
+                  - /url: /Images/EcoPlus10HPW_11_Supersize.jpg?v=77
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e315]
+              - group "12 / 13" [ref=f17e316]:
+                - link [ref=f17e317]:
+                  - /url: /Images/EcoPlus10HPW_12_Supersize.jpg?v=76
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e318]
+              - group "13 / 13" [ref=f17e319]:
+                - link [ref=f17e320]:
+                  - /url: /Images/EcoPlus10HPW_13_Supersize.jpg?v=74
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e321]
+              - group "1 / 13" [ref=f17e322]:
+                - link [ref=f17e323]:
+                  - /url: /Images/EcoPlus10HPW_1_Supersize.jpg?v=70
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e324]
+              - group "2 / 13" [ref=f17e325]:
+                - link [ref=f17e326]:
+                  - /url: /Images/EcoPlus10HPW_2_Supersize.jpg?v=70
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e327]
+              - group "3 / 13" [ref=f17e328]:
+                - link [ref=f17e329]:
+                  - /url: /Images/EcoPlus10HPW_3_Supersize.jpg?v=70
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e330]
+              - group "4 / 13" [ref=f17e331]:
+                - link [ref=f17e332]:
+                  - /url: /Images/EcoPlus10HPW_4_Supersize.jpg?v=81
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e333]
+              - group "5 / 13" [ref=f17e334]:
+                - link [ref=f17e335]:
+                  - /url: /Images/EcoPlus10HPW_5_Supersize.jpg?v=82
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e336]
+              - group "6 / 13" [ref=f17e337]:
+                - link [ref=f17e338]:
+                  - /url: /Images/EcoPlus10HPW_6_Supersize.jpg?v=77
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e339]
+              - group "7 / 13" [ref=f17e340]:
+                - link [ref=f17e341]:
+                  - /url: /Images/EcoPlus10HPW_7_Supersize.jpg?v=82
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e342]
+              - group "8 / 13" [ref=f17e343]:
+                - link [ref=f17e344]:
+                  - /url: /Images/EcoPlus10HPW_8_Supersize.jpg?v=82
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e345]
+              - group "9 / 13" [ref=f17e346]:
+                - link [ref=f17e347]:
+                  - /url: /Images/EcoPlus10HPW_9_Supersize.jpg?v=79
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e348]
+              - group "10 / 13" [ref=f17e349]:
+                - link [ref=f17e350]:
+                  - /url: /Images/EcoPlus10HPW_10_Supersize.jpg?v=78
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e351]
+              - group "11 / 13" [ref=f17e352]:
+                - link [ref=f17e353]:
+                  - /url: /Images/EcoPlus10HPW_11_Supersize.jpg?v=77
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e354]
+              - group "12 / 13" [ref=f17e355]:
+                - link [ref=f17e356]:
+                  - /url: /Images/EcoPlus10HPW_12_Supersize.jpg?v=76
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e357]
+              - group "13 / 13" [ref=f17e358]:
+                - link [ref=f17e359]:
+                  - /url: /Images/EcoPlus10HPW_13_Supersize.jpg?v=74
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e360]
+            - button "Previous slide" [ref=f17e361] [cursor=pointer]
+            - button "Next slide" [ref=f17e362] [cursor=pointer]
+          - img "electriQ logo" [ref=f17e364]
+        - generic [ref=f17e367] [cursor=pointer]:
+          - group "1 / 13" [ref=f17e368]:
+            - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e369]
+          - group "2 / 13" [ref=f17e370]:
+            - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e371]
+          - group "3 / 13" [ref=f17e372]:
+            - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e373]
+          - group "4 / 13" [ref=f17e374]:
+            - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e375]
+          - group "5 / 13" [ref=f17e376]:
+            - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e377]
+          - group "6 / 13" [ref=f17e378]:
+            - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e379]
+          - group "7 / 13" [ref=f17e380]:
+            - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e381]
+          - group "8 / 13" [ref=f17e382]:
+            - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e383]
+          - group "9 / 13" [ref=f17e384]:
+            - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e385]
+          - group "10 / 13" [ref=f17e386]:
+            - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e387]
+          - group "11 / 13" [ref=f17e388]:
+            - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e389]
+          - group "12 / 13" [ref=f17e390]:
+            - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e391]
+          - group "13 / 13" [ref=f17e392]:
+            - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f17e393]
+        - img "Energy Label" [ref=f17e395]
+        - generic [ref=f17e404] [cursor=pointer]:
+          - heading "How much cooling power do I need?" [level=3] [ref=f17e405]
+          - paragraph [ref=f17e406]: Try our BTU & cost estimator
+        - option "I don't know (Average)" [selected]
+        - option "Good (New Build/Double Glazed)"
+        - option "Average"
+        - option "Poor (Single Glazed/Old Build)"
+        - option "I don't know (Normal)" [selected]
+        - option "Shaded / North Facing"
+        - option "Normal Light"
+        - option "Very Sunny / South Facing"
+        - option "No / I don't know" [selected]
+        - option "Yes (Open stairs/Mezzanine)"
+        - text: 0 0
+      - generic [ref=f17e410]:
+        - generic [ref=f17e411]:
+          - generic [ref=f17e412]:
+            - generic [ref=f17e413]: £
+            - generic [ref=f17e414]: "799"
+            - generic [ref=f17e415]: ".97"
+          - button "Add to Basket »" [ref=f17e418] [cursor=pointer]
+        - generic "finance offers" [ref=f17e419]:
+          - paragraph [ref=f17e423]:
+            - text: Pay 4 interest-free payments of £199.99 with
+            - generic [ref=f17e424]:
+              - button "Clearpay logo - Opens a dialog" [ref=f17e425] [cursor=pointer]
+              - button "Learn More about Clearpay - Opens a dialog" [ref=f17e438] [cursor=pointer]:
+                - generic [ref=f17e439]: Learn More
+        - generic [ref=f17e440]:
+          - generic [ref=f17e441]: Delivery from 4 weeks
+          - iframe [ref=f17e447]:
+            - region "Special offers and promotions" [ref=f28e3]:
+              - generic [ref=f28e4]:
+                - contentinfo "Enjoy this offer when you buy with Appliances Direct" [ref=f28e6]
+                - contentinfo
+                - generic "Offer item" [ref=f28e13] [cursor=pointer]:
+                  - generic [ref=f28e14]:
+                    - img "offer 1"
+                  - generic [ref=f28e15]:
+                    - generic [ref=f28e16]:
+                      - contentinfo "Extra £5 OFF Entries" [ref=f28e18]
+                      - contentinfo "Omaze Bath, House Draw, £4,000,000, with £250,000 cash" [ref=f28e20]
+                      - button "Select offer" [ref=f28e22]:
+                        - generic [ref=f28e23]: Select
+                    - button "More information about offer" [ref=f28e28]
+                - contentinfo "By selecting you will receive by e-mail after purchase" [ref=f28e33]
+        - generic [ref=f17e448]:
+          - heading "Product Options" [level=2]
+          - generic [ref=f17e451]:
+            - generic [ref=f17e452]:
+              - heading "BTU (Cooling Power)" [level=5] [ref=f17e453]
+              - generic [ref=f17e456] [cursor=pointer]:
+                - group "1 / 2" [ref=f17e457]:
+                  - link "10000 Selected" [ref=f17e458]:
+                    - /url: /p/ecoplus10hpw/electriq-ecoplus10hpw-air-conditioner
+                    - generic [ref=f17e460]:
+                      - text: "10000"
+                      - generic [ref=f17e461]: Selected
+                - group "2 / 2" [ref=f17e462]:
+                  - link "14000 See options" [ref=f17e463]:
+                    - /url: /p/ecosilent14w/electriq-ecosilent14w-air-conditioner
+                    - generic [ref=f17e465]:
+                      - text: "14000"
+                      - generic [ref=f17e466]: See options
+            - generic [ref=f17e467]:
+              - heading "Room Size" [level=5] [ref=f17e468]
+              - generic [ref=f17e471] [cursor=pointer]:
+                - group "1 / 2" [ref=f17e472]:
+                  - link "26sqm Selected" [ref=f17e473]:
+                    - /url: /p/ecoplus10hpw/electriq-ecoplus10hpw-air-conditioner
+                    - generic [ref=f17e475]:
+                      - text: 26sqm
+                      - generic [ref=f17e476]: Selected
+                - group "2 / 2" [ref=f17e477]:
+                  - link "38sqm See options" [ref=f17e478]:
+                    - /url: /p/ecosilent14w/electriq-ecosilent14w-air-conditioner
+                    - generic [ref=f17e480]:
+                      - text: 38sqm
+                      - generic [ref=f17e481]: See options
+            - generic [ref=f17e482]:
+              - heading "Heating Function (Heat Pump)" [level=5] [ref=f17e483]
+              - generic [ref=f17e486] [cursor=pointer]:
+                - group "1 / 2" [ref=f17e487]:
+                  - link "Yes Selected" [ref=f17e488]:
+                    - /url: /p/ecoplus10hpw/electriq-ecoplus10hpw-air-conditioner
+                    - generic [ref=f17e490]:
+                      - text: "Yes"
+                      - generic [ref=f17e491]: Selected
+                - group "2 / 2" [ref=f17e492]:
+                  - link "Cooling Only See options" [ref=f17e493]:
+                    - /url: /p/ecosilent14w/electriq-ecosilent14w-air-conditioner
+                    - generic [ref=f17e495]:
+                      - text: Cooling Only
+                      - generic [ref=f17e496]: See options
+        - generic [ref=f17e497]:
+          - heading "Why buy me" [level=2]
+          - list [ref=f17e501]:
+            - listitem [ref=f17e502]: "Year-Round Comfort: Ideal for spaces up to 26 sqm with a heat pump for winter warming."
+            - listitem [ref=f17e503]: "Smart Wi-Fi & Voice: Fully compatible with the Tuya app, Alexa, and Google Home. Control your climate from anywhere and schedule cooling to save energy."
+            - listitem [ref=f17e504]: "A+ Energy Rating: Highly efficient heat-pump technology keeps bills lower than standard 'A' rated units in all seasons."
+            - listitem [ref=f17e505]: "True HEPA & Carbon: Includes medical-grade filtration to remove 99.97% of allergens, dust, and odours while you cool."
+            - listitem [ref=f17e506]: "Advanced Sleep Mode: Designed for total rest - dims all LED lights and drops the fan to its quietest setting for undisturbed sleep."
+            - listitem [ref=f17e507]: "5-Speed DC Fan: Precise airflow control with an intelligent Smart Cool mode that adjusts speed automatically to save energy."
+            - listitem [ref=f17e508]: "Powerful Dehumidifier: Dedicated mode extracts up to 24L/day with no need for venting."
+            - listitem [ref=f17e509]: "Flexible Installation: Includes UK's longest 2.0m exhaust hose, offering significantly more placement freedom than standard units. See recommended accessories for compatible window kits."
+        - generic [ref=f17e510]:
+          - heading "Extended warranties" [level=2]
+    - generic [ref=f17e514]:
+      - tablist [ref=f17e516]:
+        - navigation [ref=f17e517]:
+          - heading "Product Information" [level=6] [ref=f17e520]
+        - navigation [ref=f17e521]:
+          - heading "Dimensions & Spec" [level=6] [ref=f17e524]
+        - navigation [ref=f17e525]:
+          - heading "Recommended Accessories" [level=6] [ref=f17e528]
+        - navigation [ref=f17e529]:
+          - heading "Questions & Answers" [level=6] [ref=f17e532]
+      - tabpanel [ref=f17e534]:
+        - generic [ref=f17e536]:
+          - img "electriQ EcoPlus 10HPW" [ref=f17e539]
+          - generic [ref=f17e541]:
+            - paragraph [ref=f17e543]: WINTERHeat Pump
+            - paragraph [ref=f17e545]: ALLERGYTRUE HEPA
+            - paragraph [ref=f17e547]: QUIET38dB
+            - paragraph [ref=f17e549]: EFFICIENCYA+ Rated
+            - paragraph [ref=f17e551]: REACH2m Hose
+            - paragraph [ref=f17e553]: SMARTWiFi Control
+          - generic [ref=f17e554]:
+            - img "Intro" [ref=f17e556]
+            - generic [ref=f17e557]:
+              - paragraph [ref=f17e558]: electriQ EcoPlus10HPW Smart WiFi Portable Air Con
+              - paragraph [ref=f17e559]: Experience total home comfort every day of the year with the electriQ EcoPlus10HPW, a flagship 4-in-1 system that does far more than just cool your home. Designed for spaces up to 26 sqm, this ultra-efficient A+ rated unit features a built-in heat pump to keep you cozy in the winter and a medical-grade TRUE HEPA filter to capture 99.97% of allergens and dust for cleaner, fresher air. You can easily manage your environment from your sofa or even while away from home using the smartphone app or voice commands via Alexa and Google Home. With its quiet sleep mode and energy-saving technology, it’s the perfect year-round companion for a healthier, more comfortable, and cost-effective home.
+              - generic [ref=f17e560]:
+                - img "Alexa" [ref=f17e562]
+                - img "Google" [ref=f17e564]
+          - generic [ref=f17e565]:
+            - generic [ref=f17e566]:
+              - img "Year-Round Comfort" [ref=f17e568]
+              - generic [ref=f17e569]:
+                - paragraph [ref=f17e570]: A+ Rated Year-Round Comfort with Smart Cool Mode
+                - paragraph [ref=f17e571]:
+                  - text: Maintain the perfect temperature from 16°C to 32°C in any season. The integrated heat pump consumes significantly less energy than standard resistive heaters. The
+                  - strong [ref=f17e572]: Smart Cool
+                  - text: mode rapidly drops your room to your target temperature using high-speed fans before shifting to a quiet, eco-efficient maintenance mode to keep you comfortable for less.
+            - generic [ref=f17e573]:
+              - img "Dehum" [ref=f17e575]
+              - generic [ref=f17e576]:
+                - paragraph [ref=f17e577]: Doubles as a Dehumidifier
+                - paragraph [ref=f17e578]: Removes up to 24L of moisture per day to prevent damp, mould and condensation and dry laundry faster. When using the dedicated "Dry" dehumidifier mode you don't even have to vent it, and if you won't be around to empty the tank simply attach the included continuous drainage hose and feed it into a suitable container like a bucket.
+                - paragraph [ref=f17e579]: Self-Evaporating Design
+                - paragraph [ref=f17e580]: When in cooling mode the self-evaporative system reuses collected moisture to cool the condenser coils, reducing the need for manual emptying the tank
+            - generic [ref=f17e581]:
+              - generic [ref=f17e582]:
+                - img "HEPA" [ref=f17e583]
+                - generic [ref=f17e584]:
+                  - paragraph [ref=f17e585]: Market-Leading Noise Comparison
+                  - generic [ref=f17e586]:
+                    - generic [ref=f17e588]: 30dB (Whisper)
+                    - generic [ref=f17e589]: 38dB (EcoPlus)
+                    - generic [ref=f17e590]: 45dB (Library)
+                    - generic [ref=f17e591]: 55dB (Standard AC)
+                    - generic [ref=f17e592]: 65dB (Conversation)
+              - generic [ref=f17e593]:
+                - paragraph [ref=f17e594]: Quiet Cooling with TRUE HEPA Air Purification
+                - paragraph [ref=f17e595]:
+                  - text: Switch to quiet mode for market-leading noise levels. Medical-grade
+                  - strong [ref=f17e596]: TRUE HEPA
+                  - text: filtration captures 99.97% of allergens and fine dust at whisper-quiet levels.
+            - generic [ref=f17e597]:
+              - heading "The Premium Leader" [level=3] [ref=f17e598]
+              - table [ref=f17e599]:
+                - rowgroup [ref=f17e600]:
+                  - row [ref=f17e601]:
+                    - columnheader "Brand" [ref=f17e602]
+                    - columnheader "Efficiency" [ref=f17e603]
+                    - columnheader "Heating" [ref=f17e604]
+                    - columnheader "Filtration" [ref=f17e605]
+                - rowgroup [ref=f17e606]:
+                  - row [ref=f17e607]:
+                    - cell "electriQ EcoPlus" [ref=f17e608]
+                    - cell "A+ Rated" [ref=f17e609]
+                    - cell "Heat Pump" [ref=f17e610]
+                    - cell "TRUE HEPA" [ref=f17e611]
+                  - row [ref=f17e612]:
+                    - cell "Premium Brands" [ref=f17e613]
+                    - cell "A Rated" [ref=f17e614]
+                    - cell "None" [ref=f17e615]
+                    - cell "Standard" [ref=f17e616]
+          - generic [ref=f17e618]:
+            - generic [ref=f17e619]:
+              - img "WiFi" [ref=f17e620]
+              - paragraph [ref=f17e621]: Smart WiFi & Voice
+              - paragraph [ref=f17e622]: Control via Tuya app or voice assistants. Smart Cool logic adjusts speed automatically.
+            - generic [ref=f17e623]:
+              - img "Timer" [ref=f17e624]
+              - paragraph [ref=f17e625]: 24-Hour Timer & Child Lock
+              - paragraph [ref=f17e626]: Schedule comfort and keep settings safe from toddlers with the built-in lock.
+            - generic [ref=f17e627]:
+              - img "Sleep" [ref=f17e628]
+              - paragraph [ref=f17e629]: True Sleep Mode
+              - paragraph [ref=f17e630]: "Total night blackout: dims all LED lights and locks the fan to quietest DC speed."
+            - generic [ref=f17e631]:
+              - img "Efficiency" [ref=f17e632]
+              - paragraph [ref=f17e633]: A+ Energy Rating
+              - paragraph [ref=f17e634]: Highly efficient technology ensures minimal running costs in both heating and cooling.
+            - generic [ref=f17e635]:
+              - img "Portable" [ref=f17e636]
+              - paragraph [ref=f17e637]: Portable with Hidden Castors
+              - paragraph [ref=f17e638]: Includes built-in handles and smooth-glide castor wheels for easy movement.
+            - generic [ref=f17e639]:
+              - img "Remote" [ref=f17e640]
+              - paragraph [ref=f17e641]: Magnetic Remote
+              - paragraph [ref=f17e642]: Premium ergonomic remote docks magnetically to the side so it’s always within reach.
+          - generic [ref=f17e644]:
+            - generic [ref=f17e645]:
+              - heading "What's in the Box" [level=3] [ref=f17e646]
+              - list [ref=f17e647]:
+                - listitem [ref=f17e648]: 1 × EcoPlus10HPW Climate System
+                - listitem [ref=f17e649]: 1 × 2.0m Extendable Exhaust Hose
+                - listitem [ref=f17e650]: 1 × TRUE HEPA & Carbon Filters
+                - listitem [ref=f17e651]: 1 × Magnetic Remote Control
+                - listitem [ref=f17e652]: 1 × Window Slide Bar Kit
+              - paragraph [ref=f17e653]: Downloads
+              - paragraph [ref=f17e654]:
+                - link "User Manual »" [ref=f17e655] [cursor=pointer]:
+                  - /url: /files/pdf/EcoPlus10HPW%2020260410J.pdf
+            - img "Dims" [ref=f17e657]
+          - text:  
+  - generic [ref=f17e659]:
+    - generic [ref=f17e663]:
+      - heading "You may also like" [level=2] [ref=f17e664]
+      - generic [ref=f17e665]:
+        - generic [ref=f17e666]: 
+        - generic [ref=f17e667]: 
+    - generic [ref=f17e679]:
+      - heading "Recently viewed" [level=2] [ref=f17e680]
+      - generic [ref=f17e681]:
+        - generic [ref=f17e682]: 
+        - generic [ref=f17e683]: 
+  - contentinfo [ref=f17e692]:
+    - generic [ref=f17e694]:
+      - img "PayPal Logo"
+      - paragraph [ref=f17e695]: "PayPal Credit Representative Example: Assumed credit limit £1,200, Representative 23.9% APR (variable). Purchase rate 23.9% p.a (variable)."
+    - generic [ref=f17e696]:
+      - generic [ref=f17e697]:
+        - generic [ref=f17e698]:
+          - img "BuyItDirect Logo" [ref=f17e699]
+          - paragraph [ref=f17e700]: Appliances Direct are part of the Buy It Direct Group; Reg. No. 04171412
+        - list [ref=f17e702]:
+          - listitem [ref=f17e703]:
+            - link "Help and advice" [ref=f17e704] [cursor=pointer]:
+              - /url: https://www.appliancesdirect.co.uk/help-and-advice
+          - listitem [ref=f17e705]:
+            - link "Customer service" [ref=f17e706] [cursor=pointer]:
+              - /url: https://www.appliancesdirect.co.uk/help-and-advice/customer-service
+          - listitem [ref=f17e707]:
+            - link "Collection points" [ref=f17e708] [cursor=pointer]:
+              - /url: https://www.appliancesdirect.co.uk/help-and-advice/delivery-and-services/collection-points
+          - listitem [ref=f17e709]:
+            - link "Finance" [ref=f17e710] [cursor=pointer]:
+              - /url: https://www.appliancesdirect.co.uk/help-and-advice/finance-and-savings
+          - listitem [ref=f17e711]: My account
+          - listitem [ref=f17e712]:
+            - link "Track order" [ref=f17e713] [cursor=pointer]:
+              - /url: /CustomerAccount/Login
+          - listitem [ref=f17e714]:
+            - link "Student and Key Worker Discount" [ref=f17e715] [cursor=pointer]:
+              - /url: /help-and-advice/finance-and-savings/student-discount
+        - list [ref=f17e717]:
+          - listitem [ref=f17e718]: Services
+          - listitem [ref=f17e719]:
+            - link "Delivery" [ref=f17e720] [cursor=pointer]:
+              - /url: https://www.appliancesdirect.co.uk/help-and-advice/delivery-and-services/delivery
+          - listitem [ref=f17e721]:
+            - link "Installation" [ref=f17e722] [cursor=pointer]:
+              - /url: https://www.appliancesdirect.co.uk/help-and-advice/delivery-and-services/installation
+          - listitem [ref=f17e723]:
+            - link "Public sector enquiries" [ref=f17e724] [cursor=pointer]:
+              - /url: https://www.appliancesdirect.co.uk/help-and-advice/delivery-and-services/public-sector
+          - listitem [ref=f17e725]:
+            - link "Trade enquiries" [ref=f17e726] [cursor=pointer]:
+              - /url: https://www.appliancesdirect.co.uk/help-and-advice/delivery-and-services/trade-customers
+        - list [ref=f17e728]:
+          - listitem [ref=f17e729]: About us
+          - listitem [ref=f17e730]:
+            - link "About us" [ref=f17e731] [cursor=pointer]:
+              - /url: /help-and-advice/about
+          - listitem [ref=f17e732]:
+            - link "Affiliates" [ref=f17e733] [cursor=pointer]:
+              - /url: https://www.appliancesdirect.co.uk/help-and-advice/finance-and-savings/affiliates
+          - listitem [ref=f17e734]:
+            - link "Careers" [ref=f17e735] [cursor=pointer]:
+              - /url: https://www.buyitdirectgroup.co.uk/content/careers
+          - listitem [ref=f17e736]:
+            - link "Corporate site" [ref=f17e737] [cursor=pointer]:
+              - /url: https://www.buyitdirectgroup.co.uk
+        - list [ref=f17e739]:
+          - listitem [ref=f17e740]: Shop
+          - listitem [ref=f17e741]:
+            - link "Cooking" [ref=f17e742] [cursor=pointer]:
+              - /url: /content/cooking
+          - listitem [ref=f17e743]:
+            - link "Refrigeration" [ref=f17e744] [cursor=pointer]:
+              - /url: /c/refrigeration
+          - listitem [ref=f17e745]:
+            - link "TVs" [ref=f17e746] [cursor=pointer]:
+              - /url: /c/tv-and-home-entertainment
+          - listitem [ref=f17e747]:
+            - link "Laundry" [ref=f17e748] [cursor=pointer]:
+              - /url: /c/washers-and-dryers
+          - listitem [ref=f17e749]:
+            - link "Heating & Air Treatment" [ref=f17e750] [cursor=pointer]:
+              - /url: /c/heating-and-air-conditioning
+          - listitem [ref=f17e751]:
+            - link "Barbecues" [ref=f17e752] [cursor=pointer]:
+              - /url: /ct/cooking/barbecues
+        - iframe [ref=f17e755]:
+          - generic [ref=f23e2]:
+            - link "Check out our 151,941 reviews" [ref=f23e3] [cursor=pointer]:
+              - /url: https://uk.trustpilot.com/review/www.appliancesdirect.co.uk?utm_medium=trustbox&utm_source=TrustBoxBasic&utm_campaign=free
+            - link [ref=f23e5] [cursor=pointer]:
+              - /url: https://uk.trustpilot.com/review/www.appliancesdirect.co.uk?utm_medium=trustbox&utm_source=TrustBoxBasic&utm_campaign=free
+              - img "4.3 out of 5 star rating on Trustpilot" [ref=f23e9]
+            - link [ref=f23e31] [cursor=pointer]:
+              - /url: https://uk.trustpilot.com/review/www.appliancesdirect.co.uk?utm_medium=trustbox&utm_source=TrustBoxBasic&utm_campaign=free
+              - img "Trustpilot" [ref=f23e34]
+      - generic [ref=f17e756]:
+        - heading "We accept" [level=3] [ref=f17e757]
+        - generic [ref=f17e758]:
+          - img "Maestro logo" [ref=f17e759]
+          - img "MasterCard logo" [ref=f17e760]
+          - img "Visa logo" [ref=f17e761]
+          - img "PayPal logo" [ref=f17e762]
+          - img "Apple Pay logo" [ref=f17e763]
+          - img "Google Pay logo" [ref=f17e764]
+          - img "ClearPay logo" [ref=f17e765]
+      - generic [ref=f17e768]:
+        - list [ref=f17e769]:
+          - listitem [ref=f17e770]: Our websites
+          - listitem [ref=f17e771]:
+            - link "Laptops Direct" [ref=f17e772] [cursor=pointer]:
+              - /url: https://www.laptopsdirect.co.uk/
+          - listitem [ref=f17e773]:
+            - link "Drones Direct" [ref=f17e774] [cursor=pointer]:
+              - /url: https://www.dronesdirect.co.uk/
+          - listitem [ref=f17e775]:
+            - link "Better Bathrooms" [ref=f17e776] [cursor=pointer]:
+              - /url: https://www.betterbathrooms.com/
+          - listitem [ref=f17e777]:
+            - link "Furniture123" [ref=f17e778] [cursor=pointer]:
+              - /url: https://furniture123.co.uk/
+          - listitem [ref=f17e779]:
+            - link "Outdoor Living" [ref=f17e780] [cursor=pointer]:
+              - /url: https://www.outdoorlivinghottubs.co.uk/
+        - list [ref=f17e781]:
+          - listitem [ref=f17e782]:
+            - link "Cookie Policy" [ref=f17e783] [cursor=pointer]:
+              - /url: /help-and-advice/cookie-policy
+          - listitem [ref=f17e784]:
+            - link "Privacy Policy" [ref=f17e785] [cursor=pointer]:
+              - /url: /help-and-advice/privacy-policy
+          - listitem [ref=f17e786]:
+            - link "Instagram Appliances Direct" [ref=f17e787] [cursor=pointer]:
+              - /url: https://www.instagram.com/appliances_direct/
+            - link "Facebook Appliances Direct" [ref=f17e791] [cursor=pointer]:
+              - /url: https://www.facebook.com/UKAppliancesDirect
+      - generic [ref=f17e796]:
+        - paragraph [ref=f17e797]:
+          - text: Buy It Direct acts as a broker and offers credit from a panel of lenders. For more information please
+          - link "click here." [ref=f17e798] [cursor=pointer]:
+            - /url: https://www.appliancesdirect.co.uk/help-and-advice/finance-and-savings
+        - paragraph [ref=f17e799]:
+          - text: PayPal Credit and PayPal Pay in 3 are trading names of PayPal UK Ltd, 5 Fleet Place, London, United Kingdom, EC4M 7RD.
+          - strong [ref=f17e800]: "PayPal Credit:"
+          - text: Terms and conditions apply. Credit subject to status, UK residents only, Buy It Direct acts as a broker and offers finance from a restricted range of finance providers.
+          - strong [ref=f17e801]: "PayPal Pay in 3:"
+          - text: PayPal Pay in 3 is not regulated by the Financial Conduct Authority. Pay in 3 eligibility is subject to status and approval. UK residents only. Pay in 3 is a form of credit, may not be suitable for everyone and use may affect your credit score. See product terms for more details.
+        - paragraph [ref=f17e802]: "Buy It Direct Ltd is a limited company registered in England. Registered number 04171412. Registered office: Trident Business Park, Leeds Road, Huddersfield, West Yorkshire, HD2 1UA."
+  - generic [ref=f17e804]:
+    - generic [ref=f17e805]: Please wait
+    - link [ref=f17e811] [cursor=pointer]:
+      - /url: javascript:void(0);
+  - status [ref=f17e815]
+  - iframe [ref=f17e816]:
+    
+  - iframe

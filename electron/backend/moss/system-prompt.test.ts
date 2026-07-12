@@ -52,6 +52,20 @@ describe("buildSystemMessage", () => {
     expect(msg.content).toContain("do not add headings");
   });
 
+  it("requires slash-selected skills to be loaded exactly", () => {
+    const msg = buildSystemMessage({ includeSkills: true });
+    expect(msg.content).toContain("starts a message with /<skill-name>");
+    expect(msg.content).toContain("m_get_skill with that exact skill name");
+  });
+
+  it("requires questions to end the turn before tools or further work", () => {
+    const msg = buildSystemMessage({ includeSkills: false });
+    expect(msg.content).toContain("ask clearly and end the turn immediately");
+    expect(msg.content).toContain("Do not answer the question yourself");
+    expect(msg.content).toContain("call tools");
+    expect(msg.content).toContain("until the user sends a follow-up message");
+  });
+
   it("includes the untrusted-content safety guidance", () => {
     const msg = buildSystemMessage({ includeSkills: false });
     expect(msg.content).toContain("untrusted data");

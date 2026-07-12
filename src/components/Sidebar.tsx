@@ -5,6 +5,7 @@
 // flight so transient turn state never lands in the wrong conversation.
 
 import { useState } from "react";
+import { Copy, Download, Pencil, Trash2 } from "lucide-react";
 
 import {
   createSession,
@@ -112,7 +113,7 @@ export function Sidebar({ busy, onOpenSettings, onOpenLibrary }: SidebarProps): 
             {visible.map((s) => (
               <li
                 key={s.id}
-                className={`group flex items-center gap-1 rounded-md px-2 py-1.5 text-sm transition ${
+                className={`group relative flex items-center rounded-md px-2 py-1.5 text-sm transition ${
                   s.id === currentId
                     ? "border-l-2 border-emerald-500 bg-neutral-200 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
                     : "border-l-2 border-transparent text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200/60 dark:hover:bg-neutral-800/60"
@@ -134,7 +135,7 @@ export function Sidebar({ busy, onOpenSettings, onOpenLibrary }: SidebarProps): 
                 ) : (
                   <>
                     <button
-                      className="min-w-0 flex-1 truncate text-left disabled:cursor-not-allowed"
+                      className="min-w-0 flex-1 truncate text-left group-hover:pr-24 group-focus-within:pr-24 disabled:cursor-not-allowed"
                       onClick={() => selectSession(s.id)}
                       onDoubleClick={() => beginRename(s)}
                       disabled={busy}
@@ -142,36 +143,42 @@ export function Sidebar({ busy, onOpenSettings, onOpenLibrary }: SidebarProps): 
                     >
                       {s.title}
                     </button>
-                    <button
-                      className="shrink-0 text-xs text-neutral-500 dark:text-neutral-400 opacity-0 hover:text-emerald-400 group-hover:opacity-100 disabled:opacity-0"
-                      onClick={() => beginRename(s)}
-                      disabled={busy}
-                      title="Rename conversation"
-                    >
-                      Rename
-                    </button>
-                    <button
-                      className="shrink-0 text-xs text-neutral-500 dark:text-neutral-400 opacity-0 hover:text-emerald-400 group-hover:opacity-100 disabled:opacity-0"
-                      onClick={() => downloadTextFile(fileNameFor(s), sessionToMarkdown(s, exportOptions))}
-                      title="Export conversation as Markdown"
-                    >
-                      Export
-                    </button>
-                    <button
-                      className="shrink-0 text-xs text-neutral-500 dark:text-neutral-400 opacity-0 hover:text-emerald-400 group-hover:opacity-100 disabled:opacity-0"
-                      onClick={() => copyToClipboard(sessionToMarkdown(s, exportOptions))}
-                      title="Copy conversation as Markdown"
-                    >
-                      Copy
-                    </button>
-                    <button
-                      className="shrink-0 text-xs text-neutral-500 dark:text-neutral-400 opacity-0 hover:text-red-400 group-hover:opacity-100 disabled:opacity-0"
-                      onClick={() => deleteSession(s.id)}
-                      disabled={busy}
-                      title="Delete conversation"
-                    >
-                      Delete
-                    </button>
+                    <div className="invisible absolute right-1 flex items-center rounded bg-neutral-200 dark:bg-neutral-800 opacity-0 shadow-sm transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
+                      <button
+                        className="p-1 text-neutral-500 dark:text-neutral-400 hover:text-emerald-600 dark:hover:text-emerald-400 disabled:opacity-40"
+                        onClick={() => beginRename(s)}
+                        disabled={busy}
+                        title="Rename conversation"
+                        aria-label="Rename conversation"
+                      >
+                        <Pencil size={14} aria-hidden="true" />
+                      </button>
+                      <button
+                        className="p-1 text-neutral-500 dark:text-neutral-400 hover:text-emerald-600 dark:hover:text-emerald-400"
+                        onClick={() => downloadTextFile(fileNameFor(s), sessionToMarkdown(s, exportOptions))}
+                        title="Export conversation as Markdown"
+                        aria-label="Export conversation as Markdown"
+                      >
+                        <Download size={14} aria-hidden="true" />
+                      </button>
+                      <button
+                        className="p-1 text-neutral-500 dark:text-neutral-400 hover:text-emerald-600 dark:hover:text-emerald-400"
+                        onClick={() => copyToClipboard(sessionToMarkdown(s, exportOptions))}
+                        title="Copy conversation as Markdown"
+                        aria-label="Copy conversation as Markdown"
+                      >
+                        <Copy size={14} aria-hidden="true" />
+                      </button>
+                      <button
+                        className="p-1 text-neutral-500 dark:text-neutral-400 hover:text-red-600 dark:hover:text-red-400 disabled:opacity-40"
+                        onClick={() => deleteSession(s.id)}
+                        disabled={busy}
+                        title="Delete conversation"
+                        aria-label="Delete conversation"
+                      >
+                        <Trash2 size={14} aria-hidden="true" />
+                      </button>
+                    </div>
                   </>
                 )}
               </li>

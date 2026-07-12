@@ -64,10 +64,16 @@ export function toAnthropic(messages: AgentMessage[]): { system?: string; messag
     if (m.role === "system") continue;
 
     if (m.role === "user") {
-      if (m.images && m.images.length > 0) {
+      if ((m.images?.length ?? 0) > 0 || (m.documents?.length ?? 0) > 0) {
         const blocks: AnthropicBlock[] = [];
         if (m.content) blocks.push({ type: "text", text: m.content });
-        for (const url of m.images) {
+        for (const document of m.documents ?? []) {
+          blocks.push({
+            type: "text",
+            text: `--- BEGIN ATTACHED FILE: ${document.name} (${document.mediaType}) ---\n${document.text}\n--- END ATTACHED FILE: ${document.name} ---`,
+          });
+        }
+        for (const url of m.images ?? []) {
           const parsed = parseDataUrl(url);
           if (parsed) {
             blocks.push({ type: "image", source: { type: "base64", media_type: parsed.media_type, data: parsed.data } });

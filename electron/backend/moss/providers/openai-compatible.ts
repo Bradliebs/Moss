@@ -46,10 +46,16 @@ export function toOpenAiMessages(messages: AgentMessage[]): unknown[] {
     if (m.role === "tool") {
       return { role: "tool", tool_call_id: m.toolCallId, content: m.content };
     }
-    if (m.role === "user" && m.images && m.images.length > 0) {
+    if (m.role === "user" && ((m.images?.length ?? 0) > 0 || (m.documents?.length ?? 0) > 0)) {
       const parts: unknown[] = [];
       if (m.content) parts.push({ type: "text", text: m.content });
-      for (const url of m.images) parts.push({ type: "image_url", image_url: { url } });
+      for (const document of m.documents ?? []) {
+        parts.push({
+          type: "text",
+          text: `--- BEGIN ATTACHED FILE: ${document.name} (${document.mediaType}) ---\n${document.text}\n--- END ATTACHED FILE: ${document.name} ---`,
+        });
+      }
+      for (const url of m.images ?? []) parts.push({ type: "image_url", image_url: { url } });
       return { role: "user", content: parts };
     }
     return { role: m.role, content: m.content };

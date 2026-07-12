@@ -1,0 +1,436 @@
+- generic [active] [ref=f13e1]:
+  - link "Open Staff Message Dialog":
+    - /url: javascript:;
+  - generic "electriQ" [ref=f13e4] [cursor=pointer]:
+    - link [ref=f13e5]:
+      - /url: /
+  - generic [ref=f13e7]:
+    - generic [ref=f13e10]:
+      - textbox "Search" [ref=f13e11]: Search...
+      - button "Search" [ref=f13e12] [cursor=pointer]
+    - navigation [ref=f13e16]:
+      - navigation [ref=f13e18]:
+        - list:
+          - listitem [ref=f13e19]:
+            - link "Products" [ref=f13e20] [cursor=pointer]:
+              - /url: /content/our-products
+          - listitem [ref=f13e21]:
+            - link "Spare parts" [ref=f13e22] [cursor=pointer]:
+              - /url: /content/accessories
+          - listitem [ref=f13e23]:
+            - link "Register your warranty" [ref=f13e24] [cursor=pointer]:
+              - /url: /content/register-warranty
+          - listitem [ref=f13e25]:
+            - link "Find a retailer" [ref=f13e26] [cursor=pointer]:
+              - /url: /content/find-a-retailer
+          - listitem [ref=f13e27]:
+            - link "Trade Enquiries" [ref=f13e28] [cursor=pointer]:
+              - /url: /content/trade-enquiries
+  - status [ref=f13e29]
+  - generic [ref=f13e31]:
+    - generic [ref=f13e32]:
+      - generic [ref=f13e33]:
+        - list:
+          - listitem [ref=f13e34]:
+            - heading [level=2] [ref=f13e35]:
+              - link "Home" [ref=f13e36] [cursor=pointer]:
+                - /url: /
+              - text: »
+          - listitem [ref=f13e37]:
+            - heading [level=2] [ref=f13e38]:
+              - link "Air Conditioning" [ref=f13e39] [cursor=pointer]:
+                - /url: https://www.electriq.co.uk/c/heating-and-air-conditioning
+              - text: »
+          - listitem [ref=f13e40]:
+            - heading [level=2] [ref=f13e41]:
+              - link "Air Conditioners" [ref=f13e42] [cursor=pointer]:
+                - /url: https://www.electriq.co.uk/ct/heating-and-air-conditioning/air-conditioners
+              - text: »
+          - listitem [ref=f13e43]:
+            - heading "EcoPlus10HPW" [level=2] [ref=f13e44]
+      - generic [ref=f13e45]:
+        - heading "product title" [level=1] [ref=f13e46]:
+          - generic [ref=f13e47]: electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater
+        - generic [ref=f13e49]:
+          - checkbox "compare product" [ref=f13e50]
+          - checkbox "mark product for compare" [ref=f13e52] [cursor=pointer]: Compare
+      - generic [ref=f13e53]:
+        - generic [ref=f13e54]: "SKU: EcoPlus10HPW"
+        - generic [ref=f13e55]: "Quickfind Code: 2056369"
+      - generic [ref=f13e56]:
+        - generic [ref=f13e57]:
+          - generic [ref=f13e58]:
+            - generic [ref=f13e59] [cursor=pointer]:
+              - group "1 / 13" [ref=f13e60]:
+                - link [ref=f13e61]:
+                  - /url: /Images/EcoPlus10HPW_1_Supersize.jpg?v=70
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e62]
+              - group "2 / 13" [ref=f13e63]:
+                - link [ref=f13e64]:
+                  - /url: /Images/EcoPlus10HPW_2_Supersize.jpg?v=70
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e65]
+              - group "3 / 13" [ref=f13e66]:
+                - link [ref=f13e67]:
+                  - /url: /Images/EcoPlus10HPW_3_Supersize.jpg?v=70
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e68]
+              - group "4 / 13" [ref=f13e69]:
+                - link [ref=f13e70]:
+                  - /url: /Images/EcoPlus10HPW_4_Supersize.jpg?v=81
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e71]
+              - group "5 / 13" [ref=f13e72]:
+                - link [ref=f13e73]:
+                  - /url: /Images/EcoPlus10HPW_5_Supersize.jpg?v=82
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e74]
+              - group "6 / 13" [ref=f13e75]:
+                - link [ref=f13e76]:
+                  - /url: /Images/EcoPlus10HPW_6_Supersize.jpg?v=77
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e77]
+              - group "7 / 13" [ref=f13e78]:
+                - link [ref=f13e79]:
+                  - /url: /Images/EcoPlus10HPW_7_Supersize.jpg?v=82
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e80]
+              - group "8 / 13" [ref=f13e81]:
+                - link [ref=f13e82]:
+                  - /url: /Images/EcoPlus10HPW_8_Supersize.jpg?v=82
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e83]
+              - group "9 / 13" [ref=f13e84]:
+                - link [ref=f13e85]:
+                  - /url: /Images/EcoPlus10HPW_9_Supersize.jpg?v=79
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e86]
+              - group "10 / 13" [ref=f13e87]:
+                - link [ref=f13e88]:
+                  - /url: /Images/EcoPlus10HPW_10_Supersize.jpg?v=78
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e89]
+              - group "11 / 13" [ref=f13e90]:
+                - link [ref=f13e91]:
+                  - /url: /Images/EcoPlus10HPW_11_Supersize.jpg?v=77
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e92]
+              - group "12 / 13" [ref=f13e93]:
+                - link [ref=f13e94]:
+                  - /url: /Images/EcoPlus10HPW_12_Supersize.jpg?v=76
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e95]
+              - group "13 / 13" [ref=f13e96]:
+                - link [ref=f13e97]:
+                  - /url: /Images/EcoPlus10HPW_13_Supersize.jpg?v=74
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e98]
+              - group "1 / 13" [ref=f13e99]:
+                - link [ref=f13e100]:
+                  - /url: /Images/EcoPlus10HPW_1_Supersize.jpg?v=70
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e101]
+              - group "2 / 13" [ref=f13e102]:
+                - link [ref=f13e103]:
+                  - /url: /Images/EcoPlus10HPW_2_Supersize.jpg?v=70
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e104]
+              - group "3 / 13" [ref=f13e105]:
+                - link [ref=f13e106]:
+                  - /url: /Images/EcoPlus10HPW_3_Supersize.jpg?v=70
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e107]
+              - group "4 / 13" [ref=f13e108]:
+                - link [ref=f13e109]:
+                  - /url: /Images/EcoPlus10HPW_4_Supersize.jpg?v=81
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e110]
+              - group "5 / 13" [ref=f13e111]:
+                - link [ref=f13e112]:
+                  - /url: /Images/EcoPlus10HPW_5_Supersize.jpg?v=82
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e113]
+              - group "6 / 13" [ref=f13e114]:
+                - link [ref=f13e115]:
+                  - /url: /Images/EcoPlus10HPW_6_Supersize.jpg?v=77
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e116]
+              - group "7 / 13" [ref=f13e117]:
+                - link [ref=f13e118]:
+                  - /url: /Images/EcoPlus10HPW_7_Supersize.jpg?v=82
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e119]
+              - group "8 / 13" [ref=f13e120]:
+                - link [ref=f13e121]:
+                  - /url: /Images/EcoPlus10HPW_8_Supersize.jpg?v=82
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e122]
+              - group "9 / 13" [ref=f13e123]:
+                - link [ref=f13e124]:
+                  - /url: /Images/EcoPlus10HPW_9_Supersize.jpg?v=79
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e125]
+              - group "10 / 13" [ref=f13e126]:
+                - link [ref=f13e127]:
+                  - /url: /Images/EcoPlus10HPW_10_Supersize.jpg?v=78
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e128]
+              - group "11 / 13" [ref=f13e129]:
+                - link [ref=f13e130]:
+                  - /url: /Images/EcoPlus10HPW_11_Supersize.jpg?v=77
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e131]
+              - group "12 / 13" [ref=f13e132]:
+                - link [ref=f13e133]:
+                  - /url: /Images/EcoPlus10HPW_12_Supersize.jpg?v=76
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e134]
+              - group "13 / 13" [ref=f13e135]:
+                - link [ref=f13e136]:
+                  - /url: /Images/EcoPlus10HPW_13_Supersize.jpg?v=74
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e137]
+              - group "1 / 13" [ref=f13e138]:
+                - link [ref=f13e139]:
+                  - /url: /Images/EcoPlus10HPW_1_Supersize.jpg?v=70
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e140]
+              - group "2 / 13" [ref=f13e141]:
+                - link [ref=f13e142]:
+                  - /url: /Images/EcoPlus10HPW_2_Supersize.jpg?v=70
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e143]
+              - group "3 / 13" [ref=f13e144]:
+                - link [ref=f13e145]:
+                  - /url: /Images/EcoPlus10HPW_3_Supersize.jpg?v=70
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e146]
+              - group "4 / 13" [ref=f13e147]:
+                - link [ref=f13e148]:
+                  - /url: /Images/EcoPlus10HPW_4_Supersize.jpg?v=81
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e149]
+              - group "5 / 13" [ref=f13e150]:
+                - link [ref=f13e151]:
+                  - /url: /Images/EcoPlus10HPW_5_Supersize.jpg?v=82
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e152]
+              - group "6 / 13" [ref=f13e153]:
+                - link [ref=f13e154]:
+                  - /url: /Images/EcoPlus10HPW_6_Supersize.jpg?v=77
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e155]
+              - group "7 / 13" [ref=f13e156]:
+                - link [ref=f13e157]:
+                  - /url: /Images/EcoPlus10HPW_7_Supersize.jpg?v=82
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e158]
+              - group "8 / 13" [ref=f13e159]:
+                - link [ref=f13e160]:
+                  - /url: /Images/EcoPlus10HPW_8_Supersize.jpg?v=82
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e161]
+              - group "9 / 13" [ref=f13e162]:
+                - link [ref=f13e163]:
+                  - /url: /Images/EcoPlus10HPW_9_Supersize.jpg?v=79
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e164]
+              - group "10 / 13" [ref=f13e165]:
+                - link [ref=f13e166]:
+                  - /url: /Images/EcoPlus10HPW_10_Supersize.jpg?v=78
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e167]
+              - group "11 / 13" [ref=f13e168]:
+                - link [ref=f13e169]:
+                  - /url: /Images/EcoPlus10HPW_11_Supersize.jpg?v=77
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e170]
+              - group "12 / 13" [ref=f13e171]:
+                - link [ref=f13e172]:
+                  - /url: /Images/EcoPlus10HPW_12_Supersize.jpg?v=76
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e173]
+              - group "13 / 13" [ref=f13e174]:
+                - link [ref=f13e175]:
+                  - /url: /Images/EcoPlus10HPW_13_Supersize.jpg?v=74
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e176]
+            - button "Previous slide" [ref=f13e177] [cursor=pointer]
+            - button "Next slide" [ref=f13e178] [cursor=pointer]
+          - img "electriQ logo" [ref=f13e180]
+        - generic [ref=f13e183] [cursor=pointer]:
+          - group "1 / 13" [ref=f13e184]:
+            - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e185]
+          - group "2 / 13" [ref=f13e186]:
+            - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e187]
+          - group "3 / 13" [ref=f13e188]:
+            - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e189]
+          - group "4 / 13" [ref=f13e190]:
+            - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e191]
+          - group "5 / 13" [ref=f13e192]:
+            - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e193]
+          - group "6 / 13" [ref=f13e194]:
+            - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e195]
+          - group "7 / 13" [ref=f13e196]:
+            - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e197]
+          - group "8 / 13" [ref=f13e198]:
+            - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e199]
+          - group "9 / 13" [ref=f13e200]:
+            - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e201]
+          - group "10 / 13" [ref=f13e202]:
+            - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e203]
+          - group "11 / 13" [ref=f13e204]:
+            - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e205]
+          - group "12 / 13" [ref=f13e206]:
+            - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e207]
+          - group "13 / 13" [ref=f13e208]:
+            - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f13e209]
+        - img "Energy Label" [ref=f13e211]
+      - generic [ref=f13e212]:
+        - generic [ref=f13e213]:
+          - heading "Buy Online" [level=3] [ref=f13e214]
+          - link [ref=f13e215] [cursor=pointer]:
+            - /url: https://www.appliancesdirect.co.uk/p/ecoplus10hpw/electriq-ecoplus10hpw-air-conditioner
+          - link [ref=f13e217] [cursor=pointer]:
+            - /url: https://www.buyitdirect.ie/p/electriq-ecoplus-a-10000-btu-smart-portable-air-conditioner-with-heat-pump-hepa-purifier-and-quiet-mode-ecoplus10hpw
+          - link [ref=f13e219] [cursor=pointer]:
+            - /url: https://www.aircondirect.co.uk/p/2056369/electriq-ecoplus-a-10000-btu-smart-portable-air-conditioner-with-heat-pump-hepa-purifier-and-quiet-mode
+          - link [ref=f13e221] [cursor=pointer]:
+            - /url: https://www.betterbathrooms.com/p/ecoplus10hpw/electriq-ecoplus10hpw-air-conditioner
+          - link [ref=f13e223] [cursor=pointer]:
+            - /url: https://www.ebay.co.uk/itm/137159915747
+        - generic "finance offers" [ref=f13e225]
+        - generic [ref=f13e227]:
+          - heading "Product Options" [level=2]
+          - generic [ref=f13e231]:
+            - generic [ref=f13e232]:
+              - heading "BTU (Cooling Power)" [level=5] [ref=f13e233]
+              - generic [ref=f13e236] [cursor=pointer]:
+                - group "1 / 2" [ref=f13e237]:
+                  - link [ref=f13e238]:
+                    - /url: /p/ecoplus10hpw/electriq-ecoplus10hpw-air-conditioner
+                - group "2 / 2" [ref=f13e241]:
+                  - link [ref=f13e242]:
+                    - /url: /p/ecosilent14w/electriq-ecosilent14w-air-conditioner
+            - generic [ref=f13e245]:
+              - heading "Room Size" [level=5] [ref=f13e246]
+              - generic [ref=f13e249] [cursor=pointer]:
+                - group "1 / 2" [ref=f13e250]:
+                  - link [ref=f13e251]:
+                    - /url: /p/ecoplus10hpw/electriq-ecoplus10hpw-air-conditioner
+                - group "2 / 2" [ref=f13e254]:
+                  - link [ref=f13e255]:
+                    - /url: /p/ecosilent14w/electriq-ecosilent14w-air-conditioner
+            - generic [ref=f13e258]:
+              - heading "Heating Function (Heat Pump)" [level=5] [ref=f13e259]
+              - generic [ref=f13e262] [cursor=pointer]:
+                - group "1 / 2" [ref=f13e263]:
+                  - link [ref=f13e264]:
+                    - /url: /p/ecoplus10hpw/electriq-ecoplus10hpw-air-conditioner
+                - group "2 / 2" [ref=f13e267]:
+                  - link [ref=f13e268]:
+                    - /url: /p/ecosilent14w/electriq-ecosilent14w-air-conditioner
+        - generic [ref=f13e271]:
+          - heading [level=2]
+          - list [ref=f13e274]:
+            - listitem [ref=f13e275]: "Year-Round Comfort: Ideal for spaces up to 26 sqm with a heat pump for winter warming."
+            - listitem [ref=f13e276]: "Smart Wi-Fi & Voice: Fully compatible with the Tuya app, Alexa, and Google Home. Control your climate from anywhere and schedule cooling to save energy."
+            - listitem [ref=f13e277]: "A+ Energy Rating: Highly efficient heat-pump technology keeps bills lower than standard 'A' rated units in all seasons."
+            - listitem [ref=f13e278]: "True HEPA & Carbon: Includes medical-grade filtration to remove 99.97% of allergens, dust, and odours while you cool."
+            - listitem [ref=f13e279]: "Advanced Sleep Mode: Designed for total rest - dims all LED lights and drops the fan to its quietest setting for undisturbed sleep."
+            - listitem [ref=f13e280]: "5-Speed DC Fan: Precise airflow control with an intelligent Smart Cool mode that adjusts speed automatically to save energy."
+            - listitem [ref=f13e281]: "Powerful Dehumidifier: Dedicated mode extracts up to 24L/day with no need for venting."
+            - listitem [ref=f13e282]: "Flexible Installation: Includes UK's longest 2.0m exhaust hose, offering significantly more placement freedom than standard units. See recommended accessories for compatible window kits."
+    - generic [ref=f13e283]:
+      - text:  
+      - generic [ref=f13e284]:
+        - tablist [ref=f13e286]:
+          - navigation [ref=f13e287]:
+            - heading "Product Information" [level=6] [ref=f13e290]
+          - navigation [ref=f13e291]:
+            - img [ref=f13e292]: 
+            - heading "Dimensions & Spec" [level=6] [ref=f13e294]
+          - text: 
+        - generic [ref=f13e295]:
+          - tabpanel [ref=f13e296]:
+            - generic [ref=f13e299]:
+              - generic [ref=f13e300]:
+                - heading "Smart WiFi Portable Air Conditioner for Year‑Round Comfort" [level=2] [ref=f13e301]
+                - paragraph [ref=f13e302]: This advanced 4‑in‑1 portable air conditioner delivers powerful cooling for rooms up to 28 sqm and includes efficient heat‑pump heating for use throughout the year. Switch to fan‑only mode and choose from five airflow speeds, or activate the built‑in dehumidifier to speed up laundry drying and tackle excess moisture, damp, or mould.With full smart control, you can adjust every function from anywhere using your phone or a voice assistant, giving you complete control at home or on the go.t
+              - generic:
+                - heading "Key Features & Modes" [level=2] [ref=f13e303]
+                - list [ref=f13e304]:
+                  - listitem [ref=f13e305]:
+                    - strong [ref=f13e306]: "Cools or Heats:"
+                    - text: Powerful cooling - 10,000 BTU/h cooling capacity with 16°C-32°C adjustable thermostat.
+                  - listitem [ref=f13e307]:
+                    - strong [ref=f13e308]: "Energy-efficient:"
+                    - text: A+ rated. Includes fishtail adapter for venting out of a window.
+                  - listitem [ref=f13e309]:
+                    - strong [ref=f13e310]: Smart cool function
+                    - text: "- Automatically adjusts the fan speed to match the cooling needs."
+                  - listitem [ref=f13e311]:
+                    - strong [ref=f13e312]: "Dehumidifier:"
+                    - text: Removes up to 24L of moisture from the air per day. The advanced self-evaporative system uses most of the moisture collected to cool the condenser coils, so the water tank doesn't require emptying as often.
+                  - listitem [ref=f13e313]:
+                    - strong [ref=f13e314]: "Fan/Air Purifier:"
+                    - text: It features an advanced 5-speed fan for added flexibility - Keep cool and enhance the air quality in your room without the need for venting. Dust, allergens and unpleasant odours are filtered from the air, making it ideal for individuals with allergies or asthma.
+                  - listitem [ref=f13e315]:
+                    - strong [ref=f13e316]: "Smart device compatible:"
+                    - text: Control remotely or by voice with Amazon Echo, Alexa or Google Home Assistant.
+                  - listitem [ref=f13e317]:
+                    - strong [ref=f13e318]: "24-hour timer:"
+                    - text: Manual 24 hrs start/stop timer or advanced App control. Helpful when pre-cooling or heating a room.
+                  - listitem [ref=f13e319]:
+                    - strong [ref=f13e320]: "Compact and portable:"
+                    - text: Built-in carry handles and castors for easy movement.
+                  - listitem [ref=f13e321]:
+                    - strong [ref=f13e322]: "Energy efficient:"
+                    - text: A+ rated energy efficiency so it helps keep your bills lower than less efficient units.
+                  - listitem [ref=f13e323]:
+                    - strong [ref=f13e324]: "Sleep mode:"
+                    - text: Sleep mode reduces the fan noise and disables the LED lights to aid a good night's sleep.
+                  - listitem [ref=f13e325]:
+                    - strong [ref=f13e326]: "Window kit and remote:"
+                    - text: Includes a window kit for venting the unit out of a window and a remote control so you can change the functions from a distance.
+                - heading "Technical Specifications" [level=2] [ref=f13e327]
+                - list [ref=f13e328]:
+                  - listitem [ref=f13e329]:
+                    - strong [ref=f13e330]: "Cooling/Heating Power:"
+                    - text: 10,000 BTU - 2.93kW cooling power / 2.286kW heating
+                  - listitem [ref=f13e331]:
+                    - strong [ref=f13e332]: "Dehumidifier Capacity:"
+                    - text: Extracts up to 24L per day
+                  - listitem [ref=f13e333]:
+                    - strong [ref=f13e334]: "Control:"
+                    - text: WiFi App control, 24-hour manual start/stop timer, or Touch control panel
+                  - listitem [ref=f13e335]:
+                    - strong [ref=f13e336]: "Dimensions:"
+                    - text: 39x35.6x72 CM (WxDxH)
+                  - listitem [ref=f13e337]:
+                    - strong [ref=f13e338]: "Weight:"
+                    - text: 28.8 KG
+                  - listitem [ref=f13e339]:
+                    - strong [ref=f13e340]: "Sound Power Level:"
+                    - text: 62 dB(A)
+                  - listitem [ref=f13e341]:
+                    - strong [ref=f13e342]: "Sound Pressure Level at 1 m (Low–High Fan):"
+                    - text: 38–51 dB(A)
+                - heading "What's in the Box" [level=2] [ref=f13e343]
+                - list [ref=f13e344]:
+                  - listitem [ref=f13e345]: 1 x EcoPlus10HPW portable air conditioner
+                  - listitem [ref=f13e346]: 1 x 2 M exhaust hose
+                  - listitem [ref=f13e347]: 1 x Hose‑end adaptor (fishtail connector)
+                  - listitem [ref=f13e348]: 1 x TRUE HEPA Filter included
+                  - listitem [ref=f13e349]: 1 x Carbon Filter included
+                  - listitem [ref=f13e350]: 1 x Remote control
+              - paragraph [ref=f13e351]: Useful information
+              - paragraph [ref=f13e352]: Supplied with an exhaust hose and fishtail adaptor for quick setup, this unit can be vented through a window, wall, or even into a corridor for single‑room use, with optional universal or sash‑window seals available for improved efficiency.
+              - paragraph [ref=f13e353]: Downloads
+              - paragraph [ref=f13e354]:
+                - link "User Manual »" [ref=f13e355] [cursor=pointer]:
+                  - /url: /files/pdf/EcoPlus10HPW 20260410J.pdf
+          - text:          
+  - generic [ref=f13e359]:
+    - generic [ref=f13e360]:
+      - list [ref=f13e361]:
+        - listitem [ref=f13e362]: Customer Service
+        - listitem [ref=f13e363]:
+          - link "Contact us" [ref=f13e364] [cursor=pointer]:
+            - /url: /content/contact
+        - listitem [ref=f13e365]:
+          - link "Request Manual" [ref=f13e366] [cursor=pointer]:
+            - /url: /content/request-manual
+        - listitem [ref=f13e367]:
+          - link "Report a Fault" [ref=f13e368] [cursor=pointer]:
+            - /url: /content/report-fault
+        - listitem [ref=f13e369]:
+          - link "Security" [ref=f13e370] [cursor=pointer]:
+            - /url: /content/security
+      - list [ref=f13e371]:
+        - listitem [ref=f13e372]: Company Info
+        - listitem [ref=f13e373]:
+          - link "About Us" [ref=f13e374] [cursor=pointer]:
+            - /url: /content/we-are-electriq
+        - listitem [ref=f13e375]:
+          - link "Privacy Policy" [ref=f13e376] [cursor=pointer]:
+            - /url: /content/privacy-policy
+        - listitem [ref=f13e377]:
+          - link "Cookie Policy" [ref=f13e378] [cursor=pointer]:
+            - /url: /content/cookie-policy
+      - list [ref=f13e379]:
+        - listitem [ref=f13e380]: Stay in Touch
+        - listitem [ref=f13e381]:
+          - link "Facebook" [ref=f13e382] [cursor=pointer]:
+            - /url: https://www.facebook.com/electriQUK
+          - link "Instagram" [ref=f13e385] [cursor=pointer]:
+            - /url: https://www.instagram.com/electriquk/
+            - img [ref=f13e386]: 
+    - generic: Copyright © electriQ 2014 – 2019. All Rights Reserved. Reg. No. 04171412
+    - paragraph [ref=f13e390]: "Buy It Direct Ltd is a limited company registered in England. Registered number 04171412. Registered office: Trident Business Park, Leeds Road, Huddersfield, West Yorkshire, HD2 1UA."
+  - generic [ref=f13e392]:
+    - generic [ref=f13e393]: Please wait
+    - link [ref=f13e399] [cursor=pointer]:
+      - /url: javascript:void(0);

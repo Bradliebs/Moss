@@ -28,6 +28,7 @@ import { createBrowserTools } from "../backend/moss/browser/browser-tools";
 import { createPlaywrightDriverFactory } from "../backend/moss/browser/playwright-driver";
 import { routeLiveCapabilities } from "../backend/moss/capabilities/live-capabilities";
 import { createBundledCapabilityTools } from "../backend/moss/capabilities/bundled-catalog";
+import { BudgetEnforcingProvider } from "../backend/moss/budget/budget-provider";
 import { checkpointStore } from "../backend/moss/checkpoint/checkpoint-store";
 import { codebaseIndex } from "../backend/moss/codebase/codebase-index";
 import { createDesktopTools } from "../backend/moss/desktop/desktop-tools";
@@ -46,6 +47,7 @@ import { RunJournal } from "../backend/moss/learning/run-journal";
 import { createRetrospective } from "../backend/moss/learning/retrospective";
 import { LessonStore } from "../backend/moss/learning/lesson-store";
 import { memoryStore } from "../backend/moss/memory/memory-store";
+import { memoryReviewQueue } from "../backend/moss/governed/review-queue";
 import { createProvider } from "../backend/moss/providers";
 import { skillsStore } from "../backend/moss/skills/skills-store";
 import { transcribeAudio } from "../backend/moss/stt";
@@ -112,6 +114,10 @@ export function registerChatIpc(): void {
   ipcMain.handle(IPC.memoryClear, () => {
     memoryStore.clear();
   });
+
+  ipcMain.handle(IPC.memoryReviewList, () => memoryReviewQueue.list());
+  ipcMain.handle(IPC.memoryReviewApprove, (_event, id: string) => memoryReviewQueue.approve(id));
+  ipcMain.handle(IPC.memoryReviewReject, (_event, id: string) => memoryReviewQueue.reject(id));
 
   ipcMain.handle(IPC.skillsList, () => skillsStore.list());
   ipcMain.handle(IPC.skillCreate, (_event, req: SkillCreateRequest) =>
@@ -203,7 +209,13 @@ async function startTurn(event: Electron.IpcMainEvent, req: ChatStartRequest): P
   };
 
   try {
-    const provider = createProvider(req.config);
+    const baseProvider = createProvider(req.config);
+    // Attach the daily-budget guard only when the user set a positive cap, so
+    // the default path is the bare provider with no behavior change.
+    const provider =
+      req.dailyBudgetUsd && req.dailyBudgetUsd > 0
+        ? new BudgetEnforcingProvider(baseProvider, req.dailyBudgetUsd, req.modelRates)
+        : baseProvider;
     const enableTools = req.enableTools !== false;
     const automationTools = enableTools ? createAutomationTools(req) : [];
     bundledCapabilityTools ??= createBundledCapabilityTools();
@@ -283,6 +295,10 @@ async function startTurn(event: Electron.IpcMainEvent, req: ChatStartRequest): P
             },
           }
         : {}),
+      ...(req.gatedMemory ? { gatedMemory: true } : {}),
+      ...(req.showConfidence ? { showConfidence: true } : {}),
+      ...(req.injectionMode ? { injectionMode: req.injectionMode } : {}),
+      ...(req.contextLimit ? { contextLimit: req.contextLimit } : {}),
       ...(verifyEnabled ? { maxRounds: 12 } : {}),
     });
     if (task && attemptId) {

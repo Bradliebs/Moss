@@ -166,6 +166,7 @@ beforeEach(() => {
       },
       shell: { openExternal: vi.fn() },
       mcp: { status: vi.fn(() => Promise.resolve([])) },
+      skills: { list: vi.fn(() => Promise.resolve([])) },
     },
   });
 });
@@ -173,6 +174,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
   delete (window as { moss?: unknown }).moss;
 });
 
@@ -181,6 +183,17 @@ describe("ChatPanel", () => {
     render(<Harness />);
     expect(window.moss.chat.onEvent).toHaveBeenCalledTimes(1);
     expect(eventHandler).toBeTypeOf("function");
+  });
+
+  it("does not run an ordinary message as a durable autonomous task", () => {
+    render(<Harness />);
+    const composer = screen.getByPlaceholderText("Message…");
+    fireEvent.change(composer, { target: { value: "I need help choosing" } });
+    fireEvent.keyDown(composer, { key: "Enter" });
+
+    expect(window.moss.chat.send).toHaveBeenCalledWith(
+      expect.not.objectContaining({ taskSpec: expect.anything() }),
+    );
   });
 
   it("renders a terminal task snapshot that arrives after turn-complete", () => {
@@ -639,6 +652,115 @@ describe("ChatPanel", () => {
     render(<Harness />);
     const img = screen.getByAltText("attachment");
     expect(img.getAttribute("src")).toBe("data:image/png;base64,AAAA");
+  });
+
+  it("does not send until a selected image has finished attaching", async () => {
+    let reader: {
+      result: string | null;
+      onload: (() => void) | null;
+      onerror: (() => void) | null;
+      onloadend: (() => void) | null;
+    } | null = null;
+
+    class DeferredFileReader {
+      result: string | null = null;
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      onloadend: (() => void) | null = null;
+
+      constructor() {
+        reader = this;
+      }
+
+      readAsDataURL(): void {}
+      readAsText(): void {}
+    }
+
+    vi.stubGlobal("FileReader", DeferredFileReader);
+    render(<Harness />);
+
+    const file = new File(["pixels"], "photo.png", { type: "image/png" });
+    fireEvent.change(screen.getByLabelText("Attach files"), { target: { files: [file] } });
+    fireEvent.change(screen.getByPlaceholderText("Message…"), { target: { value: "describe this" } });
+
+    expect(screen.getByText("Attaching 1 file...")).toBeDefined();
+    expect((screen.getByText("Send") as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByText("Send"));
+    expect(window.moss.chat.send).not.toHaveBeenCalled();
+
+    act(() => {
+      if (!reader) throw new Error("Expected an attachment reader");
+      reader.result = "data:image/png;base64,AAAA";
+      reader.onload?.();
+      reader.onloadend?.();
+    });
+
+    await waitFor(() => expect((screen.getByText("Send") as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByText("Send"));
+
+    expect(window.moss.chat.send).toHaveBeenCalledOnce();
+    const request = (window.moss.chat.send as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(request.messages).toEqual([
+      { role: "user", content: "describe this", images: ["data:image/png;base64,AAAA"] },
+    ]);
+  });
+
+  it("keeps a text document out of the chat body while sending it as an attachment", async () => {
+    render(<Harness />);
+    const file = new File(["private file body"], "notes.txt", { type: "text/plain" });
+
+    fireEvent.change(screen.getByLabelText("Attach files"), { target: { files: [file] } });
+
+    await waitFor(() => expect(screen.getByText("notes.txt")).toBeDefined());
+    expect((screen.getByPlaceholderText("Message…") as HTMLTextAreaElement).value).toBe("");
+    expect(screen.queryByText("private file body")).toBeNull();
+    expect(screen.getByText("Attach (1)")).toBeDefined();
+
+    fireEvent.click(screen.getByText("Send"));
+
+    const request = (window.moss.chat.send as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(request.messages).toEqual([
+      {
+        role: "user",
+        content: "",
+        documents: [{ name: "notes.txt", mediaType: "text/plain", text: "private file body" }],
+      },
+    ]);
+    expect(screen.queryByText("private file body")).toBeNull();
+  });
+
+  it("shows enabled skills after slash and inserts the selected skill", async () => {
+    window.moss.skills.list = vi.fn(() =>
+      Promise.resolve([
+        {
+          id: "physics-tutor",
+          name: "Physics Tutor",
+          description: "Teach physics from first principles",
+          instructions: "",
+          enabled: true,
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+        {
+          id: "disabled",
+          name: "Disabled Skill",
+          description: "Should not appear",
+          instructions: "",
+          enabled: false,
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      ]),
+    );
+    render(<Harness />);
+    const composer = screen.getByPlaceholderText("Message…") as HTMLTextAreaElement;
+
+    fireEvent.change(composer, { target: { value: "/phy" } });
+
+    await waitFor(() => expect(screen.getByRole("option", { name: /Physics Tutor/ })).toBeDefined());
+    expect(screen.queryByText("Disabled Skill")).toBeNull();
+    fireEvent.keyDown(composer, { key: "Enter" });
+
+    expect(composer.value).toBe("/Physics Tutor ");
+    expect(window.moss.chat.send).not.toHaveBeenCalled();
   });
 
   it("clears the current conversation when Clear is clicked", () => {

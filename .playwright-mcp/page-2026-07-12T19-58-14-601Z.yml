@@ -1,0 +1,1067 @@
+- generic [ref=e1]:
+  - banner [ref=e2]:
+    - link "AirconAlert home" [ref=e3] [cursor=pointer]:
+      - /url: /
+      - generic [ref=e9]:
+        - text: Aircon
+        - strong [ref=e10]: Alert
+    - navigation [ref=e11]:
+      - link "Restock Radar" [ref=e12] [cursor=pointer]:
+        - /url: /live
+      - link "How it works" [ref=e13] [cursor=pointer]:
+        - /url: "#how"
+      - link "Models" [ref=e14] [cursor=pointer]:
+        - /url: "#models-section"
+      - link "BTU guide" [ref=e15] [cursor=pointer]:
+        - /url: "#calc"
+      - link "Get alerts" [ref=e16] [cursor=pointer]:
+        - /url: "#join"
+  - main [ref=e17]:
+    - generic [ref=e18]:
+      - generic [ref=e19]:
+        - generic [ref=e20]: 🔥 32°C near Southampton on Tuesday — beat the rush
+        - heading [level=1] [ref=e23]:
+          - text: Aircon's sold outeverywhere.
+          - emphasis [ref=e24]: We'll findyou one first.
+        - paragraph [ref=e25]: Beat the rush. Stock up now.
+        - paragraph [ref=e26]: Portable air conditioners vanish from the shelves the moment it gets hot. AirconAlert watches AO, John Lewis, Currys, Screwfix, B&Q and more around the clock and emails you the second your model is back in stock, so you get there first while everyone else is still refreshing.
+        - generic [ref=e27]:
+          - textbox
+          - textbox "Email address" [ref=e28]:
+            - /placeholder: you@email.com
+          - button "Watch for stock" [ref=e29] [cursor=pointer]
+        - paragraph [ref=e30]: Free during the heatwave · double opt-in · unsubscribe anytime
+        - generic [ref=e34]:
+          - generic [ref=e35]:
+            - strong [ref=e37]: 0 of 41
+            - text: in stock right now across all UK retailers
+          - text: ·
+          - generic [ref=e38]:
+            - strong [ref=e39]: 5,840+ people
+            - text: already getting alerts
+      - generic [ref=e40]:
+        - img [ref=e42]:
+          - generic [ref=e57]: 16°
+          - generic [ref=e58]: COOLING
+        - generic [ref=e66]:
+          - text: Instant restock alerts
+          - generic [ref=e68]: the second stock lands
+        - generic [ref=e69]:
+          - text: 8 UK retailers tracked
+          - generic [ref=e71]: checked every few minutes
+    - region "Retailers we track" [ref=e72]:
+      - generic [ref=e73]: Tracking stock across
+      - list [ref=e74]:
+        - listitem [ref=e75]: Amazon
+        - listitem [ref=e76]: AO.com
+        - listitem [ref=e77]: John Lewis
+        - listitem [ref=e78]: Currys
+        - listitem [ref=e79]: Screwfix
+        - listitem [ref=e80]: B&Q
+        - listitem [ref=e81]: Toolstation
+        - listitem [ref=e82]: The Range
+        - listitem [ref=e83]: Robert Dyas
+    - generic [ref=e84]:
+      - generic [ref=e85]:
+        - generic [ref=e86]: Live stock
+        - heading "What's in stock right now" [level=2] [ref=e87]
+        - paragraph [ref=e88]: Checked every 5 minutes across UK retailers. Green means you can buy it today.
+      - generic [ref=e89]:
+        - searchbox "Search stock" [ref=e90]
+        - generic [ref=e91]:
+          - button "All" [ref=e92] [cursor=pointer]
+          - button "In stock only" [ref=e93] [cursor=pointer]
+          - button "B&Q" [ref=e94] [cursor=pointer]
+          - button "Amazon" [ref=e95] [cursor=pointer]
+          - button "Robert Dyas" [ref=e96] [cursor=pointer]
+          - button "AO.com" [ref=e97] [cursor=pointer]
+          - button "John Lewis" [ref=e98] [cursor=pointer]
+          - button "Screwfix" [ref=e99] [cursor=pointer]
+          - button "Toolstation" [ref=e100] [cursor=pointer]
+          - button "The Range" [ref=e101] [cursor=pointer]
+          - button "Currys" [ref=e102] [cursor=pointer]
+        - combobox "Sort stock" [ref=e103] [cursor=pointer]:
+          - option "In stock first" [selected]
+          - 'option "Price: low to high"'
+          - 'option "Price: high to low"'
+          - 'option "Power: high to low"'
+      - generic [ref=e104]:
+        - generic [ref=e105]:
+          - generic [ref=e108]:
+            - generic [ref=e109]: 7000 BTU Portable Air Conditioner & Dehumidifier PARTNER DEAL
+            - generic [ref=e110]:
+              - text: 7,000 BTU · in stock now · £25 off with code
+              - strong [ref=e111]: HEATWAVE
+          - generic [ref=e112]:
+            - generic [ref=e113]: In stock
+            - link "Get £25 off →" [active] [ref=e114] [cursor=pointer]:
+              - /url: https://airconalert.co.uk/out/voltage?src=site
+        - generic [ref=e115]:
+          - generic [ref=e117]:
+            - link "5000 BTU Portable Air Conditioner" [ref=e119] [cursor=pointer]:
+              - /url: /stock/screwfix-5000-portable
+            - generic [ref=e120]: 5,000 BTU · rooms up to 12 m² · Screwfix
+          - generic [ref=e121]:
+            - generic [ref=e122]: Sold out
+            - generic [ref=e123]: £174.99
+            - link "See on Amazon →" [ref=e124] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/s?k=5000%20BTU%20portable%20air%20conditioner&tag=airconalert-21
+            - link "Set alert" [ref=e125] [cursor=pointer]:
+              - /url: /stock/screwfix-5000-portable
+        - generic [ref=e126]:
+          - generic [ref=e128]:
+            - link "Daewoo 7000 BTU Portable Air Conditioner" [ref=e130] [cursor=pointer]:
+              - /url: /stock/daewoo-7000
+            - generic [ref=e131]: 7,000 BTU · rooms up to 14 m² · Robert Dyas
+          - generic [ref=e132]:
+            - generic [ref=e133]: Sold out
+            - generic [ref=e134]: £199.99
+            - link "See on Amazon →" [ref=e135] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B086LTJLQ7?tag=airconalert-21
+            - link "Set alert" [ref=e136] [cursor=pointer]:
+              - /url: /stock/daewoo-7000
+        - generic [ref=e137]:
+          - generic [ref=e139]:
+            - link "Wessex 9000 BTU AC & Dehumidifier" [ref=e141] [cursor=pointer]:
+              - /url: /stock/wessex-9000
+            - generic [ref=e142]: 9,000 BTU · rooms up to 22 m² · Toolstation
+          - generic [ref=e143]:
+            - generic [ref=e144]: Sold out
+            - generic [ref=e145]: £239.99
+            - link "See on Amazon →" [ref=e146] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/s?k=Wessex%209000%20BTU%20portable%20air%20conditioner%20dehumidifier&tag=airconalert-21
+            - link "Set alert" [ref=e147] [cursor=pointer]:
+              - /url: /stock/wessex-9000
+        - generic [ref=e148]:
+          - generic [ref=e150]:
+            - link "Blyss A018I-09C 9000 BTU" [ref=e152] [cursor=pointer]:
+              - /url: /stock/blyss-9000
+            - generic [ref=e153]: 9,000 BTU · rooms up to 22 m² · Screwfix
+          - generic [ref=e154]:
+            - generic [ref=e155]: Sold out
+            - generic [ref=e156]: £269.99
+            - link "See on Amazon →" [ref=e157] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/s?k=Blyss%20A018I-09C%209000%20BTU%20air%20conditioner&tag=airconalert-21
+            - link "Set alert" [ref=e158] [cursor=pointer]:
+              - /url: /stock/blyss-9000
+        - generic [ref=e159]:
+          - generic [ref=e161]:
+            - link "Blyss A018I-12CH 12000 BTU" [ref=e163] [cursor=pointer]:
+              - /url: /stock/blyss-12000
+            - generic [ref=e164]: 12,000 BTU · rooms up to 28 m² · Screwfix
+          - generic [ref=e165]:
+            - generic [ref=e166]: Sold out
+            - generic [ref=e167]: £299.99
+            - link "See on Amazon →" [ref=e168] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/s?k=Blyss%20A018I-12CH%2012000%20BTU%20air%20conditioner&tag=airconalert-21
+            - link "Set alert" [ref=e169] [cursor=pointer]:
+              - /url: /stock/blyss-12000
+        - generic [ref=e170]:
+          - generic [ref=e172]:
+            - link "Wessex 12000 BTU AC & Dehumidifier" [ref=e174] [cursor=pointer]:
+              - /url: /stock/wessex-12000
+            - generic [ref=e175]: 12,000 BTU · rooms up to 28 m² · Toolstation
+          - generic [ref=e176]:
+            - generic [ref=e177]: Sold out
+            - generic [ref=e178]: £309.99
+            - link "See on Amazon →" [ref=e179] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/s?k=Wessex%2012000%20BTU%20portable%20air%20conditioner%20dehumidifier&tag=airconalert-21
+            - link "Set alert" [ref=e180] [cursor=pointer]:
+              - /url: /stock/wessex-12000
+        - generic [ref=e181]:
+          - generic [ref=e183]:
+            - link "Meaco 7000R Pro" [ref=e185] [cursor=pointer]:
+              - /url: /stock/meaco-7000r-pro
+            - generic [ref=e186]: 7,000 BTU · rooms up to 18 m² · John Lewis
+          - generic [ref=e187]:
+            - generic [ref=e188]: Sold out
+            - generic [ref=e189]: £329.99
+            - link "See on Amazon →" [ref=e190] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/s?k=Meaco%207000R%20Pro%20air%20conditioner&tag=airconalert-21
+            - link "Set alert" [ref=e191] [cursor=pointer]:
+              - /url: /stock/meaco-7000r-pro
+        - generic [ref=e192]:
+          - generic [ref=e194]:
+            - link "9000 BTU Portable AC (The Range)" [ref=e196] [cursor=pointer]:
+              - /url: /stock/range-9000
+            - generic [ref=e197]: 9,000 BTU · rooms up to 22 m² · The Range
+          - generic [ref=e198]:
+            - generic [ref=e199]: Sold out
+            - generic [ref=e200]: £349.99
+            - link "See on Amazon →" [ref=e201] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/s?k=9000%20BTU%20portable%20air%20conditioner&tag=airconalert-21
+            - link "Set alert" [ref=e202] [cursor=pointer]:
+              - /url: /stock/range-9000
+        - generic [ref=e203]:
+          - generic [ref=e205]:
+            - link "MeacoCool 8000CHR Pro" [ref=e207] [cursor=pointer]:
+              - /url: /stock/meacocool-8000chr-pro
+            - generic [ref=e208]: 8,000 BTU · rooms up to 20 m² · Currys
+          - generic [ref=e209]:
+            - generic [ref=e210]: Sold out
+            - generic [ref=e211]: £379
+            - link "See on Amazon →" [ref=e212] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0D791D4YS?tag=airconalert-21
+            - link "Set alert" [ref=e213] [cursor=pointer]:
+              - /url: /stock/meacocool-8000chr-pro
+        - generic [ref=e214]:
+          - generic [ref=e216]:
+            - link "Logik LAC09C26 9000 BTU" [ref=e218] [cursor=pointer]:
+              - /url: /stock/logik-lac09c26
+            - generic [ref=e219]: 9,000 BTU · rooms 16–26 m² · Currys
+          - generic [ref=e220]:
+            - generic [ref=e221]: Sold out
+            - generic [ref=e222]: £379
+            - link "See on Amazon →" [ref=e223] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/s?k=Logik%20LAC09C26%20portable%20air%20conditioner&tag=airconalert-21
+            - link "Set alert" [ref=e224] [cursor=pointer]:
+              - /url: /stock/logik-lac09c26
+        - generic [ref=e225]:
+          - generic [ref=e227]:
+            - link "12000 BTU Portable AC (The Range)" [ref=e229] [cursor=pointer]:
+              - /url: /stock/range-12000
+            - generic [ref=e230]: 12,000 BTU · rooms up to 28 m² · The Range
+          - generic [ref=e231]:
+            - generic [ref=e232]: Sold out
+            - generic [ref=e233]: £399.99
+            - link "See on Amazon →" [ref=e234] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/s?k=12000%20BTU%20portable%20air%20conditioner&tag=airconalert-21
+            - link "Set alert" [ref=e235] [cursor=pointer]:
+              - /url: /stock/range-12000
+        - generic [ref=e236]:
+          - generic [ref=e238]:
+            - link "MeacoCool MC Series Pro 9000" [ref=e240] [cursor=pointer]:
+              - /url: /stock/meaco-mc9000-pro
+            - generic [ref=e241]: 9,000 BTU · rooms 16–26 m² · John Lewis
+          - generic [ref=e242]:
+            - generic [ref=e243]: Sold out
+            - generic [ref=e244]: £429.99
+            - link "See on Amazon →" [ref=e245] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0D3HY38CP?tag=airconalert-21
+            - link "Set alert" [ref=e246] [cursor=pointer]:
+              - /url: /stock/meaco-mc9000-pro
+        - generic [ref=e247]:
+          - generic [ref=e249]:
+            - link "De'Longhi Pinguino ES72 8300 BTU" [ref=e251] [cursor=pointer]:
+              - /url: /stock/delonghi-pinguino-es72
+            - generic [ref=e252]: 8,300 BTU · rooms up to 20 m² · Currys
+          - generic [ref=e253]:
+            - generic [ref=e254]: Sold out
+            - generic [ref=e255]: £459
+            - link "See on Amazon →" [ref=e256] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0BX3R4674?tag=airconalert-21
+            - link "Set alert" [ref=e257] [cursor=pointer]:
+              - /url: /stock/delonghi-pinguino-es72
+        - generic [ref=e258]:
+          - generic [ref=e260]:
+            - link "De'Longhi Pinguino ES72 8300 BTU" [ref=e262] [cursor=pointer]:
+              - /url: /stock/delonghi-pinguino-es72
+            - generic [ref=e263]: 8,300 BTU · rooms up to 20 m² · AO.com
+          - generic [ref=e264]:
+            - generic [ref=e265]: Sold out
+            - generic [ref=e266]: £469
+            - link "See on Amazon →" [ref=e267] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0BX3R4674?tag=airconalert-21
+            - link "Set alert" [ref=e268] [cursor=pointer]:
+              - /url: /stock/delonghi-pinguino-es72
+        - generic [ref=e269]:
+          - generic [ref=e271]:
+            - link "MeacoCool MC12000CHR Pro" [ref=e273] [cursor=pointer]:
+              - /url: /stock/meacocool-mc12000chr-pro
+            - generic [ref=e274]: 12,000 BTU · rooms up to 30 m² · Currys
+          - generic [ref=e275]:
+            - generic [ref=e276]: Sold out
+            - generic [ref=e277]: £479
+            - link "See on Amazon →" [ref=e278] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/s?k=MeacoCool%20MC12000CHR%20Pro%20air%20conditioner&tag=airconalert-21
+            - link "Set alert" [ref=e279] [cursor=pointer]:
+              - /url: /stock/meacocool-mc12000chr-pro
+        - generic [ref=e280]:
+          - generic [ref=e282]:
+            - link "Meaco Cirro 12000 BTU" [ref=e284] [cursor=pointer]:
+              - /url: /stock/meaco-cirro-12000
+            - generic [ref=e285]: 12,000 BTU · rooms 20–30 m² · AO.com
+          - generic [ref=e286]:
+            - generic [ref=e287]: Sold out
+            - generic [ref=e288]: £519
+            - link "See on Amazon →" [ref=e289] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0H3PDBB5L?tag=airconalert-21
+            - link "Set alert" [ref=e290] [cursor=pointer]:
+              - /url: /stock/meaco-cirro-12000
+        - generic [ref=e291]:
+          - generic [ref=e293]:
+            - link "Meaco Cirro 12000 BTU" [ref=e295] [cursor=pointer]:
+              - /url: /stock/meaco-cirro-12000
+            - generic [ref=e296]: 12,000 BTU · rooms 20–30 m² · John Lewis
+          - generic [ref=e297]:
+            - generic [ref=e298]: Sold out
+            - generic [ref=e299]: £539.99
+            - link "See on Amazon →" [ref=e300] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0H3PDBB5L?tag=airconalert-21
+            - link "Set alert" [ref=e301] [cursor=pointer]:
+              - /url: /stock/meaco-cirro-12000
+        - generic [ref=e302]:
+          - generic [ref=e304]:
+            - link "Lux Air 9000 BTU Portable Air Conditioner" [ref=e306] [cursor=pointer]:
+              - /url: /stock/luxair-9000
+            - generic [ref=e307]: 9,000 BTU · rooms up to 18 m² · Robert Dyas
+          - generic [ref=e308]:
+            - generic [ref=e309]: Sold out
+            - generic [ref=e310]: £556.99
+            - link "See on Amazon →" [ref=e311] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0BXB99S8S?tag=airconalert-21
+            - link "Set alert" [ref=e312] [cursor=pointer]:
+              - /url: /stock/luxair-9000
+        - generic [ref=e313]:
+          - generic [ref=e315]:
+            - link "Meaco Cirro 14000 BTU" [ref=e317] [cursor=pointer]:
+              - /url: /stock/meaco-cirro-14000
+            - generic [ref=e318]: 14,000 BTU · rooms 30–35 m² · AO.com
+          - generic [ref=e319]:
+            - generic [ref=e320]: Sold out
+            - generic [ref=e321]: £599
+            - link "See on Amazon →" [ref=e322] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0H3PJ8VRC?tag=airconalert-21
+            - link "Set alert" [ref=e323] [cursor=pointer]:
+              - /url: /stock/meaco-cirro-14000
+        - generic [ref=e324]:
+          - generic [ref=e326]:
+            - link "Meaco Pro 16000 BTU" [ref=e328] [cursor=pointer]:
+              - /url: /stock/meaco-pro-16000
+            - generic [ref=e329]: 16,000 BTU · rooms up to 40 m² · AO.com
+          - generic [ref=e330]:
+            - generic [ref=e331]: Sold out
+            - generic [ref=e332]: £629
+            - link "See on Amazon →" [ref=e333] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0D3HVQFQ9?tag=airconalert-21
+            - link "Set alert" [ref=e334] [cursor=pointer]:
+              - /url: /stock/meaco-pro-16000
+        - generic [ref=e335]:
+          - generic [ref=e337]:
+            - link "Meaco Cirro 14000 BTU" [ref=e339] [cursor=pointer]:
+              - /url: /stock/meaco-cirro-14000
+            - generic [ref=e340]: 14,000 BTU · rooms 30–35 m² · John Lewis
+          - generic [ref=e341]:
+            - generic [ref=e342]: Sold out
+            - generic [ref=e343]: £629.99
+            - link "See on Amazon →" [ref=e344] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0H3PJ8VRC?tag=airconalert-21
+            - link "Set alert" [ref=e345] [cursor=pointer]:
+              - /url: /stock/meaco-cirro-14000
+        - generic [ref=e346]:
+          - generic [ref=e348]:
+            - link "Emtronics 7000 BTU Portable Air Conditioner" [ref=e350] [cursor=pointer]:
+              - /url: /stock/emtronics-7000
+            - generic [ref=e351]: 7,000 BTU · rooms up to 14 m² · B&Q
+          - generic [ref=e352]:
+            - generic [ref=e353]: Sold out
+            - link "See on Amazon →" [ref=e354] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0C6B714GP?tag=airconalert-21
+            - link "Set alert" [ref=e355] [cursor=pointer]:
+              - /url: /stock/emtronics-7000
+        - generic [ref=e356]:
+          - generic [ref=e358]:
+            - link "Emtronics 7000 BTU Portable Air Conditioner" [ref=e360] [cursor=pointer]:
+              - /url: /stock/emtronics-7000
+            - generic [ref=e361]: 7,000 BTU · rooms up to 14 m² · Amazon
+          - generic [ref=e362]:
+            - generic [ref=e363]: Sold out
+            - link "See on Amazon →" [ref=e364] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0C6B714GP?tag=airconalert-21
+            - link "Set alert" [ref=e365] [cursor=pointer]:
+              - /url: /stock/emtronics-7000
+        - generic [ref=e366]:
+          - generic [ref=e368]:
+            - link "Emtronics 9000 BTU Portable Air Conditioner" [ref=e370] [cursor=pointer]:
+              - /url: /stock/emtronics-9000
+            - generic [ref=e371]: 9,000 BTU · rooms up to 20 m² · B&Q
+          - generic [ref=e372]:
+            - generic [ref=e373]: Sold out
+            - link "See on Amazon →" [ref=e374] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0C6B2W5FL?tag=airconalert-21
+            - link "Set alert" [ref=e375] [cursor=pointer]:
+              - /url: /stock/emtronics-9000
+        - generic [ref=e376]:
+          - generic [ref=e378]:
+            - link "Emtronics 9000 BTU Portable Air Conditioner" [ref=e380] [cursor=pointer]:
+              - /url: /stock/emtronics-9000
+            - generic [ref=e381]: 9,000 BTU · rooms up to 20 m² · Amazon
+          - generic [ref=e382]:
+            - generic [ref=e383]: Sold out
+            - link "See on Amazon →" [ref=e384] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0C6B2W5FL?tag=airconalert-21
+            - link "Set alert" [ref=e385] [cursor=pointer]:
+              - /url: /stock/emtronics-9000
+        - generic [ref=e386]:
+          - generic [ref=e388]:
+            - link "Emtronics 12000 BTU Portable Air Conditioner" [ref=e390] [cursor=pointer]:
+              - /url: /stock/emtronics-12000
+            - generic [ref=e391]: 12,000 BTU · rooms up to 28 m² · B&Q
+          - generic [ref=e392]:
+            - generic [ref=e393]: Sold out
+            - link "See on Amazon →" [ref=e394] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0C6B72Q59?tag=airconalert-21
+            - link "Set alert" [ref=e395] [cursor=pointer]:
+              - /url: /stock/emtronics-12000
+        - generic [ref=e396]:
+          - generic [ref=e398]:
+            - link "Emtronics 12000 BTU Portable Air Conditioner" [ref=e400] [cursor=pointer]:
+              - /url: /stock/emtronics-12000
+            - generic [ref=e401]: 12,000 BTU · rooms up to 28 m² · Amazon
+          - generic [ref=e402]:
+            - generic [ref=e403]: Sold out
+            - link "See on Amazon →" [ref=e404] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0C6B72Q59?tag=airconalert-21
+            - link "Set alert" [ref=e405] [cursor=pointer]:
+              - /url: /stock/emtronics-12000
+        - generic [ref=e406]:
+          - generic [ref=e408]:
+            - link "Daewoo 7000 BTU Portable Air Conditioner" [ref=e410] [cursor=pointer]:
+              - /url: /stock/daewoo-7000
+            - generic [ref=e411]: 7,000 BTU · rooms up to 14 m² · Amazon
+          - generic [ref=e412]:
+            - generic [ref=e413]: Sold out
+            - link "See on Amazon →" [ref=e414] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B086LTJLQ7?tag=airconalert-21
+            - link "Set alert" [ref=e415] [cursor=pointer]:
+              - /url: /stock/daewoo-7000
+        - generic [ref=e416]:
+          - generic [ref=e418]:
+            - link "Lux Air 9000 BTU Portable Air Conditioner" [ref=e420] [cursor=pointer]:
+              - /url: /stock/luxair-9000
+            - generic [ref=e421]: 9,000 BTU · rooms up to 18 m² · Amazon
+          - generic [ref=e422]:
+            - generic [ref=e423]: Sold out
+            - link "See on Amazon →" [ref=e424] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0BXB99S8S?tag=airconalert-21
+            - link "Set alert" [ref=e425] [cursor=pointer]:
+              - /url: /stock/luxair-9000
+        - generic [ref=e426]:
+          - generic [ref=e428]:
+            - link "MeacoCool MC Series Pro 9000" [ref=e430] [cursor=pointer]:
+              - /url: /stock/meaco-mc9000-pro
+            - generic [ref=e431]: 9,000 BTU · rooms 16–26 m² · Amazon
+          - generic [ref=e432]:
+            - generic [ref=e433]: Sold out
+            - link "See on Amazon →" [ref=e434] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0D3HY38CP?tag=airconalert-21
+            - link "Set alert" [ref=e435] [cursor=pointer]:
+              - /url: /stock/meaco-mc9000-pro
+        - generic [ref=e436]:
+          - generic [ref=e438]:
+            - link "Meaco Pro 16000 BTU" [ref=e440] [cursor=pointer]:
+              - /url: /stock/meaco-pro-16000
+            - generic [ref=e441]: 16,000 BTU · rooms up to 40 m² · Amazon
+          - generic [ref=e442]:
+            - generic [ref=e443]: Sold out
+            - link "See on Amazon →" [ref=e444] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0D3HVQFQ9?tag=airconalert-21
+            - link "Set alert" [ref=e445] [cursor=pointer]:
+              - /url: /stock/meaco-pro-16000
+        - generic [ref=e446]:
+          - generic [ref=e448]:
+            - link "Meaco Cirro 12000 BTU" [ref=e450] [cursor=pointer]:
+              - /url: /stock/meaco-cirro-12000
+            - generic [ref=e451]: 12,000 BTU · rooms 20–30 m² · Amazon
+          - generic [ref=e452]:
+            - generic [ref=e453]: Sold out
+            - link "See on Amazon →" [ref=e454] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0H3PDBB5L?tag=airconalert-21
+            - link "Set alert" [ref=e455] [cursor=pointer]:
+              - /url: /stock/meaco-cirro-12000
+        - generic [ref=e456]:
+          - generic [ref=e458]:
+            - link "Meaco Cirro 14000 BTU" [ref=e460] [cursor=pointer]:
+              - /url: /stock/meaco-cirro-14000
+            - generic [ref=e461]: 14,000 BTU · rooms 30–35 m² · Amazon
+          - generic [ref=e462]:
+            - generic [ref=e463]: Sold out
+            - link "See on Amazon →" [ref=e464] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0H3PJ8VRC?tag=airconalert-21
+            - link "Set alert" [ref=e465] [cursor=pointer]:
+              - /url: /stock/meaco-cirro-14000
+        - generic [ref=e466]:
+          - generic [ref=e468]:
+            - link "MeacoCool MC Pro 14000" [ref=e470] [cursor=pointer]:
+              - /url: /stock/meacocool-mc14000
+            - generic [ref=e471]: 14,000 BTU · rooms 30–35 m² · B&Q
+          - generic [ref=e472]:
+            - generic [ref=e473]: Sold out
+            - link "See on Amazon →" [ref=e474] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0D3HWWXQ9?tag=airconalert-21
+            - link "Set alert" [ref=e475] [cursor=pointer]:
+              - /url: /stock/meacocool-mc14000
+        - generic [ref=e476]:
+          - generic [ref=e478]:
+            - link "MeacoCool MC Pro 14000" [ref=e480] [cursor=pointer]:
+              - /url: /stock/meacocool-mc14000
+            - generic [ref=e481]: 14,000 BTU · rooms 30–35 m² · Amazon
+          - generic [ref=e482]:
+            - generic [ref=e483]: Sold out
+            - link "See on Amazon →" [ref=e484] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0D3HWWXQ9?tag=airconalert-21
+            - link "Set alert" [ref=e485] [cursor=pointer]:
+              - /url: /stock/meacocool-mc14000
+        - generic [ref=e486]:
+          - generic [ref=e488]:
+            - link "MeacoCool 8000CHR Pro" [ref=e490] [cursor=pointer]:
+              - /url: /stock/meacocool-8000chr-pro
+            - generic [ref=e491]: 8,000 BTU · rooms up to 20 m² · Amazon
+          - generic [ref=e492]:
+            - generic [ref=e493]: Sold out
+            - link "See on Amazon →" [ref=e494] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0D791D4YS?tag=airconalert-21
+            - link "Set alert" [ref=e495] [cursor=pointer]:
+              - /url: /stock/meacocool-8000chr-pro
+        - generic [ref=e496]:
+          - generic [ref=e498]:
+            - link "De'Longhi Pinguino ES72 8300 BTU" [ref=e500] [cursor=pointer]:
+              - /url: /stock/delonghi-pinguino-es72
+            - generic [ref=e501]: 8,300 BTU · rooms up to 20 m² · Amazon
+          - generic [ref=e502]:
+            - generic [ref=e503]: Sold out
+            - link "See on Amazon →" [ref=e504] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0BX3R4674?tag=airconalert-21
+            - link "Set alert" [ref=e505] [cursor=pointer]:
+              - /url: /stock/delonghi-pinguino-es72
+        - generic [ref=e506]:
+          - generic [ref=e508]:
+            - link "Russell Hobbs RHPAC3001 7000 BTU" [ref=e510] [cursor=pointer]:
+              - /url: /stock/russell-hobbs-rhpac3001
+            - generic [ref=e511]: 7,000 BTU · rooms up to 14 m² · Currys
+          - generic [ref=e512]:
+            - generic [ref=e513]: Sold out
+            - link "See on Amazon →" [ref=e514] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B07ZHTGQSY?tag=airconalert-21
+            - link "Set alert" [ref=e515] [cursor=pointer]:
+              - /url: /stock/russell-hobbs-rhpac3001
+        - generic [ref=e516]:
+          - generic [ref=e518]:
+            - link "Russell Hobbs RHPAC3001 7000 BTU" [ref=e520] [cursor=pointer]:
+              - /url: /stock/russell-hobbs-rhpac3001
+            - generic [ref=e521]: 7,000 BTU · rooms up to 14 m² · Amazon
+          - generic [ref=e522]:
+            - generic [ref=e523]: Sold out
+            - link "See on Amazon →" [ref=e524] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B07ZHTGQSY?tag=airconalert-21
+            - link "Set alert" [ref=e525] [cursor=pointer]:
+              - /url: /stock/russell-hobbs-rhpac3001
+        - generic [ref=e526]:
+          - generic [ref=e528]:
+            - link "Russell Hobbs RHPAC11001 11000 BTU" [ref=e530] [cursor=pointer]:
+              - /url: /stock/russell-hobbs-rhpac11001
+            - generic [ref=e531]: 11,000 BTU · rooms up to 30 m² · Currys
+          - generic [ref=e532]:
+            - generic [ref=e533]: Sold out
+            - link "See on Amazon →" [ref=e534] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0987SGJFC?tag=airconalert-21
+            - link "Set alert" [ref=e535] [cursor=pointer]:
+              - /url: /stock/russell-hobbs-rhpac11001
+        - generic [ref=e536]:
+          - generic [ref=e538]:
+            - link "Russell Hobbs RHPAC11001 11000 BTU" [ref=e540] [cursor=pointer]:
+              - /url: /stock/russell-hobbs-rhpac11001
+            - generic [ref=e541]: 11,000 BTU · rooms up to 30 m² · Amazon
+          - generic [ref=e542]:
+            - generic [ref=e543]: Sold out
+            - link "See on Amazon →" [ref=e544] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0987SGJFC?tag=airconalert-21
+            - link "Set alert" [ref=e545] [cursor=pointer]:
+              - /url: /stock/russell-hobbs-rhpac11001
+      - paragraph [ref=e546]: Stock and prices are checked live and refresh each time you load this page. As an Amazon Associate, AirconAlert earns from qualifying purchases.
+      - paragraph [ref=e547]:
+        - link "Sold out everywhere? See portable ACs in stock on Amazon →" [ref=e548] [cursor=pointer]:
+          - /url: /amazon
+      - navigation "Browse live stock by brand and retailer" [ref=e549]:
+        - paragraph [ref=e550]:
+          - strong [ref=e551]: "Live stock by brand:"
+          - link "Meaco" [ref=e552] [cursor=pointer]:
+            - /url: /stock/brand/meaco
+          - text: ·
+          - link "De'Longhi" [ref=e553] [cursor=pointer]:
+            - /url: /stock/brand/delonghi
+          - text: ·
+          - link "Russell Hobbs" [ref=e554] [cursor=pointer]:
+            - /url: /stock/brand/russell-hobbs
+          - text: ·
+          - link "EMtronics" [ref=e555] [cursor=pointer]:
+            - /url: /stock/brand/emtronics
+          - text: ·
+          - link "Daewoo" [ref=e556] [cursor=pointer]:
+            - /url: /stock/brand/daewoo
+          - text: ·
+          - link "Lux Air" [ref=e557] [cursor=pointer]:
+            - /url: /stock/brand/lux-air
+          - text: ·
+          - link "Blyss" [ref=e558] [cursor=pointer]:
+            - /url: /stock/brand/blyss
+          - text: ·
+          - link "Wessex" [ref=e559] [cursor=pointer]:
+            - /url: /stock/brand/wessex
+        - paragraph [ref=e560]:
+          - strong [ref=e561]: "In stock at:"
+          - link "Currys" [ref=e562] [cursor=pointer]:
+            - /url: /stock/retailer/currys
+          - text: ·
+          - link "Screwfix" [ref=e563] [cursor=pointer]:
+            - /url: /stock/retailer/screwfix
+          - text: ·
+          - link "AO.com" [ref=e564] [cursor=pointer]:
+            - /url: /stock/retailer/ao
+          - text: ·
+          - link "B&Q" [ref=e565] [cursor=pointer]:
+            - /url: /stock/retailer/bq
+          - text: ·
+          - link "John Lewis" [ref=e566] [cursor=pointer]:
+            - /url: /stock/retailer/johnlewis
+          - text: ·
+          - link "Amazon" [ref=e567] [cursor=pointer]:
+            - /url: /stock/retailer/amazon
+          - text: ·
+          - link "The Range" [ref=e568] [cursor=pointer]:
+            - /url: /stock/retailer/therange
+          - text: ·
+          - link "Robert Dyas" [ref=e569] [cursor=pointer]:
+            - /url: /stock/retailer/robertdyas
+          - text: ·
+          - link "Toolstation" [ref=e570] [cursor=pointer]:
+            - /url: /stock/retailer/toolstation
+    - generic [ref=e571]:
+      - generic [ref=e572]:
+        - generic [ref=e573]: How it works
+        - heading "Set it once. We do the watching." [level=2] [ref=e574]
+      - list [ref=e575]:
+        - listitem [ref=e576]:
+          - generic [ref=e577]: "01"
+          - heading "Pick your models" [level=3] [ref=e581]
+          - paragraph [ref=e582]: Tell us which portable AC units you're after — or track them all. Takes ten seconds.
+        - listitem [ref=e583]:
+          - generic [ref=e584]: "02"
+          - heading "We watch the shelves" [level=3] [ref=e589]
+          - paragraph [ref=e590]: Our radar checks every major UK retailer around the clock — far faster than you can refresh tabs.
+        - listitem [ref=e591]:
+          - generic [ref=e592]: "03"
+          - heading "You get the alert first" [level=3] [ref=e596]
+          - paragraph [ref=e597]: The instant it's back, you get an email with a direct link. Beat the sellout by minutes that matter.
+    - generic [ref=e598]:
+      - generic [ref=e599]:
+        - generic [ref=e600]: The shortlist
+        - heading "The units worth waiting for" [level=2] [ref=e601]
+        - paragraph [ref=e602]:
+          - text: Tick the ones you want. We'll only ping you about those. New to this?
+          - link "Read our buying guide →" [ref=e603] [cursor=pointer]:
+            - /url: /guides/best-portable-air-conditioners-uk.html
+      - generic [ref=e604]:
+        - generic [ref=e605]:
+          - generic [ref=e606]:
+            - generic [ref=e607]: 7,000 BTU
+            - img "Emtronics 7000 BTU Portable Air Conditioner portable air conditioner" [ref=e608]
+          - generic [ref=e609]:
+            - heading "Emtronics 7000 BTU Portable Air Conditioner" [level=3] [ref=e610]
+            - generic [ref=e611]: Rooms up to 14 m²
+            - paragraph [ref=e612]: 3-in-1 cooling, dehumidifier & fan, with window vent kit.
+            - generic [ref=e613]:
+              - generic [ref=e614]: ~£200
+              - generic [ref=e615] [cursor=pointer]: Alert me
+            - link "View on Amazon" [ref=e617] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0C6B714GP?tag=airconalert-21
+              - text: View on Amazon ↗
+        - generic [ref=e618]:
+          - generic [ref=e619]:
+            - generic [ref=e620]: 9,000 BTU
+            - img "Emtronics 9000 BTU Portable Air Conditioner portable air conditioner" [ref=e621]
+          - generic [ref=e622]:
+            - heading "Emtronics 9000 BTU Portable Air Conditioner" [level=3] [ref=e623]
+            - generic [ref=e624]: Rooms up to 20 m²
+            - paragraph [ref=e625]: 3-in-1 cooling, dehumidifier & fan, with window vent kit.
+            - generic [ref=e626]:
+              - generic [ref=e627]: ~£250
+              - generic [ref=e628] [cursor=pointer]: Alert me
+            - link "View on Amazon" [ref=e630] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0C6B2W5FL?tag=airconalert-21
+              - text: View on Amazon ↗
+        - generic [ref=e631]:
+          - generic [ref=e632]:
+            - generic [ref=e633]: 12,000 BTU
+            - img "Emtronics 12000 BTU Portable Air Conditioner portable air conditioner" [ref=e634]
+          - generic [ref=e635]:
+            - heading "Emtronics 12000 BTU Portable Air Conditioner" [level=3] [ref=e636]
+            - generic [ref=e637]: Rooms up to 28 m²
+            - paragraph [ref=e638]: 3-in-1 cooling, dehumidifier & fan, with window vent kit.
+            - generic [ref=e639]:
+              - generic [ref=e640]: ~£330
+              - generic [ref=e641] [cursor=pointer]: Alert me
+            - link "View on Amazon" [ref=e643] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0C6B72Q59?tag=airconalert-21
+              - text: View on Amazon ↗
+        - generic [ref=e644]:
+          - generic [ref=e645]:
+            - generic [ref=e646]: 7,000 BTU
+            - img "Daewoo 7000 BTU Portable Air Conditioner portable air conditioner" [ref=e647]
+          - generic [ref=e648]:
+            - heading "Daewoo 7000 BTU Portable Air Conditioner" [level=3] [ref=e649]
+            - generic [ref=e650]: Rooms up to 14 m²
+            - paragraph [ref=e651]: 3-in-1 cooling, dehumidifier & fan — compact rooms.
+            - generic [ref=e652]:
+              - generic [ref=e653]: ~£200
+              - generic [ref=e654] [cursor=pointer]: Alert me
+            - link "View on Amazon" [ref=e656] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B086LTJLQ7?tag=airconalert-21
+              - text: View on Amazon ↗
+        - generic [ref=e657]:
+          - generic [ref=e658]:
+            - generic [ref=e659]: 9,000 BTU
+            - img "Lux Air 9000 BTU Portable Air Conditioner portable air conditioner" [ref=e660]
+          - generic [ref=e661]:
+            - heading "Lux Air 9000 BTU Portable Air Conditioner" [level=3] [ref=e662]
+            - generic [ref=e663]: Rooms up to 18 m²
+            - paragraph [ref=e664]: 2.5kW cooling for bedrooms & conservatories.
+            - generic [ref=e665]:
+              - generic [ref=e666]: ~£557
+              - generic [ref=e667] [cursor=pointer]: Alert me
+            - link "View on Amazon" [ref=e669] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0BXB99S8S?tag=airconalert-21
+              - text: View on Amazon ↗
+        - generic [ref=e670]:
+          - generic [ref=e671]: 9,000 BTU
+          - generic [ref=e679]:
+            - heading "MeacoCool MC Series Pro 9000" [level=3] [ref=e680]
+            - generic [ref=e681]: Rooms 16–26 m²
+            - paragraph [ref=e682]: Best all-rounder for UK bedrooms & offices.
+            - generic [ref=e683]:
+              - generic [ref=e684]: ~£400
+              - generic [ref=e685] [cursor=pointer]: Alert me
+            - link "View on Amazon" [ref=e687] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0D3HY38CP?tag=airconalert-21
+              - text: View on Amazon ↗
+        - generic [ref=e688]:
+          - generic [ref=e689]:
+            - generic [ref=e690]: 16,000 BTU
+            - img "Meaco Pro 16000 BTU portable air conditioner" [ref=e691]
+          - generic [ref=e692]:
+            - heading "Meaco Pro 16000 BTU" [level=3] [ref=e693]
+            - generic [ref=e694]: Rooms up to 40 m²
+            - paragraph [ref=e695]: Most powerful — large living rooms & open-plan.
+            - generic [ref=e696]:
+              - generic [ref=e697]: ~£580
+              - generic [ref=e698] [cursor=pointer]: Alert me
+            - link "View on Amazon" [ref=e700] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0D3HVQFQ9?tag=airconalert-21
+              - text: View on Amazon ↗
+        - generic [ref=e701]:
+          - generic [ref=e702]:
+            - generic [ref=e703]: 12,000 BTU
+            - img "Meaco Cirro 12000 BTU portable air conditioner" [ref=e704]
+          - generic [ref=e705]:
+            - heading "Meaco Cirro 12000 BTU" [level=3] [ref=e706]
+            - generic [ref=e707]: Rooms 20–30 m²
+            - paragraph [ref=e708]: Quietest on the market — ~45dB, great for bedrooms.
+            - generic [ref=e709]:
+              - generic [ref=e710]: ~£500
+              - generic [ref=e711] [cursor=pointer]: Alert me
+            - link "View on Amazon" [ref=e713] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0H3PDBB5L?tag=airconalert-21
+              - text: View on Amazon ↗
+        - generic [ref=e714]:
+          - generic [ref=e715]:
+            - generic [ref=e716]: 14,000 BTU
+            - img "Meaco Cirro 14000 BTU portable air conditioner" [ref=e717]
+          - generic [ref=e718]:
+            - heading "Meaco Cirro 14000 BTU" [level=3] [ref=e719]
+            - generic [ref=e720]: Rooms 30–35 m²
+            - paragraph [ref=e721]: Quiet and powerful — big bedrooms & living rooms.
+            - generic [ref=e722]:
+              - generic [ref=e723]: ~£599
+              - generic [ref=e724] [cursor=pointer]: Alert me
+            - link "View on Amazon" [ref=e726] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0H3PJ8VRC?tag=airconalert-21
+              - text: View on Amazon ↗
+        - generic [ref=e727]:
+          - generic [ref=e728]: 7,000 BTU
+          - generic [ref=e736]:
+            - heading "Meaco 7000R Pro" [level=3] [ref=e737]
+            - generic [ref=e738]: Rooms up to 18 m²
+            - paragraph [ref=e739]: Compact Meaco for small rooms — quieter than budget rivals.
+            - generic [ref=e740]:
+              - generic [ref=e741]: ~£450
+              - generic [ref=e742] [cursor=pointer]: Alert me
+            - link "View on Amazon" [ref=e744] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/s?k=Meaco%207000R%20Pro%20air%20conditioner&tag=airconalert-21
+              - text: View on Amazon ↗
+        - generic [ref=e745]:
+          - generic [ref=e746]:
+            - generic [ref=e747]: 12,000 BTU
+            - img "Blyss A018I-12CH 12000 BTU portable air conditioner" [ref=e748]
+          - generic [ref=e749]:
+            - heading "Blyss A018I-12CH 12000 BTU" [level=3] [ref=e750]
+            - generic [ref=e751]: Rooms up to 28 m²
+            - paragraph [ref=e752]: Budget reversible (cool + heat) — Screwfix own-brand.
+            - generic [ref=e753]:
+              - generic [ref=e754]: ~£300
+              - generic [ref=e755] [cursor=pointer]: Alert me
+            - link "View on Amazon" [ref=e757] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/s?k=Blyss%20A018I-12CH%2012000%20BTU%20air%20conditioner&tag=airconalert-21
+              - text: View on Amazon ↗
+        - generic [ref=e758]:
+          - generic [ref=e759]:
+            - generic [ref=e760]: 9,000 BTU
+            - img "Blyss A018I-09C 9000 BTU portable air conditioner" [ref=e761]
+          - generic [ref=e762]:
+            - heading "Blyss A018I-09C 9000 BTU" [level=3] [ref=e763]
+            - generic [ref=e764]: Rooms up to 22 m²
+            - paragraph [ref=e765]: Cheapest way to cool a small room — Screwfix own-brand.
+            - generic [ref=e766]:
+              - generic [ref=e767]: ~£250
+              - generic [ref=e768] [cursor=pointer]: Alert me
+            - link "View on Amazon" [ref=e770] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/s?k=Blyss%20A018I-09C%209000%20BTU%20air%20conditioner&tag=airconalert-21
+              - text: View on Amazon ↗
+        - generic [ref=e771]:
+          - generic [ref=e772]:
+            - generic [ref=e773]: 9,000 BTU
+            - img "Wessex 9000 BTU AC & Dehumidifier portable air conditioner" [ref=e774]
+          - generic [ref=e775]:
+            - heading "Wessex 9000 BTU AC & Dehumidifier" [level=3] [ref=e776]
+            - generic [ref=e777]: Rooms up to 22 m²
+            - paragraph [ref=e778]: Cheap 2-in-1 cool + dehumidify — Toolstation.
+            - generic [ref=e779]:
+              - generic [ref=e780]: ~£240
+              - generic [ref=e781] [cursor=pointer]: Alert me
+            - link "View on Amazon" [ref=e783] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/s?k=Wessex%209000%20BTU%20portable%20air%20conditioner%20dehumidifier&tag=airconalert-21
+              - text: View on Amazon ↗
+        - generic [ref=e784]:
+          - generic [ref=e785]:
+            - generic [ref=e786]: 12,000 BTU
+            - img "Wessex 12000 BTU AC & Dehumidifier portable air conditioner" [ref=e787]
+          - generic [ref=e788]:
+            - heading "Wessex 12000 BTU AC & Dehumidifier" [level=3] [ref=e789]
+            - generic [ref=e790]: Rooms up to 28 m²
+            - paragraph [ref=e791]: Bigger budget 2-in-1 for medium rooms — Toolstation.
+            - generic [ref=e792]:
+              - generic [ref=e793]: ~£310
+              - generic [ref=e794] [cursor=pointer]: Alert me
+            - link "View on Amazon" [ref=e796] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/s?k=Wessex%2012000%20BTU%20portable%20air%20conditioner%20dehumidifier&tag=airconalert-21
+              - text: View on Amazon ↗
+        - generic [ref=e797]:
+          - generic [ref=e798]:
+            - generic [ref=e799]: 12,000 BTU
+            - img "12000 BTU Portable AC (The Range) portable air conditioner" [ref=e800]
+          - generic [ref=e801]:
+            - heading "12000 BTU Portable AC (The Range)" [level=3] [ref=e802]
+            - generic [ref=e803]: Rooms up to 28 m²
+            - paragraph [ref=e804]: In-stock budget 3-in-1 unit at The Range.
+            - generic [ref=e805]:
+              - generic [ref=e806]: ~£400
+              - generic [ref=e807] [cursor=pointer]: Alert me
+            - link "View on Amazon" [ref=e809] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/s?k=12000%20BTU%20portable%20air%20conditioner&tag=airconalert-21
+              - text: View on Amazon ↗
+        - generic [ref=e810]:
+          - generic [ref=e811]:
+            - generic [ref=e812]: 9,000 BTU
+            - img "9000 BTU Portable AC (The Range) portable air conditioner" [ref=e813]
+          - generic [ref=e814]:
+            - heading "9000 BTU Portable AC (The Range)" [level=3] [ref=e815]
+            - generic [ref=e816]: Rooms up to 22 m²
+            - paragraph [ref=e817]: In-stock budget unit for small rooms at The Range.
+            - generic [ref=e818]:
+              - generic [ref=e819]: ~£350
+              - generic [ref=e820] [cursor=pointer]: Alert me
+            - link "View on Amazon" [ref=e822] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/s?k=9000%20BTU%20portable%20air%20conditioner&tag=airconalert-21
+              - text: View on Amazon ↗
+        - generic [ref=e823]:
+          - generic [ref=e824]:
+            - generic [ref=e825]: 14,000 BTU
+            - img "MeacoCool MC Pro 14000 portable air conditioner" [ref=e826]
+          - generic [ref=e827]:
+            - heading "MeacoCool MC Pro 14000" [level=3] [ref=e828]
+            - generic [ref=e829]: Rooms 30–35 m²
+            - paragraph [ref=e830]: Powerful Meaco MC Pro — tracked live at B&Q via their stock API.
+            - generic [ref=e831]:
+              - generic [ref=e832]: ~£550
+              - generic [ref=e833] [cursor=pointer]: Alert me
+            - link "View on Amazon" [ref=e835] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0D3HWWXQ9?tag=airconalert-21
+              - text: View on Amazon ↗
+        - generic [ref=e836]:
+          - generic [ref=e837]:
+            - generic [ref=e838]: 8,000 BTU
+            - img "MeacoCool 8000CHR Pro portable air conditioner" [ref=e839]
+          - generic [ref=e840]:
+            - heading "MeacoCool 8000CHR Pro" [level=3] [ref=e841]
+            - generic [ref=e842]: Rooms up to 20 m²
+            - paragraph [ref=e843]: Compact all-season unit — cools, heats and dehumidifies. Tracked live at Currys.
+            - generic [ref=e844]:
+              - generic [ref=e845]: ~£380
+              - generic [ref=e846] [cursor=pointer]: Alert me
+            - link "View on Amazon" [ref=e848] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0D791D4YS?tag=airconalert-21
+              - text: View on Amazon ↗
+        - generic [ref=e849]:
+          - generic [ref=e850]:
+            - generic [ref=e851]: 12,000 BTU
+            - img "MeacoCool MC12000CHR Pro portable air conditioner" [ref=e852]
+          - generic [ref=e853]:
+            - heading "MeacoCool MC12000CHR Pro" [level=3] [ref=e854]
+            - generic [ref=e855]: Rooms up to 30 m²
+            - paragraph [ref=e856]: Heat + cool + dehumidify all year — 12000 BTU. Tracked live at Currys.
+            - generic [ref=e857]:
+              - generic [ref=e858]: ~£480
+              - generic [ref=e859] [cursor=pointer]: Alert me
+            - link "View on Amazon" [ref=e861] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/s?k=MeacoCool%20MC12000CHR%20Pro%20air%20conditioner&tag=airconalert-21
+              - text: View on Amazon ↗
+        - generic [ref=e862]:
+          - generic [ref=e863]:
+            - generic [ref=e864]: 8,300 BTU
+            - img "De'Longhi Pinguino ES72 8300 BTU portable air conditioner" [ref=e865]
+          - generic [ref=e866]:
+            - heading "De'Longhi Pinguino ES72 8300 BTU" [level=3] [ref=e867]
+            - generic [ref=e868]: Rooms up to 20 m²
+            - paragraph [ref=e869]: De'Longhi 3-in-1 — cool, dehumidify and fan. Tracked at Currys and AO.
+            - generic [ref=e870]:
+              - generic [ref=e871]: ~£459
+              - generic [ref=e872] [cursor=pointer]: Alert me
+            - link "View on Amazon" [ref=e874] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0BX3R4674?tag=airconalert-21
+              - text: View on Amazon ↗
+        - generic [ref=e875]:
+          - generic [ref=e876]:
+            - generic [ref=e877]: 7,000 BTU
+            - img "Russell Hobbs RHPAC3001 7000 BTU portable air conditioner" [ref=e878]
+          - generic [ref=e879]:
+            - heading "Russell Hobbs RHPAC3001 7000 BTU" [level=3] [ref=e880]
+            - generic [ref=e881]: Rooms up to 14 m²
+            - paragraph [ref=e882]: 3-in-1 cool, dehumidify and fan — popular budget pick. Tracked live at Currys.
+            - generic [ref=e883]:
+              - generic [ref=e884]: ~£299
+              - generic [ref=e885] [cursor=pointer]: Alert me
+            - link "View on Amazon" [ref=e887] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B07ZHTGQSY?tag=airconalert-21
+              - text: View on Amazon ↗
+        - generic [ref=e888]:
+          - generic [ref=e889]: 11,000 BTU
+          - generic [ref=e897]:
+            - heading "Russell Hobbs RHPAC11001 11000 BTU" [level=3] [ref=e898]
+            - generic [ref=e899]: Rooms up to 30 m²
+            - paragraph [ref=e900]: Powerful Russell Hobbs unit for larger rooms. Tracked live at Currys.
+            - generic [ref=e901]:
+              - generic [ref=e902]: ~£380
+              - generic [ref=e903] [cursor=pointer]: Alert me
+            - link "View on Amazon" [ref=e905] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/dp/B0987SGJFC?tag=airconalert-21
+              - text: View on Amazon ↗
+        - generic [ref=e906]:
+          - generic [ref=e907]:
+            - generic [ref=e908]: 9,000 BTU
+            - img "Logik LAC09C26 9000 BTU portable air conditioner" [ref=e909]
+          - generic [ref=e910]:
+            - heading "Logik LAC09C26 9000 BTU" [level=3] [ref=e911]
+            - generic [ref=e912]: Rooms 16–26 m²
+            - paragraph [ref=e913]: Currys' own-brand 9000 BTU air conditioner and dehumidifier — high demand.
+            - generic [ref=e914]:
+              - generic [ref=e915]: ~£349
+              - generic [ref=e916] [cursor=pointer]: Alert me
+            - link "View on Amazon" [ref=e918] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/s?k=Logik%20LAC09C26%20portable%20air%20conditioner&tag=airconalert-21
+              - text: View on Amazon ↗
+        - generic [ref=e919]:
+          - generic [ref=e920]:
+            - generic [ref=e921]: 5,000 BTU
+            - img "5000 BTU Portable Air Conditioner portable air conditioner" [ref=e922]
+          - generic [ref=e923]:
+            - heading "5000 BTU Portable Air Conditioner" [level=3] [ref=e924]
+            - generic [ref=e925]: Rooms up to 12 m²
+            - paragraph [ref=e926]: Budget 5000 BTU unit for small rooms and offices. Tracked live at Screwfix.
+            - generic [ref=e927]:
+              - generic [ref=e928]: ~£175
+              - generic [ref=e929] [cursor=pointer]: Alert me
+            - link "View on Amazon" [ref=e931] [cursor=pointer]:
+              - /url: https://www.amazon.co.uk/s?k=5000%20BTU%20portable%20air%20conditioner&tag=airconalert-21
+              - text: View on Amazon ↗
+    - generic [ref=e933]:
+      - generic [ref=e934]:
+        - generic [ref=e935]: Sizing guide
+        - heading "What BTU do you actually need?" [level=2] [ref=e936]
+        - paragraph [ref=e937]: Too small and it'll never cool the room; too big and you've overpaid. Give us your space and we'll point you at the right rating.
+      - generic [ref=e938]:
+        - generic [ref=e939]:
+          - text: Room size
+          - generic [ref=e940]:
+            - spinbutton "Room size m²" [ref=e941]: "20"
+            - generic: m²
+        - generic [ref=e942]:
+          - text: Sun exposure
+          - combobox "Sun exposure" [ref=e943]:
+            - option "Shaded / north-facing"
+            - option "Average" [selected]
+            - option "Sunny / south-facing"
+        - generic [ref=e944]:
+          - strong [ref=e945]: 7,500 BTU
+          - text: is the sweet spot for a 20 m² room. Tick any model at or above that and we'll alert you the moment it's back in stock.
+    - generic [ref=e946]:
+      - generic [ref=e947]:
+        - generic [ref=e948]: Why AirconAlert
+        - heading "Built for the minutes that matter" [level=2] [ref=e949]
+      - generic [ref=e950]:
+        - article [ref=e951]:
+          - heading "Alerts in real time" [level=3] [ref=e954]
+          - paragraph [ref=e955]: During a sellout, stock lasts minutes. We check constantly and email you the moment it lands.
+        - article [ref=e956]:
+          - heading "Eight UK retailers" [level=3] [ref=e960]
+          - paragraph [ref=e961]: AO, John Lewis, Currys, Screwfix, B&Q and more, one watchlist instead of eight open tabs.
+        - article [ref=e962]:
+          - heading "Live price shown" [level=3] [ref=e966]
+          - paragraph [ref=e967]: We show the current price beside every in-stock listing, so you can compare and avoid panic-buying at peak.
+    - generic [ref=e969]:
+      - heading "Don't spend another tropical night sweating." [level=2] [ref=e974]
+      - paragraph [ref=e975]: Join the watchlist free and we'll tell you the second your aircon is back in stock.
+      - generic [ref=e976]:
+        - textbox
+        - textbox "Email address" [ref=e977]:
+          - /placeholder: you@email.com
+        - button "Watch for stock" [ref=e978] [cursor=pointer]
+      - paragraph [ref=e979]:
+        - text: Free · double opt-in · we email you once, when stock lands ·
+        - link "Privacy" [ref=e980] [cursor=pointer]:
+          - /url: /privacy
+  - generic [ref=e982]:
+    - generic [ref=e983]:
+      - heading "Sick of the sell-out? Get a permanent AC fitted." [level=2] [ref=e984]
+      - paragraph [ref=e985]: Skip portables entirely — we'll line up vetted UK installer quotes for your area.
+    - link "Get install quotes →" [ref=e986] [cursor=pointer]:
+      - /url: /install
+  - contentinfo [ref=e987]:
+    - generic [ref=e988]:
+      - generic [ref=e995]:
+        - text: Aircon
+        - strong [ref=e996]: Alert
+      - navigation "Guides" [ref=e997]:
+        - link "All guides" [ref=e998] [cursor=pointer]:
+          - /url: /guides/
+        - link "Best portable ACs UK" [ref=e999] [cursor=pointer]:
+          - /url: /guides/best-portable-air-conditioners-uk.html
+        - link "What size do I need?" [ref=e1000] [cursor=pointer]:
+          - /url: /guides/what-size-portable-air-conditioner-btu.html
+        - link "Running costs" [ref=e1001] [cursor=pointer]:
+          - /url: /guides/portable-air-conditioner-running-costs-uk.html
+        - link "Why they sell out" [ref=e1002] [cursor=pointer]:
+          - /url: /guides/why-are-portable-air-conditioners-sold-out-uk.html
+        - link "What you can buy today" [ref=e1003] [cursor=pointer]:
+          - /url: /alternatives
+        - link "Privacy" [ref=e1004] [cursor=pointer]:
+          - /url: /privacy
+        - link "Terms" [ref=e1005] [cursor=pointer]:
+          - /url: /terms
+        - link "Contact" [ref=e1006] [cursor=pointer]:
+          - /url: mailto:hello@airconalert.co.uk
+      - paragraph [ref=e1007]:
+        - text: A
+        - link "5 Rivers Lab" [ref=e1008] [cursor=pointer]:
+          - /url: https://5riverslab.io
+        - text: project. Some links are affiliate links — we may earn a small commission at no cost to you. We only ever email you about stock you asked us to watch. Questions?
+        - link "hello@airconalert.co.uk" [ref=e1009] [cursor=pointer]:
+          - /url: mailto:hello@airconalert.co.uk

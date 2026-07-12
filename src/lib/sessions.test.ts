@@ -48,6 +48,17 @@ describe("getSessionMessages / setSessionMessages", () => {
     sessions.setSessionMessages(id, [withImages]);
     expect(sessions.getSessionMessages(id)).toEqual([withImages]);
   });
+
+  it("preserves document attachments on a user message across the round-trip", () => {
+    const id = sessions.createSession();
+    const withDocument: AgentMessage = {
+      role: "user",
+      content: "summarize",
+      documents: [{ name: "notes.txt", mediaType: "text/plain", text: "file body" }],
+    };
+    sessions.setSessionMessages(id, [withDocument]);
+    expect(sessions.getSessionMessages(id)).toEqual([withDocument]);
+  });
 });
 
 describe("getSessionPersonality / setSessionPersonality", () => {

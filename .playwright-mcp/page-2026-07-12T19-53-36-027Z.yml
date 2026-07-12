@@ -1,0 +1,289 @@
+- generic [active] [ref=f9e1]:
+  - link "Open Staff Message Dialog":
+    - /url: javascript:;
+  - generic "electriQ" [ref=f9e4] [cursor=pointer]:
+    - link [ref=f9e5]:
+      - /url: /
+  - generic [ref=f9e7]:
+    - generic [ref=f9e10]:
+      - textbox "Search" [ref=f9e11]: Search...
+      - button "Search" [ref=f9e12] [cursor=pointer]
+    - navigation [ref=f9e16]:
+      - navigation [ref=f9e18]:
+        - list:
+          - listitem [ref=f9e19]:
+            - link "Products" [ref=f9e20] [cursor=pointer]:
+              - /url: /content/our-products
+          - listitem [ref=f9e21]:
+            - link "Spare parts" [ref=f9e22] [cursor=pointer]:
+              - /url: /content/accessories
+          - listitem [ref=f9e23]:
+            - link "Register your warranty" [ref=f9e24] [cursor=pointer]:
+              - /url: /content/register-warranty
+          - listitem [ref=f9e25]:
+            - link "Find a retailer" [ref=f9e26] [cursor=pointer]:
+              - /url: /content/find-a-retailer
+          - listitem [ref=f9e27]:
+            - link "Trade Enquiries" [ref=f9e28] [cursor=pointer]:
+              - /url: /content/trade-enquiries
+  - status [ref=f9e29]
+  - generic [ref=f9e32]:
+    - navigation "Breadcrumb" [ref=f9e34]:
+      - list [ref=f9e35]:
+        - listitem [ref=f9e36]:
+          - link "Home" [ref=f9e37] [cursor=pointer]:
+            - /url: /
+        - listitem [ref=f9e38]:
+          - text: /
+          - link "Air Conditioning" [ref=f9e39] [cursor=pointer]:
+            - /url: /c/heating-and-air-conditioning
+        - listitem [ref=f9e40]:
+          - text: /
+          - link "Air Conditioners" [ref=f9e41] [cursor=pointer]:
+            - /url: /ct/heating-and-air-conditioning/air-conditioners
+        - listitem [ref=f9e42]: /electriQ
+    - generic [ref=f9e43]:
+      - generic [ref=f9e45]:
+        - generic [ref=f9e46]:
+          - heading "Filters" [level=4] [ref=f9e48]
+          - link "Clear all" [ref=f9e50] [cursor=pointer]:
+            - /url: /nav/pt/air-conditioners/mc/132605
+        - list [ref=f9e53]:
+          - listitem [ref=f9e54]:
+            - generic [ref=f9e55]: Air Conditioners
+            - link [ref=f9e56] [cursor=pointer]:
+              - /url: /nav/brd/electriq/actype/portable/mc/132605
+          - listitem [ref=f9e59]:
+            - generic [ref=f9e60]: Portable
+            - link [ref=f9e61] [cursor=pointer]:
+              - /url: /nav/brd/electriq/pt/air-conditioners/mc/air-conditioning
+          - listitem [ref=f9e64]:
+            - generic [ref=f9e65]: electriQ
+            - link [ref=f9e66] [cursor=pointer]:
+              - /url: /nav/pt/air-conditioners/actype/portable/mc/132605
+        - heading "– Product Type" [level=2] [ref=f9e69] [cursor=pointer]
+        - list [ref=f9e72]:
+          - listitem [ref=f9e73]:
+            - generic [ref=f9e74]:
+              - checkbox [checked] [ref=f9e75]
+              - link "Air Conditioners" [ref=f9e76] [cursor=pointer]:
+                - /url: /nav/brd/electriq/actype/portable/mc/132605
+          - listitem [ref=f9e77]:
+            - generic [ref=f9e78]:
+              - checkbox [ref=f9e79]
+              - link "Humidifiers (1)" [ref=f9e80] [cursor=pointer]:
+                - /url: /nav/brd/electriq/pt/humidifiers/pt/air-conditioners/actype/portable/mc/132605
+          - listitem [ref=f9e81]:
+            - link "Clear selection" [ref=f9e82] [cursor=pointer]:
+              - /url: /nav/brd/electriq/actype/portable/mc/132605
+        - heading "– Price Range" [level=2] [ref=f9e83] [cursor=pointer]
+        - generic [ref=f9e85]:
+          - textbox [ref=f9e89]: "750"
+          - generic [ref=f9e90]: to
+          - textbox [ref=f9e91]: "1000"
+          - button "»" [ref=f9e92] [cursor=pointer]
+        - heading "– Recommended Area" [level=2] [ref=f9e93] [cursor=pointer]
+        - list [ref=f9e96]:
+          - listitem [ref=f9e97]:
+            - generic [ref=f9e98]:
+              - checkbox [ref=f9e99]
+              - link "28sqm (1)" [ref=f9e100] [cursor=pointer]:
+                - /url: /nav/brd/electriq/pt/air-conditioners/actype/portable/roos/28sqm/mc/132605
+          - listitem [ref=f9e101]:
+            - generic [ref=f9e102]:
+              - checkbox [ref=f9e103]
+              - link "38sqm (1)" [ref=f9e104] [cursor=pointer]:
+                - /url: /nav/brd/electriq/pt/air-conditioners/actype/portable/roos/38sqm/mc/132605
+        - heading "– Cooling Power (BTU)" [level=2] [ref=f9e105] [cursor=pointer]
+        - list [ref=f9e108]:
+          - listitem [ref=f9e109]:
+            - generic [ref=f9e110]:
+              - checkbox [ref=f9e111]
+              - link "10000 (1)" [ref=f9e112] [cursor=pointer]:
+                - /url: /nav/brd/electriq/pt/air-conditioners/actype/portable/btu/1435469/mc/132605
+          - listitem [ref=f9e113]:
+            - generic [ref=f9e114]:
+              - checkbox [ref=f9e115]
+              - link "14000 (1)" [ref=f9e116] [cursor=pointer]:
+                - /url: /nav/brd/electriq/pt/air-conditioners/actype/portable/btu/1058478/mc/132605
+        - heading "– Popular Features" [level=2] [ref=f9e117] [cursor=pointer]
+        - list [ref=f9e120]:
+          - listitem [ref=f9e121]:
+            - generic [ref=f9e122]:
+              - checkbox [ref=f9e123]
+              - link "Smart WiFi Control (2)" [ref=f9e124] [cursor=pointer]:
+                - /url: /nav/brd/electriq/pt/air-conditioners/actype/portable/acpop/smart-wifi-control/mc/132605
+          - listitem [ref=f9e125]:
+            - generic [ref=f9e126]:
+              - checkbox [ref=f9e127]
+              - link "Dehumidifier (2)" [ref=f9e128] [cursor=pointer]:
+                - /url: /nav/brd/electriq/actype/portable/acpop/dehumidifier/mc/132605/pt/air-conditioners
+          - listitem [ref=f9e129]:
+            - link "See 4 more" [ref=f9e130] [cursor=pointer]:
+              - /url: "#"
+      - generic [ref=f9e132]:
+        - heading "Portable Air Conditioners" [level=1] [ref=f9e133]
+        - generic [ref=f9e135]:
+          - generic [ref=f9e136]:
+            - paragraph [ref=f9e137]: Sort by
+            - combobox [ref=f9e139] [cursor=pointer]:
+              - option "Price (Low to High)"
+              - option "Price (High to Low)"
+              - option "Alphabetical"
+              - option "Saving (High to Low)"
+              - option "Popularity" [selected]
+          - generic [ref=f9e140]:
+            - paragraph [ref=f9e141]: Refine your results
+            - generic [ref=f9e142]:
+              - textbox "Search" [ref=f9e143]:
+                - /placeholder: Enter search term...
+              - link [ref=f9e145] [cursor=pointer]:
+                - /url: ""
+          - generic [ref=f9e149]:
+            - paragraph [ref=f9e150]: Items per page
+            - combobox [ref=f9e152] [cursor=pointer]:
+              - option "12"
+              - option "24"
+              - option "48" [selected]
+          - generic [ref=f9e153]:
+            - generic [ref=f9e154]: 1 - 2 of 2 products
+            - generic "Search results page navigation" [ref=f9e156]:
+              - list [ref=f9e157]:
+                - listitem [ref=f9e158]:
+                  - img [ref=f9e160]: 
+                - listitem [ref=f9e162]:
+                  - generic [ref=f9e163]: "1"
+                - listitem [ref=f9e164]:
+                  - img [ref=f9e166]: 
+        - list [ref=f9e169]:
+          - listitem "found product" [ref=f9e170]:
+            - generic [ref=f9e171]:
+              - generic [ref=f9e172]:
+                - link [ref=f9e173] [cursor=pointer]:
+                  - /url: /p/ecosilent14w/electriq-ecosilent14w-air-conditioner
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=f9e174]
+                - img "electriQ logo" [ref=f9e176]
+              - generic [ref=f9e178]:
+                - checkbox "compare product" [ref=f9e179]
+                - checkbox "mark product for compare" [ref=f9e181] [cursor=pointer]: Compare
+            - generic [ref=f9e183]:
+              - generic [ref=f9e184]:
+                - heading [level=3] [ref=f9e185]:
+                  - link "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=f9e186] [cursor=pointer]:
+                    - /url: /p/ecosilent14w/electriq-ecosilent14w-air-conditioner
+                - generic [ref=f9e187]:
+                  - paragraph [ref=f9e188]: "SKU: EcoSilent14W"
+                  - generic:
+                    - generic:
+                      - link "Read Customer Reviews":
+                        - /url: "#tab-reviews"
+              - list [ref=f9e190]:
+                - listitem [ref=f9e191]:
+                  - generic [ref=f9e192]: Ultra-powerful, quiet cooling for large rooms.
+                - listitem [ref=f9e193]:
+                  - generic [ref=f9e194]: "5 Modes: Cool | Fan | Dehumidify | Smart Cool | Sleep"
+                - listitem [ref=f9e195]:
+                  - generic [ref=f9e196]: "Smart Wi-Fi: Control from your phone or assistant & pre-cool rooms for your arrival. Smart scheduling saves energy."
+                - listitem [ref=f9e197]:
+                  - generic [ref=f9e198]: "Class A Efficiency: Low-cost cooling for less than 39p per hour."
+                - listitem [ref=f9e199]: For areas up to 38sqm
+              - img "Energy Label" [ref=f9e201]
+            - link "view product" [ref=f9e206] [cursor=pointer]:
+              - /url: /p/ecosilent14w/electriq-ecosilent14w-air-conditioner
+              - text: View product
+          - listitem "found product" [ref=f9e207]:
+            - generic [ref=f9e208]:
+              - generic [ref=f9e209]:
+                - link [ref=f9e210] [cursor=pointer]:
+                  - /url: /p/ecoplus10hpw/electriq-ecoplus10hpw-air-conditioner
+                  - img "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f9e211]
+                - img "electriQ logo" [ref=f9e213]
+              - generic [ref=f9e215]:
+                - checkbox "compare product" [ref=f9e216]
+                - checkbox "mark product for compare" [ref=f9e218] [cursor=pointer]: Compare
+            - generic [ref=f9e220]:
+              - generic [ref=f9e221]:
+                - heading [level=3] [ref=f9e222]:
+                  - link "electriQ EcoPlus 10000 BTU A+ Low Energy Smart Quiet Portable AC & Heater" [ref=f9e223] [cursor=pointer]:
+                    - /url: /p/ecoplus10hpw/electriq-ecoplus10hpw-air-conditioner
+                - paragraph [ref=f9e225]: "SKU: EcoPlus10HPW"
+              - list [ref=f9e227]:
+                - listitem [ref=f9e228]:
+                  - generic [ref=f9e229]: High-performance cooling and heating for medium-large rooms.
+                - listitem [ref=f9e230]:
+                  - generic [ref=f9e231]: "4-in-1 Climate: Cool, Heat, Dehumidify & Purify"
+                - listitem [ref=f9e232]:
+                  - generic [ref=f9e233]: Low Energy Ultra-low running costs for year-round cooling and heating (23p/hr)
+                - listitem [ref=f9e234]:
+                  - generic [ref=f9e235]: "Smart Wi-Fi: Control from your phone or assistant & pre-cool rooms for your arrival. Smart scheduling saves energy."
+                - listitem [ref=f9e236]: For areas up to 28sqm
+              - img "Energy Label" [ref=f9e238]
+            - link "view product" [ref=f9e243] [cursor=pointer]:
+              - /url: /p/ecoplus10hpw/electriq-ecoplus10hpw-air-conditioner
+              - text: View product
+        - generic [ref=f9e245]:
+          - generic [ref=f9e246]:
+            - paragraph [ref=f9e247]: Sort by
+            - combobox [ref=f9e249] [cursor=pointer]:
+              - option "Price (Low to High)"
+              - option "Price (High to Low)"
+              - option "Alphabetical"
+              - option "Saving (High to Low)"
+              - option "Popularity" [selected]
+          - generic [ref=f9e251]:
+            - paragraph [ref=f9e252]: Items per page
+            - combobox [ref=f9e254] [cursor=pointer]:
+              - option "12"
+              - option "24"
+              - option "48" [selected]
+          - generic [ref=f9e255]:
+            - generic [ref=f9e256]: 1 - 2 of 2 products
+            - generic "Search results page navigation" [ref=f9e258]:
+              - list [ref=f9e259]:
+                - listitem [ref=f9e260]:
+                  - img [ref=f9e262]: 
+                - listitem [ref=f9e264]:
+                  - generic [ref=f9e265]: "1"
+                - listitem [ref=f9e266]:
+                  - img [ref=f9e268]: 
+  - generic [ref=f9e272]:
+    - generic [ref=f9e273]:
+      - list [ref=f9e274]:
+        - listitem [ref=f9e275]: Customer Service
+        - listitem [ref=f9e276]:
+          - link "Contact us" [ref=f9e277] [cursor=pointer]:
+            - /url: /content/contact
+        - listitem [ref=f9e278]:
+          - link "Request Manual" [ref=f9e279] [cursor=pointer]:
+            - /url: /content/request-manual
+        - listitem [ref=f9e280]:
+          - link "Report a Fault" [ref=f9e281] [cursor=pointer]:
+            - /url: /content/report-fault
+        - listitem [ref=f9e282]:
+          - link "Security" [ref=f9e283] [cursor=pointer]:
+            - /url: /content/security
+      - list [ref=f9e284]:
+        - listitem [ref=f9e285]: Company Info
+        - listitem [ref=f9e286]:
+          - link "About Us" [ref=f9e287] [cursor=pointer]:
+            - /url: /content/we-are-electriq
+        - listitem [ref=f9e288]:
+          - link "Privacy Policy" [ref=f9e289] [cursor=pointer]:
+            - /url: /content/privacy-policy
+        - listitem [ref=f9e290]:
+          - link "Cookie Policy" [ref=f9e291] [cursor=pointer]:
+            - /url: /content/cookie-policy
+      - list [ref=f9e292]:
+        - listitem [ref=f9e293]: Stay in Touch
+        - listitem [ref=f9e294]:
+          - link "Facebook" [ref=f9e295] [cursor=pointer]:
+            - /url: https://www.facebook.com/electriQUK
+          - link "Instagram" [ref=f9e298] [cursor=pointer]:
+            - /url: https://www.instagram.com/electriquk/
+            - img [ref=f9e299]: 
+    - generic: Copyright © electriQ 2014 – 2019. All Rights Reserved. Reg. No. 04171412
+    - paragraph [ref=f9e303]: "Buy It Direct Ltd is a limited company registered in England. Registered number 04171412. Registered office: Trident Business Park, Leeds Road, Huddersfield, West Yorkshire, HD2 1UA."
+  - generic [ref=f9e305]:
+    - generic [ref=f9e306]: Please wait
+    - link [ref=f9e312] [cursor=pointer]:
+      - /url: javascript:void(0);

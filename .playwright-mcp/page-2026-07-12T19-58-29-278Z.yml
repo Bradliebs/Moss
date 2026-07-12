@@ -1,0 +1,133 @@
+- generic [ref=f35e1]:
+  - link "Skip to main content\" " [ref=f35e2] [cursor=pointer]:
+    - /url: "#main-content"
+    - generic [ref=f35e3]: Skip to main content"
+    - generic [ref=f35e4]: 
+  - banner [ref=f35e5]:
+    - generic [ref=f35e7]:
+      - link "Home" [ref=f35e9] [cursor=pointer]:
+        - /url: /
+      - generic [ref=f35e12]: The ICO exists to empower you through information.
+      - generic [ref=f35e16]:
+        - text: 
+        - generic [ref=f35e19]:
+          - generic [ref=f35e20]: Search
+          - searchbox "Search" [ref=f35e21]
+          - button " Search" [ref=f35e22]:
+            - generic [ref=f35e23]: 
+            - generic [ref=f35e24]: Search
+    - generic [ref=f35e26]:
+      - text: 
+      - navigation [ref=f35e27]:
+        - list [ref=f35e28]:
+          - listitem [ref=f35e29]:
+            - link "Home" [ref=f35e30] [cursor=pointer]:
+              - /url: /
+              - text: 
+          - listitem [ref=f35e32]:
+            - link "For the public" [ref=f35e33] [cursor=pointer]:
+              - /url: /for-the-public/
+              - text: 
+          - listitem [ref=f35e35]:
+            - link "For organisations" [ref=f35e36] [cursor=pointer]:
+              - /url: /for-organisations/
+              - text: 
+          - listitem [ref=f35e38]:
+            - link "Make a complaint" [ref=f35e39] [cursor=pointer]:
+              - /url: /make-a-complaint/
+              - text: 
+          - listitem [ref=f35e41]:
+            - link "Action we've taken" [ref=f35e42] [cursor=pointer]:
+              - /url: /action-weve-taken/
+              - text: 
+          - listitem [ref=f35e44]:
+            - link "About the ICO" [ref=f35e45] [cursor=pointer]:
+              - /url: /about-the-ico/
+              - text: 
+  - main [ref=f35e47]:
+    - navigation "breadcrumb" [ref=f35e49]:
+      - list [ref=f35e50]:
+        - listitem [ref=f35e51]:
+          - generic [ref=f35e52]:
+            - link "About the Information Commissioner's Office" [ref=f35e53] [cursor=pointer]:
+              - /url: /about-the-ico/
+            - text: /
+        - listitem [ref=f35e54]:
+          - generic [ref=f35e55]:
+            - link "What we do" [ref=f35e56] [cursor=pointer]:
+              - /url: /about-the-ico/what-we-do/
+            - text: /
+        - listitem [ref=f35e57]:
+          - generic [ref=f35e58]:
+            - link "Register of fee payers and certificate downloads" [ref=f35e59] [cursor=pointer]:
+              - /url: /about-the-ico/what-we-do/register-of-fee-payers/
+            - text: /
+        - listitem [ref=f35e60]: Search the register
+    - generic [ref=f35e61]:
+      - heading "Search the register" [level=1] [ref=f35e64]
+      - generic [ref=f35e65]:
+        - generic [ref=f35e67]:
+          - generic [ref=f35e68]:
+            - paragraph [ref=f35e69]: Search for organisations and people registered with the Information Commissioner's Office (ICO) under the Data Protection Act 2018.
+            - generic [ref=f35e70]:
+              - text: 
+              - paragraph [ref=f35e71]:
+                - strong [ref=f35e72]: "Tip:"
+                - text: Search by one field at a time, preferably the registration reference. If you don't know the reference, searching by just the postcode or name is most likely to find the registration you are looking for.
+          - generic [ref=f35e73]:
+            - generic [ref=f35e74]:
+              - generic [ref=f35e75]: Registration reference
+              - textbox "Registration reference" [active] [ref=f35e76]
+            - generic [ref=f35e77]:
+              - generic [ref=f35e78]: Name
+              - textbox "Name" [ref=f35e79]
+            - generic [ref=f35e80]:
+              - generic [ref=f35e81]: Postcode
+              - textbox "Postcode" [ref=f35e82]
+            - button "Search" [ref=f35e84] [cursor=pointer]
+          - link "Using the search" [ref=f35e85] [cursor=pointer]:
+            - /url: /ESDWebPages/SearchHelp
+          - generic [ref=f35e86]:
+            - paragraph [ref=f35e87]: Data controllers are officially registered from the date we receive payment. However, changes to the register may take up to two working days to appear.
+            - paragraph [ref=f35e88]:
+              - text: If you have a query about this register you can contact us on
+              - strong [ref=f35e89]: 0303 123 1113
+              - text: .
+        - link " Download the register of fee payers About the ICO" [ref=f35e92] [cursor=pointer]:
+          - /url: /about-the-ico/what-we-do/register-of-data-controllers/download-the-register
+          - generic [ref=f35e93]: 
+          - generic [ref=f35e94]:
+            - generic [ref=f35e95]: Download the register of fee payers
+            - generic [ref=f35e96]: About the ICO
+  - contentinfo [ref=f35e98]:
+    - generic [ref=f35e100]:
+      - list [ref=f35e102]:
+        - listitem [ref=f35e103]:
+          - link "Contact us" [ref=f35e104] [cursor=pointer]:
+            - /url: /global/contact-us/
+        - listitem [ref=f35e105]:
+          - link "Privacy notice" [ref=f35e106] [cursor=pointer]:
+            - /url: /global/privacy-notice/
+        - listitem [ref=f35e107]:
+          - link "Cookies" [ref=f35e108] [cursor=pointer]:
+            - /url: /global/cookies/
+        - listitem [ref=f35e109]:
+          - link "Accessibility" [ref=f35e110] [cursor=pointer]:
+            - /url: /global/accessibility/
+        - listitem [ref=f35e111]:
+          - link "Cymraeg" [ref=f35e112] [cursor=pointer]:
+            - /url: /about-the-ico/who-we-are/wales-office/
+        - listitem [ref=f35e113]:
+          - link "Publications" [ref=f35e114] [cursor=pointer]:
+            - /url: /global/request-publications/
+        - listitem [ref=f35e115]:
+          - link "Disclaimer" [ref=f35e116] [cursor=pointer]:
+            - /url: /global/disclaimer/
+        - listitem [ref=f35e117]:
+          - link "© Copyright" [ref=f35e118] [cursor=pointer]:
+            - /url: /global/copyright-and-re-use-of-materials/
+      - paragraph [ref=f35e123]:
+        - text: All text content is available under the
+        - link "Open Government Licence v3.0" [ref=f35e124] [cursor=pointer]:
+          - /url: http://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/
+        - text: ", except where otherwise stated."

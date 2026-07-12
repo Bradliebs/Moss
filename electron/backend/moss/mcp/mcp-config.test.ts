@@ -8,17 +8,19 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("electron", () => ({ app: { getPath: vi.fn(() => "/userdata") } }));
-vi.mock("node:fs", () => ({ readFileSync: vi.fn(), writeFileSync: vi.fn() }));
+vi.mock("node:fs", () => ({ readFileSync: vi.fn() }));
+vi.mock("../persistence/atomic-file", () => ({ writeFileAtomicSync: vi.fn() }));
 vi.mock("../../../../common/logger", () => ({
   createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
 }));
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 
+import { writeFileAtomicSync } from "../persistence/atomic-file";
 import { addMcpServer, ensureMcpConfig, loadMcpServers, removeMcpServer, setMcpServerEnabled, updateMcpServer } from "./mcp-config";
 
 const mockRead = vi.mocked(readFileSync);
-const mockWrite = vi.mocked(writeFileSync);
+const mockWrite = vi.mocked(writeFileAtomicSync);
 
 function missingFile() {
   mockRead.mockImplementation(() => {

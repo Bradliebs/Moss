@@ -62,6 +62,9 @@ declare global {
         add: (fact: string, category: MemoryCategory) => Promise<MemoryEntry | null>;
         delete: (id: string) => Promise<boolean>;
         clear: () => Promise<void>;
+        reviewList: () => Promise<MemoryEntry[]>;
+        reviewApprove: (id: string) => Promise<MemoryEntry | null>;
+        reviewReject: (id: string) => Promise<boolean>;
       };
       skills: {
         list: () => Promise<Skill[]>;

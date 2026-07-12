@@ -4,8 +4,7 @@
 // master switch, the UI theme, and the tool workspace root. Persisted to
 // localStorage so the app reopens with the same provider/model selected.
 
-import type { EmbedConfig, ProviderConfig, ProviderKind } from "@common/types";
-import { DEFAULT_PERSONALITY_ID } from "@common/personalities";
+import type { EmbedConfig, InjectionMode, ProviderConfig, ProviderKind } from "@common/types";import { DEFAULT_PERSONALITY_ID } from "@common/personalities";
 
 import type { ModelRate } from "./pricing";
 import { createPersistentStore } from "./persistentStore";
@@ -66,6 +65,15 @@ export interface MossSettings {
   /** optional context-window size for the chosen model; 0 hides the meter.
    *  User-supplied so it never drifts against a bundled per-model table. */
   contextLimit: number;
+  /** soft daily USD spend cap enforced by the backend; 0 disables it. */
+  dailyBudgetUsd: number;
+  /** when true, the assistant's m_remember writes are queued for human review
+   *  instead of saved immediately. */
+  gatedMemory: boolean;
+  /** when true, show a shadow confidence chip after each turn. */
+  showConfidence: boolean;
+  /** how external tool output (web/fetch/MCP) is scanned for prompt injection. */
+  injectionMode: InjectionMode;
   /** user-supplied USD-per-million-token rates, keyed by lowercased model id.
    *  Overrides the built-in pricing estimates so cost readouts can be exact. */
   modelRates?: Record<string, ModelRate>;
@@ -101,6 +109,10 @@ const DEFAULT_SETTINGS: MossSettings = {
   verifyEnabled: false,
   verifyCommands: "",
   contextLimit: 0,
+  dailyBudgetUsd: 0,
+  gatedMemory: false,
+  showConfidence: false,
+  injectionMode: "flag",
   modelRates: {},
   theme: "dark",
 };

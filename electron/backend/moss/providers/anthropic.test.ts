@@ -196,6 +196,28 @@ describe("toAnthropic", () => {
     ]);
   });
 
+  it("expands structured document attachments into text blocks", () => {
+    const { messages } = toAnthropic([
+      {
+        role: "user",
+        content: "summarize",
+        documents: [{ name: "notes.md", mediaType: "text/markdown", text: "# Notes" }],
+      },
+    ]);
+    expect(messages).toEqual([
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "summarize" },
+          {
+            type: "text",
+            text: "--- BEGIN ATTACHED FILE: notes.md (text/markdown) ---\n# Notes\n--- END ATTACHED FILE: notes.md ---",
+          },
+        ],
+      },
+    ]);
+  });
+
   it("keeps a plain string for a user message with no images", () => {
     const { messages } = toAnthropic([{ role: "user", content: "hi" }]);
     expect(messages).toEqual([{ role: "user", content: "hi" }]);

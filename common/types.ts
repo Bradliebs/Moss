@@ -6,6 +6,8 @@
 
 export type ProviderKind = "openai-compatible" | "anthropic";
 
+import type { ModelRate } from "./pricing";
+
 export interface ProviderConfig {
   kind: ProviderKind;
   baseUrl: string;
@@ -202,6 +204,12 @@ export interface TaskSnapshot {
 
 export type ChatRole = "system" | "user" | "assistant" | "tool";
 
+export interface DocumentAttachment {
+  name: string;
+  mediaType: string;
+  text: string;
+}
+
 /** A tool invocation requested by the model. `arguments` is the raw JSON string
  *  the model emitted (parsed at execution time). */
 export interface ToolCall {
@@ -243,6 +251,9 @@ export interface AgentMessage {
   /** image attachments on a user turn, as data URLs (data:<mime>;base64,...).
    *  Sent to vision-capable models as image content parts alongside the text */
   images?: string[];
+  /** Text documents attached to a user turn. Kept structured in the transcript
+   *  and expanded into model-readable content only by provider adapters. */
+  documents?: DocumentAttachment[];
   /** id of the turn that produced this message; stamped on assistant turns so
    *  the renderer can look up and revert the files that turn changed */
   turnId?: string;
@@ -252,6 +263,15 @@ export interface TokenUsage {
   inputTokens?: number;
   outputTokens?: number;
 }
+
+/** Shadow confidence label for a completed turn, derived from what happened in
+ *  the turn (no extra model call). Shown as an opt-in chip in the renderer. */
+export type ConfidenceMode = "settled" | "reasoned" | "web-fresh" | "needs-review";
+
+/** How the agent loop reacts to prompt-injection phrasing in external tool
+ *  output. `off` disables scanning, `flag` prepends a visible warning, `block`
+ *  withholds a high-confidence hit's content. Shared with the renderer settings. */
+export type InjectionMode = "off" | "flag" | "block";
 
 /** Tool advertised to the model. `parameters` is a JSON Schema object. */
 export interface ToolDefinition {
@@ -269,6 +289,7 @@ export type MossEvent =
   | { type: "tool-result"; callId: string; name: string; ok: boolean; content: string; autoApproved: boolean; risk?: ToolRisk; durationMs?: number }
   | { type: "notice"; level: "info" | "warn"; message: string }
   | { type: "task-state"; task: TaskSnapshot }
+  | { type: "confidence"; mode: ConfidenceMode; note: string }
   | { type: "turn-complete"; messages: AgentMessage[] }
   | { type: "turn-aborted"; messages: AgentMessage[] }
   | { type: "turn-error"; message: string; messages: AgentMessage[] };
@@ -307,6 +328,24 @@ export interface ChatStartRequest {
    *  omit it for ordinary chat that should stop after one assistant response. */
   taskSpec?: TaskSpec;
   automation?: AutomationConfig;
+  /** soft daily USD spend cap; when > 0 the backend blocks new requests once the
+   *  day's estimated spend reaches it. Absent or 0 means no cap. */
+  dailyBudgetUsd?: number;
+  /** user pricing overrides (lowercased model id -> rate) so the budget cap is
+   *  charged with the same rates the cost readout displays. */
+  modelRates?: Record<string, ModelRate>;
+  /** when true, m_remember queues proposals for human review instead of writing
+   *  durable memory directly. */
+  gatedMemory?: boolean;
+  /** when true, the runner emits a shadow confidence label at turn end for the
+   *  renderer to show as a chip (no behavior change). */
+  showConfidence?: boolean;
+  /** how external tool output is scanned for prompt injection; defaults to
+   *  "flag" on the backend when absent. */
+  injectionMode?: InjectionMode;
+  /** the model's context window in tokens; when > 0, the runner drops the oldest
+   *  messages once the history exceeds a fraction of it. 0 disables compaction. */
+  contextLimit?: number;
 }
 
 export interface ToolApprovalDecision {

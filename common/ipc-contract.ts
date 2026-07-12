@@ -31,6 +31,10 @@ export const IPC = {
   memoryAdd: "moss:memory:add",
   memoryDelete: "moss:memory:delete",
   memoryClear: "moss:memory:clear",
+  /** renderer -> main (invoke): human-gated memory-write review queue */
+  memoryReviewList: "moss:memory:reviewList",
+  memoryReviewApprove: "moss:memory:reviewApprove",
+  memoryReviewReject: "moss:memory:reviewReject",
 
   /** renderer -> main (invoke): skills CRUD */
   skillsList: "moss:skills:list",

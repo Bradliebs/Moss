@@ -1,0 +1,652 @@
+- generic [active] [ref=e1]:
+  - link:
+    - /url: "#promoCodeValidation"
+  - link "Open Staff Message Dialog":
+    - /url: javascript:;
+  - generic [ref=e4]:
+    - link [ref=e6] [cursor=pointer]:
+      - /url: /
+      - img "Aircon Direct" [ref=e7]
+    - link [ref=e9] [cursor=pointer]:
+      - /url: https://www.appliancesdirect.co.uk/?tref=acdtabdrones
+      - img "Appliances Direct" [ref=e10]
+    - link [ref=e12] [cursor=pointer]:
+      - /url: https://www.laptopsdirect.co.uk/?tref=acdtabld
+      - img "Laptops Direct" [ref=e13]
+    - link [ref=e15] [cursor=pointer]:
+      - /url: https://www.dronesdirect.co.uk/?tref=acdtabdrones
+      - img "Drones Direct" [ref=e16]
+    - link [ref=e18] [cursor=pointer]:
+      - /url: https://www.betterbathrooms.com/?tref=acdtabdbb
+      - img "Better Bathrooms" [ref=e19]
+    - link [ref=e21] [cursor=pointer]:
+      - /url: https://furniture123.co.uk/?tref=acdtabf123
+      - img "Furniture 123" [ref=e22]
+    - link [ref=e24] [cursor=pointer]:
+      - /url: https://www.outdoorlivinghottubs.co.uk/?tref=acdtabol
+      - img "Outdoor Living" [ref=e25]
+  - banner [ref=e26]:
+    - generic [ref=e27]:
+      - generic:
+        - generic [ref=e28]:
+          - generic [ref=e29]:
+            - generic [ref=e30]:
+              - strong
+              - text: My Account
+            - paragraph
+          - link "Track Order" [ref=e33] [cursor=pointer]:
+            - /url: https://www.aircondirect.co.uk/orderstatus/login.aspx
+          - link "Business Enquiries" [ref=e36] [cursor=pointer]:
+            - /url: /content/buying-for-business
+        - generic [ref=e39]:
+          - generic [ref=e41] [cursor=pointer]:
+            - generic [ref=e42]: Inc. VAT
+            - img "vat switch show inc" [ref=e43]
+            - generic [ref=e44]: Ex. VAT
+          - generic [ref=e45]:
+            - generic:
+              - generic [ref=e46] [cursor=pointer]:
+                - text: £
+                - img "UK flag" [ref=e47]
+              - img "currency switch" [ref=e48] [cursor=pointer]
+              - generic [ref=e49] [cursor=pointer]:
+                - text: €
+                - img "EU flag" [ref=e50]
+          - generic "Your basket contains" [ref=e51]
+    - generic [ref=e56]:
+      - generic "Aircon Direct" [ref=e57] [cursor=pointer]:
+        - link [ref=e58]:
+          - /url: /
+      - generic [ref=e72]:
+        - generic [ref=e73]: Search for Brand or Products...
+        - generic [ref=e74]:
+          - combobox "Search for Brand or Products..." [ref=e75]
+          - button "Search" [ref=e76] [cursor=pointer]:
+            - generic [ref=e77]: 
+        - listbox "Search for Brand or Products..."
+      - generic [ref=e79] [cursor=pointer]:
+        - paragraph [ref=e80]: We’re not robots, get sales advice 7 days a week
+        - generic [ref=e81]: 0871 971 0771
+        - generic [ref=e82]: Calls cost 13p per min plus your network access charge
+    - navigation [ref=e83]:
+      - generic [ref=e84]:
+        - list [ref=e85]:
+          - listitem [ref=e86]:
+            - link "Dehumidifiers" [ref=e87] [cursor=pointer]:
+              - /url: /ct/air-conditioning/dehumidifiers
+            - list [ref=e90]:
+              - listitem [ref=e91]:
+                - link "Compressor" [ref=e92] [cursor=pointer]:
+                  - /url: /st/compressor-dehumidifiers
+              - listitem [ref=e93]:
+                - link "Desiccant" [ref=e94] [cursor=pointer]:
+                  - /url: /st/desiccant-dehumidifiers
+              - listitem [ref=e95]:
+                - link "Antibacterial" [ref=e96] [cursor=pointer]:
+                  - /url: /st/antibacterial-dehumidifiers
+              - listitem [ref=e97]:
+                - link "View All" [ref=e98] [cursor=pointer]:
+                  - /url: /ct/air-conditioning/dehumidifiers
+          - listitem [ref=e99]:
+            - link "Heating" [ref=e100] [cursor=pointer]:
+              - /url: "/c/heating "
+            - list [ref=e103]:
+              - listitem [ref=e104]:
+                - link "Oil Filled Radiators" [ref=e105] [cursor=pointer]:
+                  - /url: /ct/heating-and-air-conditioning/heaters/oil-filled-radiators
+              - listitem [ref=e106]:
+                - link "Panel Heaters" [ref=e107] [cursor=pointer]:
+                  - /url: /ct/heating-and-air-conditioning/heaters/panel-heaters
+              - listitem [ref=e108]:
+                - link "View All" [ref=e109] [cursor=pointer]:
+                  - /url: /ct/heating-and-air-conditioning/heaters
+          - listitem [ref=e110]:
+            - link "Air Purifiers" [ref=e111] [cursor=pointer]:
+              - /url: /ct/heating-and-air-conditioning/air-purifier
+            - list [ref=e114]:
+              - listitem [ref=e115]:
+                - link "For Hayfever" [ref=e116] [cursor=pointer]:
+                  - /url: /st/hay-fever-and-pollen-air-purifiers
+              - listitem [ref=e117]:
+                - link "For Dust" [ref=e118] [cursor=pointer]:
+                  - /url: /ct/heating-and-air-conditioning/air-purifier/dust-mites
+              - listitem [ref=e119]:
+                - link "For Pet Dander" [ref=e120] [cursor=pointer]:
+                  - /url: /st/pet-dander-air-purifiers
+              - listitem [ref=e121]:
+                - link "For Asthma" [ref=e122] [cursor=pointer]:
+                  - /url: /st/asthma-air-purifiers
+              - listitem [ref=e123]:
+                - link "For Smoke" [ref=e124] [cursor=pointer]:
+                  - /url: /st/smoke-and-odour-air-purifiers
+              - listitem [ref=e125]:
+                - link "Antiviral" [ref=e126] [cursor=pointer]:
+                  - /url: /st/antiviral-air-purifiers
+              - listitem [ref=e127]:
+                - link "View All" [ref=e128] [cursor=pointer]:
+                  - /url: /ct/heating-and-air-conditioning/air-purifier
+          - listitem [ref=e129]:
+            - link "Air Conditioners" [ref=e130] [cursor=pointer]:
+              - /url: /ct/heating-and-air-conditioning/air-conditioners
+            - list [ref=e133]:
+              - listitem [ref=e134]:
+                - link "Portable" [ref=e135] [cursor=pointer]:
+                  - /url: /ct/heating-and-air-conditioning/air-conditioners/portable
+              - listitem [ref=e136]:
+                - link "Wall Mounted" [ref=e137] [cursor=pointer]:
+                  - /url: /st/wall-split-air-conditioners
+              - listitem [ref=e138]:
+                - link "Ceiling Mounted" [ref=e139] [cursor=pointer]:
+                  - /url: /st/ceiling-cassette-air-conditioners
+              - listitem [ref=e140]:
+                - link "View All" [ref=e141] [cursor=pointer]:
+                  - /url: /ct/heating-and-air-conditioning/air-conditioners
+          - listitem [ref=e142]:
+            - link "Fans & Air Circulators" [ref=e143] [cursor=pointer]:
+              - /url: /ct/heating-and-air-conditioning/fans-and-air-circulators
+          - listitem [ref=e144]:
+            - link "Air Coolers" [ref=e145] [cursor=pointer]:
+              - /url: /ct/heating-and-air-conditioning/air-coolers
+            - list [ref=e148]:
+              - listitem [ref=e149]:
+                - link "Slimline" [ref=e150] [cursor=pointer]:
+                  - /url: /ct/heating-and-air-conditioning/air-coolers/slim-line
+              - listitem [ref=e151]:
+                - link "View All" [ref=e152] [cursor=pointer]:
+                  - /url: /ct/heating-and-air-conditioning/air-coolers
+          - listitem [ref=e153]:
+            - link "Humidifiers" [ref=e154] [cursor=pointer]:
+              - /url: /ct/heating-and-air-conditioning/humidifiers
+        - list [ref=e155]:
+          - listitem [ref=e156]:
+            - link "Business Enquiries" [ref=e157] [cursor=pointer]:
+              - /url: /content/buying-for-business
+          - listitem [ref=e158]:
+            - link "Sale" [ref=e159] [cursor=pointer]:
+              - /url: /d/sale
+    - generic [ref=e162]:
+      - link "Choose your delivery day" [ref=e164] [cursor=pointer]:
+        - /url: /st/next-day-delivery-heating-and-air-conditioning
+      - link "Dedicated Business Team" [ref=e169] [cursor=pointer]:
+        - /url: /content/buying-for-business
+      - link "Rated Great" [ref=e174] [cursor=pointer]:
+        - /url: https://uk.trustpilot.com/review/www.aircondirect.co.uk
+  - generic [ref=e180]:
+    - generic [ref=e181]:
+      - generic [ref=e182]:
+        - list:
+          - listitem [ref=e183]:
+            - heading [level=2] [ref=e184]:
+              - link "Home" [ref=e185] [cursor=pointer]:
+                - /url: /
+              - text: »
+          - listitem [ref=e186]:
+            - heading [level=2] [ref=e187]:
+              - link "Air Conditioning" [ref=e188] [cursor=pointer]:
+                - /url: //www.aircondirect.co.uk/c/heating-and-air-conditioning
+              - text: »
+          - listitem [ref=e189]:
+            - heading [level=2] [ref=e190]:
+              - link "Air Conditioners" [ref=e191] [cursor=pointer]:
+                - /url: //www.aircondirect.co.uk/ct/heating-and-air-conditioning/air-conditioners
+              - text: »
+          - listitem [ref=e192]:
+            - heading [level=2] [ref=e193]:
+              - link "electriQ" [ref=e194] [cursor=pointer]:
+                - /url: //www.aircondirect.co.uk/bct/heating-and-air-conditioning/electriq-air-conditioners
+              - text: »
+          - listitem [ref=e195]:
+            - heading "EcoSilent14W" [level=2] [ref=e196]
+      - heading "product title" [level=1] [ref=e198]:
+        - generic [ref=e199]: electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner
+      - generic [ref=e200]:
+        - generic [ref=e201]: "SKU: EcoSilent14W"
+        - generic [ref=e202]: "Quickfind Code: 2056371"
+        - generic:
+          - generic:
+            - link "Read Customer Reviews":
+              - /url: "#tab-reviews"
+      - generic [ref=e203]:
+        - generic [ref=e204]:
+          - generic [ref=e205]:
+            - generic [ref=e206] [cursor=pointer]:
+              - group "1 / 12" [ref=e207]:
+                - link [ref=e208]:
+                  - /url: /Images/EcoSilent14W_1_Supersize.jpg?v=53
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e209]
+              - group "2 / 12" [ref=e210]:
+                - link [ref=e211]:
+                  - /url: /Images/EcoSilent14W_2_Supersize.jpg?v=53
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e212]
+              - group "3 / 12" [ref=e213]:
+                - link [ref=e214]:
+                  - /url: /Images/EcoSilent14W_3_Supersize.jpg?v=39
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e215]
+              - group "4 / 12" [ref=e216]:
+                - link [ref=e217]:
+                  - /url: /Images/EcoSilent14W_4_Supersize.jpg?v=39
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e218]
+              - group "5 / 12" [ref=e219]:
+                - link [ref=e220]:
+                  - /url: /Images/EcoSilent14W_5_Supersize.jpg?v=36
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e221]
+              - group "6 / 12" [ref=e222]:
+                - link [ref=e223]:
+                  - /url: /Images/EcoSilent14W_6_Supersize.jpg?v=40
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e224]
+              - group "7 / 12" [ref=e225]:
+                - link [ref=e226]:
+                  - /url: /Images/EcoSilent14W_7_Supersize.jpg?v=40
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e227]
+              - group "8 / 12" [ref=e228]:
+                - link [ref=e229]:
+                  - /url: /Images/EcoSilent14W_8_Supersize.jpg?v=17
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e230]
+              - group "9 / 12" [ref=e231]:
+                - link [ref=e232]:
+                  - /url: /Images/EcoSilent14W_9_Supersize.jpg?v=35
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e233]
+              - group "10 / 12" [ref=e234]:
+                - link [ref=e235]:
+                  - /url: /Images/EcoSilent14W_10_Supersize.jpg?v=37
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e236]
+              - group "11 / 12" [ref=e237]:
+                - link [ref=e238]:
+                  - /url: /Images/EcoSilent14W_11_Supersize.jpg?v=36
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e239]
+              - group "12 / 12" [ref=e240]:
+                - link [ref=e241]:
+                  - /url: /Images/EcoSilent14W_12_Supersize.jpg?v=36
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e242]
+              - group "1 / 12" [ref=e243]:
+                - link [ref=e244]:
+                  - /url: /Images/EcoSilent14W_1_Supersize.jpg?v=53
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e245]
+              - group "2 / 12" [ref=e246]:
+                - link [ref=e247]:
+                  - /url: /Images/EcoSilent14W_2_Supersize.jpg?v=53
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e248]
+              - group "3 / 12" [ref=e249]:
+                - link [ref=e250]:
+                  - /url: /Images/EcoSilent14W_3_Supersize.jpg?v=39
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e251]
+              - group "4 / 12" [ref=e252]:
+                - link [ref=e253]:
+                  - /url: /Images/EcoSilent14W_4_Supersize.jpg?v=39
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e254]
+              - group "5 / 12" [ref=e255]:
+                - link [ref=e256]:
+                  - /url: /Images/EcoSilent14W_5_Supersize.jpg?v=36
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e257]
+              - group "6 / 12" [ref=e258]:
+                - link [ref=e259]:
+                  - /url: /Images/EcoSilent14W_6_Supersize.jpg?v=40
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e260]
+              - group "7 / 12" [ref=e261]:
+                - link [ref=e262]:
+                  - /url: /Images/EcoSilent14W_7_Supersize.jpg?v=40
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e263]
+              - group "8 / 12" [ref=e264]:
+                - link [ref=e265]:
+                  - /url: /Images/EcoSilent14W_8_Supersize.jpg?v=17
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e266]
+              - group "9 / 12" [ref=e267]:
+                - link [ref=e268]:
+                  - /url: /Images/EcoSilent14W_9_Supersize.jpg?v=35
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e269]
+              - group "10 / 12" [ref=e270]:
+                - link [ref=e271]:
+                  - /url: /Images/EcoSilent14W_10_Supersize.jpg?v=37
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e272]
+              - group "11 / 12" [ref=e273]:
+                - link [ref=e274]:
+                  - /url: /Images/EcoSilent14W_11_Supersize.jpg?v=36
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e275]
+              - group "12 / 12" [ref=e276]:
+                - link [ref=e277]:
+                  - /url: /Images/EcoSilent14W_12_Supersize.jpg?v=36
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e278]
+              - group "1 / 12" [ref=e279]:
+                - link [ref=e280]:
+                  - /url: /Images/EcoSilent14W_1_Supersize.jpg?v=53
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e281]
+              - group "2 / 12" [ref=e282]:
+                - link [ref=e283]:
+                  - /url: /Images/EcoSilent14W_2_Supersize.jpg?v=53
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e284]
+              - group "3 / 12" [ref=e285]:
+                - link [ref=e286]:
+                  - /url: /Images/EcoSilent14W_3_Supersize.jpg?v=39
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e287]
+              - group "4 / 12" [ref=e288]:
+                - link [ref=e289]:
+                  - /url: /Images/EcoSilent14W_4_Supersize.jpg?v=39
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e290]
+              - group "5 / 12" [ref=e291]:
+                - link [ref=e292]:
+                  - /url: /Images/EcoSilent14W_5_Supersize.jpg?v=36
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e293]
+              - group "6 / 12" [ref=e294]:
+                - link [ref=e295]:
+                  - /url: /Images/EcoSilent14W_6_Supersize.jpg?v=40
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e296]
+              - group "7 / 12" [ref=e297]:
+                - link [ref=e298]:
+                  - /url: /Images/EcoSilent14W_7_Supersize.jpg?v=40
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e299]
+              - group "8 / 12" [ref=e300]:
+                - link [ref=e301]:
+                  - /url: /Images/EcoSilent14W_8_Supersize.jpg?v=17
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e302]
+              - group "9 / 12" [ref=e303]:
+                - link [ref=e304]:
+                  - /url: /Images/EcoSilent14W_9_Supersize.jpg?v=35
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e305]
+              - group "10 / 12" [ref=e306]:
+                - link [ref=e307]:
+                  - /url: /Images/EcoSilent14W_10_Supersize.jpg?v=37
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e308]
+              - group "11 / 12" [ref=e309]:
+                - link [ref=e310]:
+                  - /url: /Images/EcoSilent14W_11_Supersize.jpg?v=36
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e311]
+              - group "12 / 12" [ref=e312]:
+                - link [ref=e313]:
+                  - /url: /Images/EcoSilent14W_12_Supersize.jpg?v=36
+                  - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e314]
+            - button "Previous slide" [ref=e315] [cursor=pointer]
+            - button "Next slide" [ref=e316] [cursor=pointer]
+          - img "electriQ logo" [ref=e318]
+        - generic [ref=e321] [cursor=pointer]:
+          - group "1 / 12" [ref=e322]:
+            - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e323]
+          - group "2 / 12" [ref=e324]:
+            - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e325]
+          - group "3 / 12" [ref=e326]:
+            - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e327]
+          - group "4 / 12" [ref=e328]:
+            - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e329]
+          - group "5 / 12" [ref=e330]:
+            - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e331]
+          - group "6 / 12" [ref=e332]:
+            - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e333]
+          - group "7 / 12" [ref=e334]:
+            - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e335]
+          - group "8 / 12" [ref=e336]:
+            - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e337]
+          - group "9 / 12" [ref=e338]:
+            - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e339]
+          - group "10 / 12" [ref=e340]:
+            - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e341]
+          - group "11 / 12" [ref=e342]:
+            - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e343]
+          - group "12 / 12" [ref=e344]:
+            - img "electriQ EcoSilent 14000 BTU Smart Quiet Portable Air Conditioner" [ref=e345]
+        - img "Energy Label" [ref=e347]
+      - generic [ref=e348]:
+        - generic [ref=e349]:
+          - generic [ref=e350]:
+            - generic [ref=e351]: £
+            - generic [ref=e352]: "949"
+            - generic [ref=e353]: ".98"
+          - button "Add to Basket »" [ref=e356] [cursor=pointer]
+        - generic "finance offers" [ref=e357]
+        - generic [ref=e358]: Delivery from 4 weeks
+        - generic [ref=e364]:
+          - heading "Product Options" [level=2]
+          - generic [ref=e368]:
+            - generic [ref=e369]:
+              - heading "BTU (Cooling Power)" [level=5] [ref=e370]
+              - generic [ref=e373] [cursor=pointer]:
+                - group "1 / 2" [ref=e374]:
+                  - link "10000 See options" [ref=e375]:
+                    - /url: /p/2056369/electriq-ecoplus-a-10000-btu-smart-portable-air-conditioner-with-heat-pump-hepa-purifier-and-quiet-mode
+                    - generic [ref=e377]:
+                      - text: "10000"
+                      - generic [ref=e378]: See options
+                - group "2 / 2" [ref=e379]:
+                  - link "14000 Selected" [ref=e380]:
+                    - /url: /p/2056371/electriq-ecosilent-14000-btu-smart-portable-air-conditioner-hepa-ready-with-dc-fan-and-sleep-mode
+                    - generic [ref=e382]:
+                      - text: "14000"
+                      - generic [ref=e383]: Selected
+            - generic [ref=e384]:
+              - heading "Room Size" [level=5] [ref=e385]
+              - generic [ref=e388] [cursor=pointer]:
+                - group "1 / 2" [ref=e389]:
+                  - link "26sqm See options" [ref=e390]:
+                    - /url: /p/2056369/electriq-ecoplus-a-10000-btu-smart-portable-air-conditioner-with-heat-pump-hepa-purifier-and-quiet-mode
+                    - generic [ref=e392]:
+                      - text: 26sqm
+                      - generic [ref=e393]: See options
+                - group "2 / 2" [ref=e394]:
+                  - link "38sqm Selected" [ref=e395]:
+                    - /url: /p/2056371/electriq-ecosilent-14000-btu-smart-portable-air-conditioner-hepa-ready-with-dc-fan-and-sleep-mode
+                    - generic [ref=e397]:
+                      - text: 38sqm
+                      - generic [ref=e398]: Selected
+            - generic [ref=e399]:
+              - heading "Heating Function (Heat Pump)" [level=5] [ref=e400]
+              - generic [ref=e403] [cursor=pointer]:
+                - group "1 / 2" [ref=e404]:
+                  - link "Yes See options" [ref=e405]:
+                    - /url: /p/2056369/electriq-ecoplus-a-10000-btu-smart-portable-air-conditioner-with-heat-pump-hepa-purifier-and-quiet-mode
+                    - generic [ref=e407]:
+                      - text: "Yes"
+                      - generic [ref=e408]: See options
+                - group "2 / 2" [ref=e409]:
+                  - link "Cooling Only Selected" [ref=e410]:
+                    - /url: /p/2056371/electriq-ecosilent-14000-btu-smart-portable-air-conditioner-hepa-ready-with-dc-fan-and-sleep-mode
+                    - generic [ref=e412]:
+                      - text: Cooling Only
+                      - generic [ref=e413]: Selected
+        - generic [ref=e414]:
+          - heading "Why buy me" [level=2]
+          - list [ref=e418]:
+            - listitem [ref=e419]: "Large Room Cooling: Ideal for expansive living rooms, bedrooms, and offices up to 38 sqm with an adjustable 16°C-32°C thermostat."
+            - listitem [ref=e420]: "Smart Wi-Fi & Voice: Fully compatible with the Tuya app, Alexa, and Google Home. Schedule cooling, change modes, or monitor temperatures from your phone."
+            - listitem [ref=e421]: "True Sleep Mode: Designed for total rest—the unit dims all display lights and locks the fan to its quietest speed to eliminate noise spikes and light pollution."
+            - listitem [ref=e422]: "3-in-1 Versatility: More than just an AC; it functions as a powerful fan and a 24L/day dehumidifier with a self-evaporative system to reduce the need for manual emptying."
+            - listitem [ref=e423]: "Quietest in its Class: Advanced DC motor offers 5 fan speeds to help you balance powerful cooling and quiet comfort, operating at a market-leading 38dB on its lowest setting - perfect for undisturbed work or sleep."
+            - listitem [ref=e424]: "Eco Friendly with Clever Extras: Features a magnetic, colour-matched remote that docks to the unit, a child lock for safety, and an eco-friendly R290 refrigerant."
+            - listitem [ref=e425]: "Flexible Installation: Includes UK's longest 2.0m exhaust hose, offering significantly more placement freedom than standard units. See recommended accessories for compatible window kits."
+            - listitem [ref=e426]: "Premium Ergonomics: Features a magnetic, colour-matched remote that docks to the unit, a child lock for safety, and an eco-friendly R290 refrigerant."
+        - generic [ref=e427]:
+          - heading "Extended warranties" [level=2]
+    - generic [ref=e430]:
+      - tablist [ref=e432]:
+        - navigation [ref=e433]:
+          - heading "Product Information" [level=6] [ref=e436]
+        - navigation [ref=e437]:
+          - heading "Dimensions & Spec" [level=6] [ref=e440]
+        - navigation [ref=e441]:
+          - heading "Recommended Accessories" [level=6] [ref=e444]
+        - navigation [ref=e445]:
+          - heading "Questions & Answers" [level=6] [ref=e448]
+      - tabpanel [ref=e450]:
+        - generic [ref=e453]:
+          - heading "What stands out" [level=2] [ref=e454]
+          - list [ref=e455]:
+            - listitem [ref=e456]: Control the temperature and schedule your air conditioner from anywhere using your smartphone
+            - listitem [ref=e457]: Works with Amazon Echo, Alexa & Google Home, so you can operate it using your voice
+            - listitem [ref=e458]: Slim Footprint with Powerful Cooling - 14000 BTU/h cooling capacity with 16°C-32°C adjustable thermostat
+            - listitem [ref=e459]: Ideal for medium to large-sized spaces such as living rooms, bedrooms and offices
+            - listitem [ref=e460]:
+              - strong [ref=e461]: Quietest
+              - text: in its class with 5 speed DC fan balancing quiet operation with high cooling performance
+            - listitem [ref=e462]:
+              - strong [ref=e463]: Great energy efficiency
+              - text: ": Class A costs less than 15 pence per hour to run"
+            - listitem [ref=e464]:
+              - strong [ref=e465]: Eco Friendly
+              - text: ": Using the latest refrigeration gas with zero ozone depletion potential (ODP) and lowest possible global warming potential (GWP)"
+            - listitem [ref=e466]:
+              - text: Unique
+              - strong [ref=e467]: SMART COOL
+              - text: "mode: an intelligent one-touch cooling mode where the fan speed is automatically adjusted based on the amount of cooling required for the set temperature"
+            - listitem [ref=e468]: 3-in-1– operating modes include cooling, fan, and dehumidifier
+            - listitem [ref=e469]:
+              - strong [ref=e470]: Sleep
+              - text: mode turns off operation lights and reduces fan speed to its quietest setting
+            - listitem [ref=e471]: Easy to use digital display and control panel with Timer and Remote control
+            - listitem [ref=e472]: "Timer: 1-24 hours turn-on / turn off"
+            - listitem [ref=e473]: Auto-Restart on power cut off
+            - listitem [ref=e474]: It's ready to use straight out of the box and does not require installation
+          - generic [ref=e475]:
+            - heading "The details" [level=2] [ref=e476]
+            - paragraph [ref=e477]: This stylish 3-in-1 air conditioner is one impressive model. Its compact, portable design packs enough power to cool rooms up to 38 SQM without taking up too much floor space. Plus, there's the option of a fan mode which is great for when you're on your own and only need a small area of your room cooling quickly. As well as cooling your room, the air conditioner doubles as a powerful dehumidifier to remove any excess moisture that can lead to the growth of mould and damp - ideal for when you need to dry your laundry indoors. And, thanks to the dehumidifiers advanced self-evaporative system, you won't have to empty the water tank half as much because most of what is collected is reused to cool the condenser coils.
+            - paragraph [ref=e478]: The air conditioner is ready to work straight out of the box and doesn't require any permanent installation, so you can have it up and going in no time at all. It stands on a set of castor wheels and features integrated side handles, meaning you'll be able to move it from room to room with ease. The digital control panel and LCD display makes for quick and easy selection of the functions, fan speeds and temperature settings. There's also a timer function that can be set to automatically switch on/off at a convenient time - so you can have it run while you're sleeping, at work, or at an off peak electricity period.
+            - text: Best of all, you can take control of all the functions from anywhere, at any time, using your smartphone. Simply connect the air conditioner to your home/office WiFi, download the app on your smartphone and away you go.
+          - generic:
+            - heading "Essential info" [level=2] [ref=e479]
+            - list [ref=e480]:
+              - listitem [ref=e481]: 3 in 1 - Works as an air conditioner, fan and dehumidifier
+              - listitem [ref=e482]: 14,000 BTU - Perfect for cooling medium to large-sized rooms up to 38 SQM
+              - listitem [ref=e483]: 5-speed turbo fan - Gives you the best balance between quiet and powerful airflow with the latest DC Fan
+              - listitem [ref=e484]: 24 hour timer - Helps save on energy usage and can be set to pre-cool rooms
+              - listitem [ref=e485]: Quick and easy operation - control panel, LED display and remote control
+              - listitem [ref=e486]: Highly portable design - Built-in carry handle and castors for easy movement
+              - listitem [ref=e487]: Manually Adjustable Louvres for Custom Air Direction
+              - listitem [ref=e488]: Swing function for improved cooling air flow
+              - listitem [ref=e489]: HFC Free environmentally friendly air conditioner with Zero Ozone Depletion Potential and Low GWP
+              - listitem [ref=e490]: "Dimensions (W*H*D): 395 x 718 x 358 MM"
+              - listitem [ref=e491]: "Weight: 28.9 KG"
+          - heading "More info" [level=2] [ref=e492]
+          - list [ref=e493]:
+            - listitem [ref=e494]: "Dehumidification (max): 24 L/day"
+            - listitem [ref=e495]: "Airflow: 500 M³/H"
+            - listitem [ref=e496]: Cable management system
+            - listitem [ref=e497]: "Power supply (V): 220-240"
+            - listitem [ref=e498]: 4.10 kW Cooling
+            - listitem [ref=e499]: Power consumption (W) 1.57 kW (cooling)
+            - listitem [ref=e500]: "Running Current: 7.0 Amps (cooling)"
+            - listitem [ref=e501]: Integrated handles and durable castor wheels
+            - listitem [ref=e502]: "Refrigerant: R290 — an eco‑friendly option with zero ozone impact and virtually no global‑warming effect"
+            - listitem [ref=e503]: Directional louvres
+            - listitem [ref=e504]: "Hose: 2 M"
+            - listitem [ref=e505]: "Sound Power Level: 62 dB(A)"
+            - listitem [ref=e506]: "Sound Pressure Level: 38-51 dB(A)"
+            - listitem [ref=e507]: 12 Month hassle free warranty
+          - generic:
+            - heading "What's in the box?" [level=2] [ref=e508]
+            - list [ref=e509]:
+              - listitem [ref=e510]: 1 x EcoSilent14W portable air conditioner
+              - listitem [ref=e511]: 1 x 2 M Exhaust hose
+              - listitem [ref=e512]: 1 x Hose-end adaptor (fishtail connector)
+              - listitem [ref=e513]: 1 x Remote control
+          - paragraph [ref=e514]: Useful information
+          - paragraph [ref=e515]: Supplied with an exhaust hose and fishtail adaptor for quick setup, this unit can be vented through a window, wall, or even into a corridor for single‑room use, with optional universal or sash‑window seals available for improved efficiency.
+          - paragraph [ref=e516]: Downloads
+          - paragraph [ref=e517]:
+            - link "User Manual »" [ref=e518] [cursor=pointer]:
+              - /url: /files/pdf/EcoSilent10W-V2 EcoSilent12W EcoSilent14W 20260409J.pdf
+  - contentinfo [ref=e521]:
+    - generic [ref=e523]:
+      - img "PayPal Logo"
+      - paragraph [ref=e524]: "PayPal Credit Representative Example: Assumed credit limit £1,200, Representative 23.9% APR (variable). Purchase rate 23.9% p.a (variable)."
+    - generic [ref=e525]:
+      - generic [ref=e526]:
+        - generic [ref=e527]:
+          - img "BuyItDirect Logo" [ref=e528]
+          - paragraph [ref=e529]: Aircon Direct are part of the Buy It Direct Group; Reg. No. 04171412
+        - list [ref=e531]:
+          - listitem [ref=e532]: Help and advice
+          - listitem [ref=e533]:
+            - link "Customer service" [ref=e534] [cursor=pointer]:
+              - /url: /content/customer-service
+          - listitem [ref=e535]:
+            - link "Collection points" [ref=e536] [cursor=pointer]:
+              - /url: /content/collection-points
+          - listitem [ref=e537]:
+            - link "Finance" [ref=e538] [cursor=pointer]:
+              - /url: /content/finance
+          - listitem [ref=e539]: My account
+          - listitem [ref=e540]:
+            - link "Track order" [ref=e541] [cursor=pointer]:
+              - /url: /orderstatus/login.aspx
+        - list [ref=e543]:
+          - listitem [ref=e544]: Services
+          - listitem [ref=e545]:
+            - link "Delivery" [ref=e546] [cursor=pointer]:
+              - /url: /content/delivery
+          - listitem [ref=e547]:
+            - link "Trade enquiries" [ref=e548] [cursor=pointer]:
+              - /url: /content/buying-for-business
+        - list [ref=e550]:
+          - listitem [ref=e551]: About us
+          - listitem [ref=e552]:
+            - link "About us" [ref=e553] [cursor=pointer]:
+              - /url: /content/about-us
+          - listitem [ref=e554]:
+            - link "Affiliates" [ref=e555] [cursor=pointer]:
+              - /url: /content/affiliates
+          - listitem [ref=e556]:
+            - link "Careers" [ref=e557] [cursor=pointer]:
+              - /url: https://www.buyitdirectgroup.co.uk/content/careers
+          - listitem [ref=e558]:
+            - link "Corporate site" [ref=e559] [cursor=pointer]:
+              - /url: https://www.buyitdirectgroup.co.uk
+        - iframe [ref=e562]:
+          - generic [ref=f4e2]:
+            - link "Trustpilot reviews" [ref=f4e3] [cursor=pointer]:
+              - /url: https://uk.trustpilot.com/review/www.aircondirect.co.uk?utm_medium=trustbox&utm_source=Mini
+              - img "Trustpilot" [ref=f4e7]
+              - img "4.1 out of 5 star rating on Trustpilot" [ref=f4e15]
+              - generic [ref=f4e35]:
+                - generic [ref=f4e36]:
+                  - text: TrustScore
+                  - strong [ref=f4e37]: "4.1"
+                - generic [ref=f4e38]:
+                  - strong [ref=f4e39]: 2,558
+                  - text: reviews
+            - generic [ref=f4e40]: Rated 4.1 out of 5. 2558 reviews on Trustpilot
+            - generic [ref=f4e41]: Click to view the company's Trustpilot profile
+      - generic [ref=e563]:
+        - heading "We accept" [level=3] [ref=e564]
+        - generic [ref=e565]:
+          - img "Maestro logo" [ref=e566]
+          - img "MasterCard logo" [ref=e567]
+          - img "Visa logo" [ref=e568]
+          - img "PayPal logo" [ref=e569]
+          - img "Apple Pay logo" [ref=e570]
+          - img "Google Pay logo" [ref=e571]
+      - generic [ref=e574]:
+        - list [ref=e575]:
+          - listitem [ref=e576]: Our websites
+          - listitem [ref=e577]:
+            - link "Laptops Direct" [ref=e578] [cursor=pointer]:
+              - /url: https://www.laptopsdirect.co.uk/
+          - listitem [ref=e579]:
+            - link "Appliances Direct" [ref=e580] [cursor=pointer]:
+              - /url: https://www.appliancesdirect.co.uk/
+          - listitem [ref=e581]:
+            - link "Drones Direct" [ref=e582] [cursor=pointer]:
+              - /url: https://www.dronesdirect.co.uk/
+          - listitem [ref=e583]:
+            - link "Better Bathrooms" [ref=e584] [cursor=pointer]:
+              - /url: https://www.betterbathrooms.com/
+          - listitem [ref=e585]:
+            - link "Furniture123" [ref=e586] [cursor=pointer]:
+              - /url: https://furniture123.co.uk/
+          - listitem [ref=e587]:
+            - link "Outdoor Living" [ref=e588] [cursor=pointer]:
+              - /url: https://www.outdoorlivinghottubs.co.uk/
+        - list [ref=e589]:
+          - listitem [ref=e590]:
+            - link "Cookie Policy" [ref=e591] [cursor=pointer]:
+              - /url: /content/cookie-policy
+          - listitem [ref=e592]:
+            - link "Privacy Policy" [ref=e593] [cursor=pointer]:
+              - /url: /content/privacy-policy
+      - generic [ref=e595]:
+        - paragraph [ref=e596]:
+          - text: Buy It Direct acts as a broker and offers credit from a panel of lenders. For more information please
+          - link "click here." [ref=e597] [cursor=pointer]:
+            - /url: /content/finance
+        - paragraph [ref=e598]: "PayPal Credit and PayPal Pay in 3 are trading names of PayPal UK Ltd, Whittaker House, Whittaker Avenue, Richmond-Upon-Thames, Surrey, United Kingdom, TW9 1EH. PayPal Credit: Terms and conditions apply. Credit subject to status, UK residents only, Buy It Direct acts as a broker and offers finance from a restricted range of finance providers. PayPal Pay in 3: PayPal Pay in 3 is not regulated by the Financial Conduct Authority. Pay in 3 eligibility is subject to status and approval. UK residents only. Pay in 3 is a form of credit, may not be suitable for everyone and use may affect your credit score. See product terms for more details."
+        - paragraph [ref=e599]: "Buy It Direct Ltd is a limited company registered in England. Registered number 04171412. Registered office: Trident Business Park, Leeds Road, Huddersfield, West Yorkshire, HD2 1UA."
+  - generic [ref=e601]:
+    - generic [ref=e602]: Please wait
+    - link [ref=e608] [cursor=pointer]:
+      - /url: javascript:void(0);
+  - status [ref=e612]

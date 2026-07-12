@@ -5,13 +5,14 @@
 // a missing or corrupt file simply yields an empty store.
 
 import { randomUUID } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import { app } from "electron";
 
 import { createLogger } from "../../../../common/logger";
 import type { MemoryCategory, MemoryEntry } from "../../../../common/types";
+import { writeFileAtomicSync } from "../persistence/atomic-file";
 import { formatMemoryEntriesForSystemPrompt, scoreMemory } from "./memory-format";
 
 const log = createLogger("Memory");
@@ -65,9 +66,7 @@ export class MemoryStore {
 
   private save(): void {
     try {
-      const path = this.file();
-      mkdirSync(dirname(path), { recursive: true });
-      writeFileSync(path, `${JSON.stringify(this.entries, null, 2)}\n`, "utf8");
+      writeFileAtomicSync(this.file(), `${JSON.stringify(this.entries, null, 2)}\n`);
     } catch (err) {
       log.error("failed to save memory", err);
     }

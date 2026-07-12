@@ -7,8 +7,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import type { McpServerStatus } from "@common/types";
-import { PERSONALITY_PRESETS } from "@common/personalities";
+import type { InjectionMode, McpServerStatus, MemoryEntry } from "@common/types";import { PERSONALITY_PRESETS } from "@common/personalities";
 
 import {
   PROVIDER_PRESETS,
@@ -39,7 +38,21 @@ export function SettingsPanel({ onClose }: { onClose: () => void }): React.React
   const [indexing, setIndexing] = useState(false);
   const [indexMsg, setIndexMsg] = useState("");
 
+  const [pendingMemory, setPendingMemory] = useState<MemoryEntry[]>([]);
+
   const currentModelRate = settings.modelRates?.[settings.model.trim().toLowerCase()];
+
+  const refreshPendingMemory = useCallback(async () => {
+    try {
+      setPendingMemory(await window.moss.memory.reviewList());
+    } catch {
+      setPendingMemory([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshPendingMemory();
+  }, [refreshPendingMemory]);
 
   const refreshMcp = useCallback(async () => {
     try {
@@ -532,6 +545,116 @@ export function SettingsPanel({ onClose }: { onClose: () => void }): React.React
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
               The send_email tool delivers mail through Resend over HTTPS. Use a verified sender
               domain; sends are still approval-gated before they go out.
+            </p>
+          </section>
+
+          <section className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-400">Memory review</h3>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                className="accent-emerald-500"
+                checked={settings.gatedMemory ?? false}
+                onChange={(e) => updateSettings({ gatedMemory: e.target.checked })}
+              />
+              Review the assistant's memory writes before saving
+            </label>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+              When on, the m_remember tool queues proposals here instead of saving them. Approve to
+              commit a fact to durable memory, or reject to discard it.
+            </p>
+            {pendingMemory.length > 0 && (
+              <ul className="space-y-1">
+                {pendingMemory.map((m) => (
+                  <li
+                    key={m.id}
+                    className="flex items-center gap-2 rounded bg-neutral-200 dark:bg-neutral-800 px-2 py-1 text-xs"
+                  >
+                    <span className="flex-1">
+                      <span className="text-neutral-500">[{m.category}]</span> {m.fact}
+                    </span>
+                    <button
+                      className="rounded bg-emerald-600 px-2 py-0.5 text-white"
+                      onClick={async () => {
+                        await window.moss.memory.reviewApprove(m.id);
+                        void refreshPendingMemory();
+                      }}
+                    >
+                      Approve
+                    </button>
+                    <button
+                      className="rounded bg-neutral-500 px-2 py-0.5 text-white"
+                      onClick={async () => {
+                        await window.moss.memory.reviewReject(m.id);
+                        void refreshPendingMemory();
+                      }}
+                    >
+                      Reject
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {pendingMemory.length === 0 && (settings.gatedMemory ?? false) && (
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">No proposals waiting.</p>
+            )}
+          </section>
+
+          <section className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-400">External content</h3>
+            <label className="flex items-center gap-2">
+              <span className="whitespace-nowrap">Injection scanning</span>
+              <select
+                className="rounded bg-neutral-200 dark:bg-neutral-800 px-2 py-1 text-xs"
+                value={settings.injectionMode ?? "flag"}
+                onChange={(e) => updateSettings({ injectionMode: e.target.value as InjectionMode })}
+              >
+                <option value="off">Off</option>
+                <option value="flag">Flag (default)</option>
+                <option value="block">Block high-confidence</option>
+              </select>
+            </label>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+              Scans output from web, fetch, and MCP tools for prompt-injection phrasing. Flag warns
+              and keeps the content; block withholds high-confidence hits from the model. Content is
+              always wrapped as untrusted regardless of this setting.
+            </p>
+          </section>
+
+          <section className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-400">Confidence</h3>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                className="accent-emerald-500"
+                checked={settings.showConfidence ?? false}
+                onChange={(e) => updateSettings({ showConfidence: e.target.checked })}
+              />
+              Show a confidence chip after each reply
+            </label>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+              A shadow label derived from what happened in the turn (tools run, failures, external
+              content). It never changes the answer and makes no extra model calls.
+            </p>
+          </section>
+
+          <section className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-400">Budget</h3>
+            <label className="flex items-center gap-2">
+              <span className="whitespace-nowrap">Daily cap (USD)</span>
+              <input
+                type="number"
+                min={0}
+                step={0.5}
+                className="w-24 rounded bg-neutral-200 dark:bg-neutral-800 px-2 py-1 text-xs"
+                value={settings.dailyBudgetUsd || 0}
+                onChange={(e) => updateSettings({ dailyBudgetUsd: Math.max(0, Number(e.target.value) || 0) })}
+              />
+            </label>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+              Soft cap on estimated spend per UTC day across cloud models. 0 disables it. Once the
+              day's estimated cost reaches the cap, new requests are paused until tomorrow. Uses the
+              same rates as the cost readout.
             </p>
           </section>
 

@@ -6,12 +6,13 @@
 // run a documented template is written with every entry disabled, so nothing is
 // spawned until the user opts in.
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { app } from "electron";
 
 import { createLogger } from "../../../../common/logger";
+import { writeFileAtomicSync } from "../persistence/atomic-file";
 
 const log = createLogger("MCP:config");
 
@@ -67,7 +68,7 @@ export function loadMcpServers(): McpServerConfig[] {
     raw = readFileSync(path, "utf8");
   } catch {
     try {
-      writeFileSync(path, `${JSON.stringify(TEMPLATE, null, 2)}\n`, "utf8");
+      writeFileAtomicSync(path, `${JSON.stringify(TEMPLATE, null, 2)}\n`);
       log.info(`seeded MCP config template at ${path} (all servers disabled)`);
     } catch (err) {
       log.warn("could not seed MCP config template", err);
@@ -103,7 +104,7 @@ export function ensureMcpConfig(): string {
     readFileSync(path, "utf8");
   } catch {
     try {
-      writeFileSync(path, `${JSON.stringify(TEMPLATE, null, 2)}\n`, "utf8");
+      writeFileAtomicSync(path, `${JSON.stringify(TEMPLATE, null, 2)}\n`);
       log.info(`seeded MCP config template at ${path} (all servers disabled)`);
     } catch (err) {
       log.warn("could not seed MCP config template", err);
@@ -136,7 +137,7 @@ export function setMcpServerEnabled(id: string, enabled: boolean): boolean {
   if (!changed) return false;
 
   try {
-    writeFileSync(path, `${JSON.stringify(parsed, null, 2)}\n`, "utf8");
+    writeFileAtomicSync(path, `${JSON.stringify(parsed, null, 2)}\n`);
     log.info(`MCP server '${id}' ${enabled ? "enabled" : "disabled"}`);
     return true;
   } catch (err) {
@@ -177,7 +178,7 @@ export function addMcpServer(config: McpServerConfig): boolean {
   }
   list.push(config);
   try {
-    writeFileSync(path, `${JSON.stringify(list, null, 2)}\n`, "utf8");
+    writeFileAtomicSync(path, `${JSON.stringify(list, null, 2)}\n`);
     log.info(`MCP server '${config.id}' added`);
     return true;
   } catch (err) {
@@ -201,7 +202,7 @@ export function removeMcpServer(id: string): boolean {
   const filtered = parsed.filter((e) => !(isValid(e) && e.id === id));
   if (filtered.length === parsed.length) return false;
   try {
-    writeFileSync(path, `${JSON.stringify(filtered, null, 2)}\n`, "utf8");
+    writeFileAtomicSync(path, `${JSON.stringify(filtered, null, 2)}\n`);
     log.info(`MCP server '${id}' removed`);
     return true;
   } catch (err) {
@@ -229,7 +230,7 @@ export function updateMcpServer(config: McpServerConfig): boolean {
   if (!isValid(merged)) return false;
   parsed[index] = merged;
   try {
-    writeFileSync(path, `${JSON.stringify(parsed, null, 2)}\n`, "utf8");
+    writeFileAtomicSync(path, `${JSON.stringify(parsed, null, 2)}\n`);
     log.info(`MCP server '${config.id}' updated`);
     return true;
   } catch (err) {
