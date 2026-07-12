@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import type { InjectionMode, McpServerStatus, MemoryEntry } from "@common/types";import { PERSONALITY_PRESETS } from "@common/personalities";
 
+import { createAvatarDataUrl } from "../lib/avatar";
 import {
   PROVIDER_PRESETS,
   applyPreset,
@@ -20,6 +21,7 @@ import {
   updateSettings,
   useSettings,
 } from "../lib/settings";
+import { MossFace } from "./MossFace";
 
 export function SettingsPanel({ onClose }: { onClose: () => void }): React.ReactElement {
   const settings = useSettings();
@@ -41,6 +43,16 @@ export function SettingsPanel({ onClose }: { onClose: () => void }): React.React
   const [pendingMemory, setPendingMemory] = useState<MemoryEntry[]>([]);
 
   const currentModelRate = settings.modelRates?.[settings.model.trim().toLowerCase()];
+
+  async function chooseAvatar(file: File): Promise<void> {
+    setStatus("Preparing Moss avatar...");
+    try {
+      updateSettings({ avatarDataUrl: await createAvatarDataUrl(file) });
+      setStatus("Moss avatar updated");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Could not use that image");
+    }
+  }
 
   const refreshPendingMemory = useCallback(async () => {
     try {
@@ -263,6 +275,39 @@ export function SettingsPanel({ onClose }: { onClose: () => void }): React.React
         <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 py-4 text-sm">
           <section className="space-y-2">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-400">Appearance</h3>
+            <div className="flex items-center gap-3 rounded border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+              <MossFace className="h-14 w-14" label="Current Moss avatar" />
+              <div className="min-w-0 flex-1">
+                <span className="mb-2 block text-neutral-600 dark:text-neutral-400">Moss avatar</span>
+                <div className="flex flex-wrap gap-2">
+                  <label className="cursor-pointer rounded bg-neutral-200 px-2 py-1 hover:bg-neutral-300 dark:bg-neutral-800 dark:hover:bg-neutral-700">
+                    Choose image
+                    <input
+                      className="sr-only"
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      aria-label="Choose Moss avatar"
+                      onChange={(event) => {
+                        const file = event.currentTarget.files?.[0];
+                        event.currentTarget.value = "";
+                        if (file) void chooseAvatar(file);
+                      }}
+                    />
+                  </label>
+                  {settings.avatarDataUrl ? (
+                    <button
+                      className="rounded bg-neutral-200 px-2 py-1 hover:bg-neutral-300 dark:bg-neutral-800 dark:hover:bg-neutral-700"
+                      onClick={() => {
+                        updateSettings({ avatarDataUrl: null });
+                        setStatus("Default Moss avatar restored");
+                      }}
+                    >
+                      Use default
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
             <label className="block">
               <span className="mb-1 block text-neutral-600 dark:text-neutral-400">Theme</span>
               <select

@@ -17,6 +17,7 @@ import {
   type Session,
 } from "../lib/sessions";
 import { useSettings } from "../lib/settings";
+import { MossFace } from "./MossFace";
 
 interface SidebarProps {
   busy: boolean;
@@ -80,7 +81,7 @@ export function Sidebar({ busy, onOpenSettings, onOpenLibrary }: SidebarProps): 
   return (
     <aside className="hidden h-screen w-60 shrink-0 flex-col border-r border-neutral-200 dark:border-neutral-800 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-sm md:flex">
       <div className="flex items-center gap-2 px-3 py-3">
-        <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.7)]" />
+        <MossFace className="h-7 w-7" label="Moss portrait" />
         <span className="text-sm font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">Moss</span>
       </div>
       <div className="border-b border-neutral-200 dark:border-neutral-800 p-2">

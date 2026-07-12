@@ -40,6 +40,7 @@ afterEach(() => {
 describe("Sidebar", () => {
   it("shows an empty-state message when there are no conversations", () => {
     render(<Sidebar busy={false} onOpenSettings={noop} onOpenLibrary={noop} />);
+    expect(screen.getByRole("img", { name: "Moss portrait" })).toBeDefined();
     expect(screen.getByText("No conversations yet.")).toBeDefined();
   });
 

@@ -15,6 +15,7 @@ afterEach(cleanup);
 describe("WelcomeScreen", () => {
   it("renders the four starter suggestions", () => {
     render(<WelcomeScreen onPick={() => {}} />);
+    expect(screen.getByRole("img", { name: "Moss portrait" })).toBeDefined();
     expect(screen.getByText("Summarize the files in my workspace.")).toBeDefined();
     expect(screen.getByText("Explain what this project does.")).toBeDefined();
     expect(screen.getByText("Find and fix a bug in the current folder.")).toBeDefined();

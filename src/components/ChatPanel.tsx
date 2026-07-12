@@ -28,6 +28,7 @@ import {
 } from "../lib/sessions";
 import { modelsStore, toEmbedConfig, toProviderConfig, updateSettings, useSettings } from "../lib/settings";
 import { type ToolStatus, toolStatusColor } from "../lib/toolStatus";
+import { MossFace } from "./MossFace";
 import { RichResponse } from "./RichResponse";
 import { WelcomeScreen } from "./WelcomeScreen";
 
@@ -705,6 +706,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
   return (
     <div className="flex h-screen min-w-0 flex-1 flex-col bg-transparent text-neutral-900 dark:text-neutral-100">
       <header className="flex flex-wrap items-center gap-2 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-950/60 px-4 py-2 text-sm backdrop-blur-sm">
+        <MossFace className="h-8 w-8" label="Moss portrait" />
         <span className="font-semibold tracking-tight text-neutral-800 dark:text-neutral-200">Moss</span>
         {models.length > 0 ? (
           <select
@@ -908,9 +910,12 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
               className={
                 it.role === "user"
                   ? "group ml-auto max-w-2xl animate-fade-in whitespace-pre-wrap rounded-2xl border border-emerald-500/20 bg-emerald-600/15 px-4 py-2.5 shadow-sm"
-                  : "assistant-response group mx-auto w-full max-w-[52rem] animate-fade-in"
+                  : "assistant-response group relative mx-auto w-full max-w-[52rem] animate-fade-in pl-11"
               }
             >
+              {it.role === "assistant" ? (
+                <MossFace className="absolute left-0 top-0 h-8 w-8" label="Moss response" />
+              ) : null}
               {it.role === "assistant" ? (
                 <RichResponse
                   content={it.content}

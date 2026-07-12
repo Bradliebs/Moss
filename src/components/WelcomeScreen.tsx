@@ -5,6 +5,8 @@
 // configured yet (e.g. first run on a fresh machine), the starter prompts would
 // silently do nothing, so a setup call-to-action is shown instead.
 
+import { MossFace } from "./MossFace";
+
 const SUGGESTIONS = [
   "Summarize the files in my workspace.",
   "Explain what this project does.",
@@ -23,9 +25,10 @@ export function WelcomeScreen({ onPick, needsSetup, onOpenSettings }: WelcomeScr
   return (
     <div className="flex h-full flex-col items-center justify-center gap-8 px-4 text-center animate-fade-in">
       <div className="flex flex-col items-center gap-3">
-        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/15 text-xl font-bold text-emerald-300 shadow-[0_0_30px_rgba(16,185,129,0.25)] ring-1 ring-emerald-500/30">
-          M
-        </span>
+        <MossFace
+          className="h-24 w-24 shadow-[0_10px_36px_rgba(16,185,129,0.2)] ring-4 ring-white/70 dark:ring-neutral-900/70"
+          label="Moss portrait"
+        />
         <h1 className="text-3xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">Moss</h1>
         <p className="text-sm text-neutral-600 dark:text-neutral-400">
           {needsSetup

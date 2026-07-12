@@ -29,6 +29,8 @@ export interface MossSettings {
   baseUrl: string;
   apiKey: string;
   model: string;
+  /** compact data URL for the user-selected in-app avatar; null uses the built-in portrait */
+  avatarDataUrl: string | null;
   enableTools: boolean;
   /** when true, tools that mutate files or run commands run without prompting */
   autoApproveTools: boolean;
@@ -88,6 +90,7 @@ const DEFAULT_SETTINGS: MossSettings = {
   baseUrl: PROVIDER_PRESETS[0].baseUrl,
   apiKey: "",
   model: "",
+  avatarDataUrl: null,
   enableTools: true,
   autoApproveTools: false,
   browserEnabled: false,

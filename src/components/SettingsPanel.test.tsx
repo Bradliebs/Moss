@@ -11,14 +11,16 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as settings from "../lib/settings";
+import * as avatar from "../lib/avatar";
 import { SettingsPanel } from "./SettingsPanel";
 
-const settingsValue = {
+const settingsValue: Record<string, unknown> & { avatarDataUrl: string | null } = {
   presetIndex: 0,
   kind: "openai-compatible",
   baseUrl: "http://localhost:11434/v1",
   apiKey: "",
   model: "",
+  avatarDataUrl: null,
   enableTools: true,
   workspaceRoot: null,
   sttBaseUrl: "",
@@ -30,6 +32,10 @@ const settingsValue = {
   verifyEnabled: false,
   verifyCommands: "",
 };
+
+vi.mock("../lib/avatar", () => ({
+  createAvatarDataUrl: vi.fn(() => Promise.resolve("data:image/webp;base64,custom-avatar")),
+}));
 
 vi.mock("../lib/settings", () => ({
   PROVIDER_PRESETS: [
@@ -48,6 +54,7 @@ vi.mock("../lib/settings", () => ({
 }));
 
 beforeEach(() => {
+  settingsValue.avatarDataUrl = null;
   Object.assign(window, {
     moss: {
       mcp: {
@@ -100,6 +107,27 @@ describe("SettingsPanel", () => {
       target: { value: "http://localhost:9999/v1" },
     });
     expect(settings.updateSettings).toHaveBeenCalledWith({ baseUrl: "http://localhost:9999/v1" });
+  });
+
+  it("stores a selected Moss avatar", async () => {
+    render(<SettingsPanel onClose={() => {}} />);
+    const file = new File(["image"], "moss.png", { type: "image/png" });
+
+    fireEvent.change(screen.getByLabelText("Choose Moss avatar"), { target: { files: [file] } });
+
+    await waitFor(() => expect(avatar.createAvatarDataUrl).toHaveBeenCalledWith(file));
+    expect(settings.updateSettings).toHaveBeenCalledWith({
+      avatarDataUrl: "data:image/webp;base64,custom-avatar",
+    });
+  });
+
+  it("restores the default Moss avatar", () => {
+    settingsValue.avatarDataUrl = "data:image/webp;base64,custom-avatar";
+    render(<SettingsPanel onClose={() => {}} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Use default" }));
+
+    expect(settings.updateSettings).toHaveBeenCalledWith({ avatarDataUrl: null });
   });
 
   it("toggles tools via the checkbox", async () => {

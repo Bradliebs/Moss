@@ -25,6 +25,7 @@ const baseline: MossSettings = {
   baseUrl: "http://localhost:11434/v1",
   apiKey: "",
   model: "",
+  avatarDataUrl: null,
   enableTools: true,
   workspaceRoot: null,
   sttBaseUrl: "",

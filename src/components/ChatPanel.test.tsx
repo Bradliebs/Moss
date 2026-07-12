@@ -353,6 +353,7 @@ describe("ChatPanel", () => {
       updatedAt: 0,
     };
     render(<Harness />);
+    expect(screen.getByRole("img", { name: "Moss response" })).toBeDefined();
     const code = screen.getByText("const x = 1;");
     expect(code.tagName).toBe("CODE");
     expect(code.closest("pre")).not.toBeNull();
