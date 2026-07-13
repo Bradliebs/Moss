@@ -7,7 +7,8 @@
 import { appendFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-import { app, BrowserWindow, session } from "electron";
+import { app, BrowserWindow, Menu, session } from "electron";
+import type { MenuItemConstructorOptions } from "electron";
 
 import { createLogger } from "../common/logger";
 import { mcpManager } from "./backend/moss/mcp/mcp-manager";
@@ -80,7 +81,35 @@ function createWindow(): void {
       preload: join(app.getAppPath(), "electron", "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
+      spellcheck: true,
     },
+  });
+
+  mainWindow.webContents.on("context-menu", (_event, params) => {
+    if (!mainWindow || !params.isEditable) return;
+
+    const suggestions: MenuItemConstructorOptions[] = params.misspelledWord
+      ? params.dictionarySuggestions.slice(0, 8).map((suggestion) => ({
+          label: suggestion,
+          click: () => mainWindow?.webContents.replaceMisspelling(suggestion),
+        }))
+      : [];
+
+    if (params.misspelledWord && suggestions.length === 0) {
+      suggestions.push({ label: "No spelling suggestions", enabled: false });
+    }
+
+    const editActions: MenuItemConstructorOptions[] = [
+      { role: "cut", enabled: params.editFlags.canCut },
+      { role: "copy", enabled: params.editFlags.canCopy },
+      { role: "paste", enabled: params.editFlags.canPaste },
+      { role: "selectAll", enabled: params.editFlags.canSelectAll },
+    ];
+    const template = suggestions.length > 0
+      ? [...suggestions, { type: "separator" as const }, ...editActions]
+      : editActions;
+
+    Menu.buildFromTemplate(template).popup({ window: mainWindow });
   });
 
   mainWindow.webContents.on("did-fail-load", (_e, errorCode, errorDescription, validatedURL) => {

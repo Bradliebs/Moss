@@ -13,8 +13,12 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 const env = vi.hoisted(() => ({
   handlers: new Map<string, (...args: unknown[]) => unknown>(),
+  webContentsHandlers: new Map<string, (...args: any[]) => unknown>(),
   quit: vi.fn(),
   windows: 0,
+  menuTemplate: [] as any[],
+  menuPopup: vi.fn(),
+  replaceMisspelling: vi.fn(),
   permission: null as null | ((wc: unknown, permission: string, cb: (granted: boolean) => void) => void),
   reload: vi.fn(),
   registerIpc: vi.fn(),
@@ -24,7 +28,13 @@ const env = vi.hoisted(() => ({
 
 vi.mock("electron", () => {
   class BrowserWindow {
-    webContents = { openDevTools: vi.fn(), on: vi.fn() };
+    webContents = {
+      openDevTools: vi.fn(),
+      on: (event: string, handler: (...args: any[]) => unknown) => {
+        env.webContentsHandlers.set(event, handler);
+      },
+      replaceMisspelling: env.replaceMisspelling,
+    };
     constructor() {
       env.windows += 1;
     }
@@ -45,6 +55,12 @@ vi.mock("electron", () => {
       quit: env.quit,
     },
     BrowserWindow,
+    Menu: {
+      buildFromTemplate: (template: any[]) => {
+        env.menuTemplate = template;
+        return { popup: env.menuPopup };
+      },
+    },
     session: {
       defaultSession: {
         setPermissionRequestHandler: (
@@ -90,6 +106,25 @@ describe("main composition root", () => {
     const deny = vi.fn();
     env.permission?.({}, "geolocation", deny);
     expect(deny).toHaveBeenCalledWith(false);
+  });
+
+  it("shows spelling suggestions and replaces the misspelled word", () => {
+    env.webContentsHandlers.get("context-menu")?.({}, {
+      isEditable: true,
+      misspelledWord: "expecially",
+      dictionarySuggestions: ["especially", "specially"],
+      editFlags: {
+        canCut: true,
+        canCopy: true,
+        canPaste: true,
+        canSelectAll: true,
+      },
+    });
+
+    expect(env.menuTemplate.slice(0, 2).map((item) => item.label)).toEqual(["especially", "specially"]);
+    env.menuTemplate[0].click();
+    expect(env.replaceMisspelling).toHaveBeenCalledWith("especially");
+    expect(env.menuPopup).toHaveBeenCalled();
   });
 
   it("quits on window-all-closed on non-darwin platforms", () => {
