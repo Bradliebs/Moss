@@ -1,77 +1,31 @@
 import { readFile, realpath, stat } from "node:fs/promises";
 import { isAbsolute, relative } from "node:path";
 
+import type {
+  CommandVerificationCheck,
+  FileContainsVerificationCheck,
+  FileExistsVerificationCheck,
+  HttpVerificationCheck,
+  ProcessRunningVerificationCheck,
+  ReceiptVerificationCheck,
+  VerificationCheck,
+  VerificationCriterion,
+  VerificationEvidence,
+} from "../../../../common/verification";
 import { resolveInWorkspace } from "../tools/path-guard";
 import { runVerify } from "./verifier";
 
-export interface VerificationCriterion {
-  id: string;
-  description: string;
-  mandatory: boolean;
-  checkIds: string[];
-}
-
-interface CheckBase {
-  id: string;
-  criterionId: string;
-  kind: string;
-}
-
-export interface CommandVerificationCheck extends CheckBase {
-  kind: "command";
-  command: string;
-}
-
-export interface FileExistsVerificationCheck extends CheckBase {
-  kind: "file-exists";
-  path: string;
-}
-
-export interface FileContainsVerificationCheck extends CheckBase {
-  kind: "file-contains";
-  path: string;
-  substring: string;
-}
-
-export interface ProcessRunningVerificationCheck extends CheckBase {
-  kind: "process-running";
-  pid: number;
-}
-
-export interface HttpVerificationCheck extends CheckBase {
-  kind: "http";
-  url: string;
-  method?: string;
-  expectedStatus?: number;
-  bodyIncludes?: string;
-  timeoutMs?: number;
-}
-
-export interface ReceiptVerificationCheck extends CheckBase {
-  kind: "receipt";
-  asserted: boolean;
-  receipt?: string;
-  source?: "manual" | "external";
-}
-
-export type VerificationCheck =
-  | CommandVerificationCheck
-  | FileExistsVerificationCheck
-  | FileContainsVerificationCheck
-  | ProcessRunningVerificationCheck
-  | HttpVerificationCheck
-  | ReceiptVerificationCheck
-  | CheckBase;
-
-export interface VerificationEvidence {
-  criterionId: string;
-  checkId: string;
-  kind: string;
-  ok: boolean;
-  timestamp: string;
-  summary: string;
-  details?: string;
-}
+export type {
+  CommandVerificationCheck,
+  FileContainsVerificationCheck,
+  FileExistsVerificationCheck,
+  HttpVerificationCheck,
+  ProcessRunningVerificationCheck,
+  ReceiptVerificationCheck,
+  VerificationCheck,
+  VerificationCriterion,
+  VerificationEvidence,
+} from "../../../../common/verification";
 
 export interface VerificationHandlerResult {
   ok: boolean;
