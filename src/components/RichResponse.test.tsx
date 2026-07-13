@@ -40,4 +40,28 @@ describe("RichResponse", () => {
     render(<RichResponse content="Working" streaming onCopy={vi.fn()} />);
     expect(screen.getByLabelText("Moss is writing")).toBeTruthy();
   });
+
+  it("copies an arbitrary selection within the response", () => {
+    const onCopy = vi.fn();
+    render(<RichResponse content="Copy only this phrase from the response." onCopy={onCopy} />);
+    const textNode = screen.getByText(/Copy only this phrase/).firstChild!;
+    const selection = {
+      anchorNode: textNode,
+      focusNode: textNode,
+      isCollapsed: false,
+      rangeCount: 1,
+      toString: () => "only this phrase",
+      getRangeAt: () => ({
+        getBoundingClientRect: () => ({ left: 100, top: 80, width: 120 }),
+      }),
+      removeAllRanges: vi.fn(),
+    };
+    vi.spyOn(window, "getSelection").mockReturnValue(selection as unknown as Selection);
+
+    fireEvent(document, new Event("selectionchange"));
+    fireEvent.click(screen.getByRole("button", { name: "Copy selection" }));
+
+    expect(onCopy).toHaveBeenCalledWith("only this phrase");
+    expect(selection.removeAllRanges).toHaveBeenCalled();
+  });
 });

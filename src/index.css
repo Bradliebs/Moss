@@ -271,6 +271,29 @@ body {
   color: var(--response-ink);
 }
 
+.selection-copy-button {
+  position: fixed;
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transform: translate(-50%, -100%);
+  border: 1px solid var(--response-line);
+  border-radius: 6px;
+  background: var(--response-code);
+  padding: 0.38rem 0.55rem;
+  color: var(--response-ink);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.selection-copy-button:hover {
+  border-color: var(--response-accent-line);
+  color: var(--response-accent);
+}
+
 .response-footer {
   display: flex;
   min-height: 2.35rem;

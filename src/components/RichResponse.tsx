@@ -49,6 +49,12 @@ interface RichResponseProps {
   onCopy: (text: string) => void;
 }
 
+interface SelectionCopyState {
+  text: string;
+  left: number;
+  top: number;
+}
+
 function safeExternalUrl(value?: string): string | undefined {
   return value && /^(https?:|mailto:)/i.test(value) ? value : undefined;
 }
@@ -153,8 +159,45 @@ function markdownComponents(onCopy: (text: string) => void): Components {
 }
 
 export function RichResponse({ content, streaming = false, onCopy }: RichResponseProps): ReactElement {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [selectionCopy, setSelectionCopy] = useState<SelectionCopyState | null>(null);
+
+  useEffect(() => {
+    function updateSelectionCopy(): void {
+      const selection = window.getSelection();
+      const root = rootRef.current;
+      if (
+        !selection
+        || selection.isCollapsed
+        || !selection.anchorNode
+        || !selection.focusNode
+        || !root?.contains(selection.anchorNode)
+        || !root.contains(selection.focusNode)
+      ) {
+        setSelectionCopy(null);
+        return;
+      }
+
+      const text = selection.toString();
+      if (!text.trim()) {
+        setSelectionCopy(null);
+        return;
+      }
+
+      const rect = selection.getRangeAt(selection.rangeCount - 1).getBoundingClientRect();
+      setSelectionCopy({ text, left: rect.left + rect.width / 2, top: rect.top - 8 });
+    }
+
+    document.addEventListener("selectionchange", updateSelectionCopy);
+    window.addEventListener("scroll", updateSelectionCopy, true);
+    return () => {
+      document.removeEventListener("selectionchange", updateSelectionCopy);
+      window.removeEventListener("scroll", updateSelectionCopy, true);
+    };
+  }, []);
+
   return (
-    <div className={`rich-response${streaming ? " is-streaming" : ""}`} data-testid="rich-response">
+    <div ref={rootRef} className={`rich-response${streaming ? " is-streaming" : ""}`} data-testid="rich-response">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeSanitize]}
@@ -163,6 +206,24 @@ export function RichResponse({ content, streaming = false, onCopy }: RichRespons
         {content}
       </ReactMarkdown>
       {streaming ? <span className="stream-caret" aria-label="Moss is writing" /> : null}
+      {selectionCopy ? (
+        <button
+          type="button"
+          className="selection-copy-button"
+          style={{ left: selectionCopy.left, top: selectionCopy.top }}
+          aria-label="Copy selection"
+          title="Copy selection"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => {
+            onCopy(selectionCopy.text);
+            setSelectionCopy(null);
+            window.getSelection()?.removeAllRanges();
+          }}
+        >
+          <Copy size={14} aria-hidden="true" />
+          <span>Copy</span>
+        </button>
+      ) : null}
     </div>
   );
 }
