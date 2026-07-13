@@ -2,7 +2,7 @@
 title: Moss
 description: A local-first agentic desktop harness for completing and verifying work across files, commands, browsers, and desktop applications
 author: Moss contributors
-ms.date: 2026-07-12
+ms.date: 2026-07-13
 ms.topic: overview
 keywords:
   - ai agent
@@ -12,6 +12,10 @@ keywords:
   - desktop automation
 estimated_reading_time: 8
 ---
+
+<p align="center">
+  <img src="./build/icon.png" alt="Moss logo" width="180">
+</p>
 
 ## Overview
 
