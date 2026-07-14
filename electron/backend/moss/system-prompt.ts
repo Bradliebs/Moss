@@ -7,6 +7,7 @@
 import { getPersonalityPrompt } from "../../../common/personalities";
 import type { AgentMessage } from "../../../common/types";
 import { memoryStore } from "./memory/memory-store";
+import { buildRuntimeContext } from "./runtime-context";
 import { formatSkillsForSystemPrompt } from "./skills/skill-parse";
 import { skillsStore } from "./skills/skills-store";
 
@@ -35,13 +36,15 @@ const CUSTOM_INSTRUCTIONS_MAX_CHARS = 2000;
  *  `customInstructions` is user-authored persona text; it is appended after the
  *  safety section so the XPIA defenses are always present and cannot be removed.
  *  `personalityId` selects an allow-listed preset (unknown ids inject nothing),
- *  and `adaptiveTone` lets remembered preferences shape the voice. */
+ *  `adaptiveTone` lets remembered preferences shape the voice, and `now` is an
+ *  injectable clock used to refresh and test the host's local date each turn. */
 export function buildSystemMessage(opts: {
   includeSkills: boolean;
   query?: string;
   customInstructions?: string;
   personalityId?: string;
   adaptiveTone?: boolean;
+  now?: () => Date;
 }): AgentMessage {
   const sections: string[] = [BASE_INSTRUCTIONS, SAFETY_INSTRUCTIONS];
 
@@ -60,6 +63,8 @@ export function buildSystemMessage(opts: {
 
   const memory = memoryStore.selectForSystemPrompt(opts.query ?? "");
   if (memory) sections.push(memory);
+
+  sections.push(buildRuntimeContext(opts.now));
 
   return { role: "system", content: sections.join("\n\n") };
 }

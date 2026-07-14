@@ -45,6 +45,15 @@ describe("buildSystemMessage", () => {
     expect(msg.content).toContain("You are Moss");
   });
 
+  it("refreshes the host's local date for every turn", () => {
+    const first = buildSystemMessage({ includeSkills: false, now: () => new Date(2026, 6, 14) });
+    const next = buildSystemMessage({ includeSkills: false, now: () => new Date(2026, 6, 15) });
+
+    expect(first.content).toContain("The current local date is 2026-07-14");
+    expect(next.content).toContain("The current local date is 2026-07-15");
+    expect(next.content).not.toContain("2026-07-14");
+  });
+
   it("guides concise, task-appropriate Markdown structure", () => {
     const msg = buildSystemMessage({ includeSkills: false });
     expect(msg.content).toContain("Format responses for effortless scanning");

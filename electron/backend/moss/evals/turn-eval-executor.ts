@@ -35,7 +35,8 @@ export function createTurnEvalExecutor(options: TurnEvalExecutorOptions): EvalEx
     const approvalRequests = new Set<string>();
     const failedTools = new Set<string>();
     let outcome: EvalExecutionObservation["outcome"] = "failed";
-    const startedAt = now().toISOString();
+    const startedAtDate = now();
+    const startedAt = startedAtDate.toISOString();
 
     const onEvent = (event: MossEvent): void => {
       if (event.type === "token-usage") {
@@ -72,6 +73,7 @@ export function createTurnEvalExecutor(options: TurnEvalExecutorOptions): EvalEx
       onEvent,
       requestApproval: options.requestApproval ?? (async () => false),
       autoApprove: options.autoApprove,
+      now: () => startedAtDate,
     });
 
     return {

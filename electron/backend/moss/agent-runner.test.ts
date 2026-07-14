@@ -15,16 +15,17 @@ import type { AgentMessage, MossEvent, ToolDefinition } from "../../../common/ty
 import { runTurn } from "./agent-runner";
 import type { CompletionContext, CompletionDecision } from "./agent-runner";
 import { ProviderError } from "./providers/types";
-import type { ChatProvider, ProviderStreamEvent } from "./providers/types";
+import type { ChatProvider, ChatRequest, ProviderStreamEvent } from "./providers/types";
 import type { Tool, ToolResult } from "./tools";
 
 /** Provider that replays one event array per round, clamping to the last entry
  *  so a single-round script can drive the round-cap test. */
-function scriptedProvider(rounds: ProviderStreamEvent[][]): ChatProvider {
+function scriptedProvider(rounds: ProviderStreamEvent[][], requests?: ChatRequest[]): ChatProvider {
   let round = 0;
   return {
     kind: "test",
-    async *streamChat(): AsyncIterable<ProviderStreamEvent> {
+    async *streamChat(request): AsyncIterable<ProviderStreamEvent> {
+      requests?.push({ ...request, messages: request.messages.map((message) => ({ ...message })) });
       const events = rounds[Math.min(round, rounds.length - 1)];
       round += 1;
       for (const e of events) yield e;
@@ -81,6 +82,7 @@ async function run(
     verify?: { enabled: boolean; commands: string[]; maxCycles?: number };
     maxRounds?: number;
     completionGuard?: (context: CompletionContext) => CompletionDecision;
+    now?: () => Date;
   },
 ): Promise<Harness> {
   const events: MossEvent[] = [];
@@ -119,6 +121,7 @@ async function run(
     ...(opts?.verify !== undefined ? { verify: opts.verify } : {}),
     ...(opts?.maxRounds !== undefined ? { maxRounds: opts.maxRounds } : {}),
     ...(opts?.completionGuard !== undefined ? { completionGuard: opts.completionGuard } : {}),
+    ...(opts?.now !== undefined ? { now: opts.now } : {}),
   });
 
   return { events, approvals };
@@ -127,6 +130,25 @@ async function run(
 const types = (h: Harness) => h.events.map((e) => e.type);
 
 describe("runTurn", () => {
+  it("adds fresh runtime context and replaces a stale supplied date", async () => {
+    const firstRequests: ChatRequest[] = [];
+    await run(scriptedProvider([[]], firstRequests), [], { now: () => new Date(2026, 6, 14) });
+
+    const firstSystem = firstRequests[0].messages.find((message) => message.role === "system");
+    expect(firstSystem?.content).toContain("The current local date is 2026-07-14");
+
+    const nextRequests: ChatRequest[] = [];
+    await run(scriptedProvider([[]], nextRequests), [], {
+      messages: firstRequests[0].messages,
+      now: () => new Date(2026, 6, 15),
+    });
+
+    const nextSystem = nextRequests[0].messages.find((message) => message.role === "system");
+    expect(nextSystem?.content).toContain("The current local date is 2026-07-15");
+    expect(nextSystem?.content).not.toContain("2026-07-14");
+    expect(nextSystem?.content.match(/<runtime_context/g)).toHaveLength(1);
+  });
+
   it("streams text and completes when no tools are called", async () => {
     const provider = scriptedProvider([
       [

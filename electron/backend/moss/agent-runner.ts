@@ -14,6 +14,7 @@ import { classifyTool } from "./permission";
 import type { CommandRisk } from "./permission";
 import { ProviderError } from "./providers/types";
 import type { ChatProvider } from "./providers/types";
+import { withRuntimeContext } from "./runtime-context";
 import { INJECTION_BLOCK_THRESHOLD, scanForInjection } from "./safety/injection-scan";
 import type { InjectionMode } from "./safety/injection-scan";
 import { isExternalContentTool, wrapExternalContent } from "./safety/untrusted-wrap";
@@ -86,6 +87,8 @@ export interface RunTurnOptions {
    *  the historical behavior; durable tasks use it to reject unsupported
    *  completion claims and drive another model round. */
   completionGuard?: (context: CompletionContext) => Promise<CompletionDecision> | CompletionDecision;
+  /** Clock used to refresh trusted runtime context at the start of each turn. */
+  now?: () => Date;
 }
 
 export interface CompletionContext {
@@ -109,9 +112,9 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
   // Seed the model-facing history from the caller, capping each prior tool
   // result so a large earlier-turn output cannot reaccumulate in the context
   // window across turns. newMessages and the renderer keep the full content.
-  const seeded = opts.messages.map((m) =>
+  const seeded = withRuntimeContext(opts.messages.map((m) =>
     m.role === "tool" ? { ...m, content: compactForModel(m.content) } : m,
-  );
+  ), opts.now);
   // Drop the oldest messages when the history outgrows the configured context
   // window, folding a note into the system message. No-op unless contextLimit is
   // set. Runs once at seed time; the current turn's own messages are the tail and
