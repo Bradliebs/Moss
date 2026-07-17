@@ -5,7 +5,10 @@ import { basename, join, resolve, sep } from "node:path";
 
 import type {
   EvalCase,
+  EvalDifficulty,
   EvalModelTarget,
+  EvalProfile,
+  HarnessAggregateMetrics,
   HarnessMatrixCellResult,
   HarnessMatrixManifest,
   HarnessMatrixReport,
@@ -69,6 +72,7 @@ export class HarnessMatrixRunner {
       generatedAt: this.now().toISOString(),
       manifest: buildHarnessManifest(cases, targets, variants, this.evaluatorVersion),
       cells,
+      summary: summarizeHarnessMatrix(cells, cases),
     };
   }
 
@@ -248,5 +252,81 @@ export function buildHarnessManifest(
     caseSetHash: fingerprintCases(cases),
     targetSetHash: stableHash(targets),
     variantSetHash: stableHash(variants),
+  };
+}
+
+export function summarizeHarnessMatrix(
+  cells: readonly HarnessMatrixCellResult[],
+  cases: readonly EvalCase[],
+): HarnessMatrixReport["summary"] {
+  const casesById = new Map(cases.map((testCase) => [testCase.id, testCase]));
+  const byTargetVariant = groupMetrics(cells, (cell) => `${cell.targetId}/${cell.variantId}`);
+  const byProfile = groupMetrics(cells, (cell) => casesById.get(cell.caseId)?.profile) as Partial<
+    Record<EvalProfile, HarnessAggregateMetrics>
+  >;
+  const byDifficulty = groupMetrics(cells, (cell) => casesById.get(cell.caseId)?.difficulty) as Partial<
+    Record<EvalDifficulty, HarnessAggregateMetrics>
+  >;
+  const taggedCells = new Map<string, HarnessMatrixCellResult[]>();
+  for (const cell of cells) {
+    for (const tag of casesById.get(cell.caseId)?.tags ?? []) {
+      const group = taggedCells.get(tag) ?? [];
+      group.push(cell);
+      taggedCells.set(tag, group);
+    }
+  }
+
+  return {
+    overall: aggregateHarnessMetrics(cells),
+    byTargetVariant,
+    byProfile,
+    byDifficulty,
+    byTag: Object.fromEntries([...taggedCells].sort(([left], [right]) => left.localeCompare(right))
+      .map(([tag, group]) => [tag, aggregateHarnessMetrics(group)])),
+  };
+}
+
+function groupMetrics(
+  cells: readonly HarnessMatrixCellResult[],
+  selectKey: (cell: HarnessMatrixCellResult) => string | undefined,
+): Record<string, HarnessAggregateMetrics> {
+  const groups = new Map<string, HarnessMatrixCellResult[]>();
+  for (const cell of cells) {
+    const key = selectKey(cell);
+    if (!key) continue;
+    const group = groups.get(key) ?? [];
+    group.push(cell);
+    groups.set(key, group);
+  }
+  return Object.fromEntries([...groups].sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, group]) => [key, aggregateHarnessMetrics(group)]));
+}
+
+function aggregateHarnessMetrics(cells: readonly HarnessMatrixCellResult[]): HarnessAggregateMetrics {
+  const scored = cells.filter((cell) => cell.harnessScore !== undefined);
+  const average = (values: number[]): number => values.length === 0
+    ? 0
+    : values.reduce((sum, value) => sum + value, 0) / values.length;
+  return {
+    runs: cells.length,
+    scoredRuns: scored.length,
+    completions: cells.filter((cell) => cell.result.success).length,
+    completionRate: cells.length === 0 ? 0 : cells.filter((cell) => cell.result.success).length / cells.length,
+    securityPasses: scored.filter((cell) => cell.harnessScore?.securityPassed).length,
+    securityPassRate: scored.length === 0
+      ? 0
+      : scored.filter((cell) => cell.harnessScore?.securityPassed).length / scored.length,
+    protectedInputsIntact: cells.filter((cell) => cell.protectedInputsIntact).length,
+    averageRobustness: average(scored.map((cell) => cell.harnessScore!.process.robustness)),
+    averageToolUse: average(scored.map((cell) => cell.harnessScore!.process.toolUse)),
+    averageConsistency: average(scored.map((cell) => cell.harnessScore!.process.consistency)),
+    averageDiagnosticComposite: average(scored.map((cell) => cell.harnessScore!.diagnosticComposite)),
+    averageTokens: average(cells.map((cell) => {
+      const usage = cell.result.observation.usage;
+      return (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0);
+    })),
+    averageCostUsd: average(cells.map((cell) => cell.result.observation.estimatedCostUsd)),
+    averageDurationMs: average(cells.map((cell) => cell.result.durationMs)),
+    averageActions: average(cells.map((cell) => cell.trace?.toolCalls.length ?? 0)),
   };
 }

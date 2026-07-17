@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { EvalCase } from "../../../../common/evals";
-import type { ChatProvider, ProviderStreamEvent } from "../providers/types";
+import { ProviderError, type ChatProvider, type ProviderStreamEvent } from "../providers/types";
 import type { Tool } from "../tools";
 import { EvalRunner } from "./eval-runner";
 import { createTurnEvalExecutor } from "./turn-eval-executor";
@@ -50,6 +50,18 @@ class ToolCallingProvider implements ChatProvider {
 
   async listModels(): Promise<string[]> {
     return ["fixture-model"];
+  }
+}
+
+class FailingProvider implements ChatProvider {
+  readonly kind = "deterministic";
+
+  async *streamChat(): AsyncIterable<ProviderStreamEvent> {
+    throw new ProviderError("fixture provider unavailable", 400);
+  }
+
+  async listModels(): Promise<string[]> {
+    return [];
   }
 }
 
@@ -166,7 +178,24 @@ describe("createTurnEvalExecutor", () => {
     const result = await execute(TEST_CASE, 0);
 
     expect(result.observation.outcome).toBe("budget-exhausted");
+    expect(result.observation.failureReason).toBe("token budget of 10 exceeded");
     expect(result.observation.admissions).toContain("budget-exhausted");
     expect(result.trace?.terminalState).toBe("budget-exhausted");
+  });
+
+  it("preserves provider failures in the observation", async () => {
+    const execute = createTurnEvalExecutor({
+      provider: new FailingProvider(),
+      model: "fixture-model",
+      toolRegistry: new Map(),
+      workspaceRoot: () => "",
+    });
+
+    const result = await execute(TEST_CASE, 0);
+
+    expect(result.observation).toMatchObject({
+      outcome: "failed",
+      failureReason: "fixture provider unavailable",
+    });
   });
 });

@@ -28,6 +28,7 @@ const TEST_CASE: EvalCase = {
   fixture: {},
   allowedCapabilities: ["write_file"],
   checks: [{ id: "artifact-check", criterionId: "artifact", kind: "file-exists", path: "artifact.txt" }],
+  tags: ["security"],
   benchmark: { security: { protectedPaths: ["protected.txt"] } },
 };
 
@@ -104,6 +105,14 @@ describe("HarnessMatrixRunner", () => {
       !== cell.protectedInputHashesAfter["protected.txt"])).toBe(true);
     expect(report.cells.every((cell) => cell.harnessScore?.securityPassed === false)).toBe(true);
     expect(report.cells.every((cell) => cell.harnessScore?.securityViolations.includes("protected-input-modified"))).toBe(true);
+    expect(report.summary.overall).toMatchObject({ runs: 2, completions: 2, securityPasses: 0 });
+    expect(report.summary.byTargetVariant).toMatchObject({
+      "deterministic-model/baseline": { runs: 1 },
+      "deterministic-model/guarded": { runs: 1 },
+    });
+    expect(report.summary.byProfile.coding).toMatchObject({ runs: 2 });
+    expect(report.summary.byDifficulty.smoke).toMatchObject({ runs: 2 });
+    expect(report.summary.byTag.security).toMatchObject({ runs: 2 });
   });
 
   it("rejects comparisons that vary the execution budget", async () => {

@@ -40,6 +40,7 @@ export function createTurnEvalExecutor(options: TurnEvalExecutorOptions): EvalEx
     const controller = new AbortController();
     const budget = options.variant?.budget ?? testCase.benchmark?.budget ?? testCase.task.budget;
     let budgetReason: string | undefined;
+    let failureReason: string | undefined;
     let actionCount = 0;
     let outcome: EvalExecutionObservation["outcome"] = "failed";
     const startedAtDate = now();
@@ -86,6 +87,8 @@ export function createTurnEvalExecutor(options: TurnEvalExecutorOptions): EvalEx
         if (!budgetReason) outcome = "completed";
       } else if (event.type === "turn-aborted") {
         outcome = budgetReason ? "budget-exhausted" : "cancelled";
+      } else if (event.type === "turn-error") {
+        failureReason = event.message;
       }
     };
 
@@ -128,6 +131,7 @@ export function createTurnEvalExecutor(options: TurnEvalExecutorOptions): EvalEx
         provider: options.provider.kind,
         model: options.model,
         outcome,
+        ...(failureReason || budgetReason ? { failureReason: failureReason ?? budgetReason } : {}),
         startedAt,
         completedAt: now().toISOString(),
         usage,

@@ -61,6 +61,19 @@ afterEach(() => {
 });
 
 describe("OpenAiCompatibleProvider.streamChat", () => {
+  it("requests token usage in the streaming response", async () => {
+    stubStream(sse());
+
+    await collect(new OpenAiCompatibleProvider("http://x/v1"));
+
+    const fetchMock = vi.mocked(fetch);
+    const request = fetchMock.mock.calls[0]?.[1];
+    expect(JSON.parse(String(request?.body))).toMatchObject({
+      stream: true,
+      stream_options: { include_usage: true },
+    });
+  });
+
   it("yields text deltas from streamed content", async () => {
     stubStream(
       sse(

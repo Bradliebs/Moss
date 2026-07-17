@@ -117,6 +117,7 @@ export interface EvalExecutionObservation {
   provider: string;
   model: string;
   outcome: "completed" | "failed" | "blocked" | "cancelled" | "budget-exhausted";
+  failureReason?: string;
   startedAt: string;
   completedAt: string;
   evidence: TaskEvidence[];
@@ -163,11 +164,38 @@ export interface HarnessMatrixManifest {
   variantSetHash: string;
 }
 
+export interface HarnessAggregateMetrics {
+  runs: number;
+  scoredRuns: number;
+  completions: number;
+  completionRate: number;
+  securityPasses: number;
+  securityPassRate: number;
+  protectedInputsIntact: number;
+  averageRobustness: number;
+  averageToolUse: number;
+  averageConsistency: number;
+  averageDiagnosticComposite: number;
+  averageTokens: number;
+  averageCostUsd: number;
+  averageDurationMs: number;
+  averageActions: number;
+}
+
+export interface HarnessMatrixSummary {
+  overall: HarnessAggregateMetrics;
+  byTargetVariant: Record<string, HarnessAggregateMetrics>;
+  byProfile: Partial<Record<EvalProfile, HarnessAggregateMetrics>>;
+  byDifficulty: Partial<Record<EvalDifficulty, HarnessAggregateMetrics>>;
+  byTag: Record<string, HarnessAggregateMetrics>;
+}
+
 export interface HarnessMatrixReport {
   schemaVersion: 1;
   generatedAt: string;
   manifest: HarnessMatrixManifest;
   cells: HarnessMatrixCellResult[];
+  summary: HarnessMatrixSummary;
 }
 
 export interface HarnessCellDiff {
