@@ -1,0 +1,3 @@
+Create result.json with exactly two keys:
+- status: the string "ready"
+- items: the strings "alpha" and "beta" in that order

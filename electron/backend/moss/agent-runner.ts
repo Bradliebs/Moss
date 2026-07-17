@@ -253,6 +253,7 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
       }
 
       for (const call of calls) {
+        if (signal.aborted) break;
         usedToolNames.add(call.name);
         onEvent({ type: "tool-call", callId: call.id, name: call.name, arguments: call.arguments });
         const startedAt = Date.now();

@@ -7,8 +7,9 @@ import type {
   EvalProfile,
   EvalReport,
   EvalRunResult,
+  HarnessExecutionTrace,
 } from "../../../../common/evals";
-import type { TaskEvidence } from "../../../../common/types";
+import type { TaskBudget, TaskEvidence } from "../../../../common/types";
 import type { VerificationCheck } from "../../../../common/verification";
 import { VerificationRegistry } from "../verify/verification-registry";
 
@@ -20,6 +21,7 @@ const ADMISSIONS: EvalAdmission[] = [
   "failed",
   "recovered",
   "verified",
+  "budget-exhausted",
 ];
 
 export interface EvalExecutionResult {
@@ -28,6 +30,7 @@ export interface EvalExecutionResult {
     claimedEvidence?: TaskEvidence[];
   };
   workspaceRoot: string;
+  trace?: HarnessExecutionTrace;
 }
 
 export type EvalExecutor = (testCase: EvalCase, repetition: number) => Promise<EvalExecutionResult>;
@@ -132,6 +135,72 @@ export function validateCase(testCase: EvalCase): void {
   }
   if (testCase.repetitions !== undefined && (!Number.isInteger(testCase.repetitions) || testCase.repetitions < 1)) {
     throw new Error(`Eval case '${testCase.id}' repetitions must be a positive integer`);
+  }
+  validateBenchmarkControls(testCase);
+}
+
+function validateBenchmarkControls(testCase: EvalCase): void {
+  const controls = testCase.benchmark;
+  if (!controls) return;
+
+  const expected = validateCapabilityList(testCase, "expectedCapabilities", controls.expectedCapabilities);
+  const forbidden = validateCapabilityList(testCase, "forbiddenCapabilities", controls.forbiddenCapabilities);
+  for (const capability of expected) {
+    if (forbidden.has(capability)) {
+      throw new Error(`Eval case '${testCase.id}' cannot both expect and forbid capability '${capability}'`);
+    }
+    if (!testCase.allowedCapabilities.includes(capability)) {
+      throw new Error(`Eval case '${testCase.id}' expects capability '${capability}' but does not allow it`);
+    }
+  }
+
+  const requiredApprovals = validateCapabilityList(
+    testCase,
+    "security.requireApprovalFor",
+    controls.security?.requireApprovalFor,
+  );
+  for (const capability of requiredApprovals) {
+    if (forbidden.has(capability)) {
+      throw new Error(`Eval case '${testCase.id}' cannot require approval for forbidden capability '${capability}'`);
+    }
+    if (!testCase.allowedCapabilities.includes(capability)) {
+      throw new Error(`Eval case '${testCase.id}' requires approval for capability '${capability}' but does not allow it`);
+    }
+  }
+
+  validatePathList(testCase, controls.security?.protectedPaths);
+  validateBudget(testCase, controls.budget);
+}
+
+function validateCapabilityList(testCase: EvalCase, label: string, values?: string[]): Set<string> {
+  const result = new Set<string>();
+  for (const value of values ?? []) {
+    if (!/^[a-zA-Z0-9._-]{1,128}$/.test(value) || result.has(value)) {
+      throw new Error(`Eval case '${testCase.id}' ${label} must contain unique safe capability ids`);
+    }
+    result.add(value);
+  }
+  return result;
+}
+
+function validatePathList(testCase: EvalCase, values?: string[]): void {
+  const paths = new Set<string>();
+  for (const value of values ?? []) {
+    const normalized = value.replace(/\\/g, "/");
+    if (!normalized || normalized.startsWith("/") || /^[a-zA-Z]:\//.test(normalized) || normalized.split("/").includes("..")) {
+      throw new Error(`Eval case '${testCase.id}' protectedPaths must be relative workspace paths`);
+    }
+    if (paths.has(normalized)) throw new Error(`Eval case '${testCase.id}' protectedPaths must be unique`);
+    paths.add(normalized);
+  }
+}
+
+function validateBudget(testCase: EvalCase, budget?: TaskBudget): void {
+  if (!budget) return;
+  for (const [name, value] of Object.entries(budget)) {
+    if (value !== undefined && (!Number.isFinite(value) || value < 0)) {
+      throw new Error(`Eval case '${testCase.id}' budget '${name}' must be non-negative`);
+    }
   }
 }
 

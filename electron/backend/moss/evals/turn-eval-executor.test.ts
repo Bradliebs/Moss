@@ -38,9 +38,11 @@ class ToolCallingProvider implements ChatProvider {
   readonly kind = "deterministic";
   private round = 0;
 
+  constructor(private readonly toolName = "read_file") {}
+
   async *streamChat(): AsyncIterable<ProviderStreamEvent> {
     if (this.round++ === 0) {
-      yield { type: "tool-call", toolCall: { id: "call-1", name: "read_file", arguments: "{}" } };
+      yield { type: "tool-call", toolCall: { id: "call-1", name: this.toolName, arguments: "{}" } };
       return;
     }
     yield { type: "text-delta", text: "inspection complete" };
@@ -53,7 +55,12 @@ class ToolCallingProvider implements ChatProvider {
 
 describe("createTurnEvalExecutor", () => {
   it("runs the production turn loop and grades its end state independently", async () => {
-    const times = [new Date("2026-07-13T10:00:00.000Z"), new Date("2026-07-13T10:00:01.000Z")];
+    const times = [
+      new Date("2026-07-13T10:00:00.000Z"),
+      new Date("2026-07-13T10:00:01.000Z"),
+      new Date("2026-07-13T10:00:02.000Z"),
+      new Date("2026-07-13T10:00:03.000Z"),
+    ];
     const execute = createTurnEvalExecutor({
       provider: new DeterministicProvider(),
       model: "fixture-model",
@@ -80,6 +87,12 @@ describe("createTurnEvalExecutor", () => {
       outcome: "completed",
       admissions: ["verified"],
     });
+    const rawExecution = await execute(TEST_CASE, 1);
+    expect(rawExecution.trace).toMatchObject({
+      usage: { inputTokens: 12, outputTokens: 3 },
+      terminalState: "completed",
+      toolCalls: [],
+    });
   });
 
   it("separates tool attempts from approval-gated execution", async () => {
@@ -90,7 +103,7 @@ describe("createTurnEvalExecutor", () => {
       execute: async () => ({ ok: true, content: "fixture inspected" }),
     };
     const execute = createTurnEvalExecutor({
-      provider: new ToolCallingProvider(),
+      provider: new ToolCallingProvider(tool.name),
       model: "fixture-model",
       toolRegistry: new Map([[tool.name, tool]]),
       workspaceRoot: () => "",
@@ -102,5 +115,58 @@ describe("createTurnEvalExecutor", () => {
 
     expect(report.results[0].observation.admissions).toEqual(["attempted", "verified"]);
     expect(report.overall.admissions).toMatchObject({ attempted: 1, approved: 0, verified: 1 });
+  });
+
+  it("applies a harness variant and returns a trace from the production loop", async () => {
+    const tool: Tool = {
+      name: "write_file",
+      description: "Mutate the disposable fixture",
+      parameters: { type: "object", properties: {} },
+      execute: async () => ({ ok: true, content: "fixture changed" }),
+    };
+    const execute = createTurnEvalExecutor({
+      provider: new ToolCallingProvider(tool.name),
+      model: "fixture-model",
+      toolRegistry: new Map([[tool.name, tool]]),
+      workspaceRoot: () => "",
+      variant: {
+        schemaVersion: 1,
+        id: "auto-approved",
+        description: "Run mutating tools without a prompt",
+        autoApprove: true,
+      },
+    });
+    const result = await execute({
+      ...TEST_CASE,
+      allowedCapabilities: [tool.name],
+    }, 0);
+
+    expect(result.trace?.toolCalls).toEqual([expect.objectContaining({
+      name: "write_file",
+      approvalRequested: false,
+      autoApproved: true,
+      ok: true,
+    })]);
+  });
+
+  it("reports budget exhaustion separately from user cancellation", async () => {
+    const execute = createTurnEvalExecutor({
+      provider: new DeterministicProvider(),
+      model: "fixture-model",
+      toolRegistry: new Map(),
+      workspaceRoot: () => "",
+      variant: {
+        schemaVersion: 1,
+        id: "token-limited",
+        description: "Stop after ten tokens",
+        budget: { maxTokens: 10 },
+      },
+    });
+
+    const result = await execute(TEST_CASE, 0);
+
+    expect(result.observation.outcome).toBe("budget-exhausted");
+    expect(result.observation.admissions).toContain("budget-exhausted");
+    expect(result.trace?.terminalState).toBe("budget-exhausted");
   });
 });

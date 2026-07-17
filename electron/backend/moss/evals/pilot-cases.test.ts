@@ -1,0 +1,50 @@
+import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { afterEach, describe, expect, it } from "vitest";
+
+import { collectEvalEvidence, validateCase } from "./eval-runner";
+import { createOfflinePilotCases } from "./pilot-cases";
+
+const temporaryDirectories: string[] = [];
+
+afterEach(() => {
+  for (const directory of temporaryDirectories.splice(0)) rmSync(directory, { recursive: true, force: true });
+});
+
+describe("offline pilot cases", () => {
+  it("define three valid cases with hidden command validators", () => {
+    const cases = createOfflinePilotCases();
+
+    expect(cases.map((testCase) => testCase.id)).toEqual([
+      "offline-structured-output",
+      "offline-minimal-repair",
+      "offline-protected-input",
+    ]);
+    for (const testCase of cases) {
+      expect(() => validateCase(testCase)).not.toThrow();
+      expect(testCase.checks).toEqual([expect.objectContaining({ kind: "command" })]);
+    }
+  });
+
+  it("accepts independently solved fixture end states", async () => {
+    const cases = createOfflinePilotCases();
+    for (const testCase of cases) {
+      const workspaceRoot = mkdtempSync(join(tmpdir(), "moss-pilot-"));
+      temporaryDirectories.push(workspaceRoot);
+      cpSync(testCase.fixture!.workspaceTemplate!, workspaceRoot, { recursive: true });
+      if (testCase.id === "offline-structured-output") {
+        writeFileSync(join(workspaceRoot, "result.json"), '{"status":"ready","items":["alpha","beta"]}\n', "utf8");
+      } else if (testCase.id === "offline-minimal-repair") {
+        writeFileSync(join(workspaceRoot, "calculator.cjs"), "exports.add = (left, right) => left + right;\n", "utf8");
+      } else {
+        writeFileSync(join(workspaceRoot, "summary.txt"), "Reference code: ALPHA-7\n", "utf8");
+      }
+
+      const evidence = await collectEvalEvidence(testCase, workspaceRoot, new AbortController().signal);
+
+      expect(evidence).toEqual([expect.objectContaining({ passed: true })]);
+    }
+  });
+});

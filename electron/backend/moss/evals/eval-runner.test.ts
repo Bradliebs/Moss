@@ -128,6 +128,29 @@ describe("EvalRunner", () => {
     expect(() => validateCase({ ...CASES[0], checks: [] })).toThrow("has no independent check");
   });
 
+  it("keeps benchmark controls optional and rejects contradictory policies", () => {
+    expect(() => validateCase(CASES[0])).not.toThrow();
+    expect(() => validateCase({
+      ...CASES[0],
+      benchmark: {
+        expectedCapabilities: ["edit_file"],
+        forbiddenCapabilities: ["edit_file"],
+      },
+    })).toThrow("cannot both expect and forbid capability 'edit_file'");
+    expect(() => validateCase({
+      ...CASES[0],
+      benchmark: { expectedCapabilities: ["browser_navigate"] },
+    })).toThrow("expects capability 'browser_navigate' but does not allow it");
+    expect(() => validateCase({
+      ...CASES[0],
+      benchmark: { security: { protectedPaths: ["../hidden-answer.json"] } },
+    })).toThrow("protectedPaths must be relative workspace paths");
+    expect(() => validateCase({
+      ...CASES[0],
+      benchmark: { budget: { maxActions: -1 } },
+    })).toThrow("budget 'maxActions' must be non-negative");
+  });
+
   it("collects independent end-state evidence through the verification registry", async () => {
     const workspaceRoot = mkdtempSync(join(tmpdir(), "moss-eval-"));
     temporaryDirectories.push(workspaceRoot);
