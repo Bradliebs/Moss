@@ -340,14 +340,28 @@ describe("runTurn", () => {
     expect(err.message).toBe("provider down");
   });
 
-  it("stops with an error after the maximum tool rounds", async () => {
-    // Every round returns a tool call, so the loop never terminates naturally.
+  it("allows a final response after the maximum tool rounds", async () => {
+    const requests: ChatRequest[] = [];
+    const provider = scriptedProvider([
+      [call("c1", "read_file")],
+      [call("c2", "read_file")],
+      [{ type: "text-delta", text: "Final reply" }],
+    ], requests);
+    const h = await run(provider, [tool("read_file", { ok: true, content: "again" })], { maxRounds: 2 });
+
+    expect(h.events.filter((e) => e.type === "tool-result")).toHaveLength(2);
+    expect(h.events.at(-1)?.type).toBe("turn-complete");
+    expect(requests[2].tools).toEqual([]);
+  });
+
+  it("stops with an error when a provider calls a tool during finalization", async () => {
+    // This provider ignores the empty tool definition list in the final round.
     const provider = scriptedProvider([[call("c1", "read_file")]]);
     const h = await run(provider, [tool("read_file", { ok: true, content: "again" })]);
 
     const err = h.events.find((e) => e.type === "turn-error") as Extract<MossEvent, { type: "turn-error" }>;
     expect(err.message).toContain("tool rounds");
-    // 8 rounds executed the allow-listed tool 8 times.
+    // The finalization call cannot execute a ninth tool.
     expect(h.events.filter((e) => e.type === "tool-result")).toHaveLength(8);
   });
 

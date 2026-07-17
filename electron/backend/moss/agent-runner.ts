@@ -152,7 +152,10 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
   const usedToolNames = new Set<string>();
 
   try {
-    for (let round = 0; round < maxRounds; round++) {
+    // maxRounds limits tool-execution rounds. One additional tool-disabled
+    // invocation lets the model turn the final tool result into a user-facing
+    // response instead of ending the turn immediately after the last tool.
+    for (let round = 0; round <= maxRounds; round++) {
       if (signal.aborted) {
         onEvent({ type: "turn-aborted", messages: newMessages });
         return;
@@ -175,7 +178,8 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
         let usageOut = 0;
         let sawUsage = false;
         try {
-          for await (const ev of provider.streamChat({ model, messages: conversation, tools }, signal)) {
+          const roundTools = round < maxRounds ? tools : [];
+          for await (const ev of provider.streamChat({ model, messages: conversation, tools: roundTools }, signal)) {
             if (signal.aborted) break;
             if (ev.type === "text-delta") {
               pendingText += ev.text;
@@ -249,6 +253,11 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
           onEvent({ type: "confidence", mode, note: describeConfidence(mode) });
         }
         onEvent({ type: "turn-complete", messages: newMessages });
+        return;
+      }
+
+      if (round === maxRounds) {
+        onEvent({ type: "turn-error", message: `Stopped after ${maxRounds} tool rounds`, messages: newMessages });
         return;
       }
 
