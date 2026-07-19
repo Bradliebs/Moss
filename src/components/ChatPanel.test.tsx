@@ -17,6 +17,13 @@ import type { ChatEventPayload, MossEvent, TaskSnapshot, TaskState } from "@comm
 
 import { ChatPanel } from "./ChatPanel";
 
+const mockExtractPdfText = vi.hoisted(() => vi.fn());
+
+vi.mock("../lib/attachments", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../lib/attachments")>()),
+  extractPdfText: mockExtractPdfText,
+}));
+
 const mockSetSessionMessages = vi.fn();
 const mockClearSession = vi.fn();
 
@@ -143,6 +150,7 @@ function taskSnapshot(state: TaskState, blocker?: TaskSnapshot["blocker"]): Task
 
 beforeEach(() => {
   eventHandler = null;
+  mockExtractPdfText.mockReset();
   mockSession.value = { id: "s1", title: "New chat", messages: [], createdAt: 0, updatedAt: 0 };
   mockToolState.usage = { total: 0, autoApproved: 0 };
   mockToolState.audit = [];
@@ -728,6 +736,34 @@ describe("ChatPanel", () => {
       },
     ]);
     expect(screen.queryByText("private file body")).toBeNull();
+  });
+
+  it("extracts and sends a selected PDF as a document attachment", async () => {
+    mockExtractPdfText.mockResolvedValue("First page\n\nSecond page");
+    render(<Harness />);
+
+    const input = screen.getByLabelText("Attach files") as HTMLInputElement;
+    expect(input.accept).toContain(".pdf");
+    const file = new File(["pdf bytes"], "report.pdf", { type: "application/pdf" });
+    Object.defineProperty(file, "arrayBuffer", {
+      value: vi.fn().mockResolvedValue(new ArrayBuffer(8)),
+    });
+
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() => expect(screen.getByText("report.pdf")).toBeDefined());
+    fireEvent.click(screen.getByText("Send"));
+
+    const request = (window.moss.chat.send as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(request.messages).toEqual([
+      {
+        role: "user",
+        content: "",
+        documents: [
+          { name: "report.pdf", mediaType: "application/pdf", text: "First page\n\nSecond page" },
+        ],
+      },
+    ]);
   });
 
   it("shows enabled skills after slash and inserts the selected skill", async () => {

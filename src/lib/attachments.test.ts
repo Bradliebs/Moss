@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { imageAttachmentError, isLikelyVisionModel, MAX_IMAGE_BYTES, MAX_TEXT_BYTES, textAttachmentError, textLanguageForFile } from "./attachments";
+import { imageAttachmentError, isLikelyVisionModel, isPdfFile, MAX_IMAGE_BYTES, MAX_TEXT_BYTES, textAttachmentError, textLanguageForFile } from "./attachments";
 
 describe("imageAttachmentError", () => {
   it("accepts an in-bounds image", () => {
@@ -64,5 +64,13 @@ describe("textLanguageForFile", () => {
   it("returns null for unsupported binary types", () => {
     expect(textLanguageForFile({ type: "application/pdf", name: "doc.pdf" })).toBeNull();
     expect(textLanguageForFile({ type: "image/png", name: "p.png" })).toBeNull();
+  });
+});
+
+describe("isPdfFile", () => {
+  it("recognizes PDFs by MIME type or extension", () => {
+    expect(isPdfFile({ type: "application/pdf", name: "document" })).toBe(true);
+    expect(isPdfFile({ type: "", name: "document.PDF" })).toBe(true);
+    expect(isPdfFile({ type: "text/plain", name: "notes.txt" })).toBe(false);
   });
 });

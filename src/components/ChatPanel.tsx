@@ -7,7 +7,7 @@ import type { AgentMessage, ChatEventPayload, ConfidenceMode, DocumentAttachment
 import { PERSONALITY_PRESETS } from "@common/personalities";
 
 import { useDictation } from "../lib/dictation";
-import { imageAttachmentError, isLikelyVisionModel, textAttachmentError, textLanguageForFile } from "../lib/attachments";
+import { extractPdfText, imageAttachmentError, isLikelyVisionModel, isPdfFile, MAX_PDF_BYTES, textAttachmentError, textLanguageForFile } from "../lib/attachments";
 import { markdownToHtml } from "../lib/markdown";
 import { estimateCost, formatUsd } from "../lib/pricing";
 import {
@@ -641,6 +641,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
     if (!fileList) return;
     for (const file of Array.from(fileList)) {
       const isImage = file.type.startsWith("image/");
+      const isPdf = isPdfFile(file);
       const lang = textLanguageForFile(file);
       if (isImage) {
         const error = imageAttachmentError(file);
@@ -658,6 +659,28 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
         reader.onerror = () => setStatus(`${file.name}: could not read file`);
         reader.onloadend = () => setPendingAttachmentReads((count) => Math.max(0, count - 1));
         reader.readAsDataURL(file);
+      } else if (isPdf) {
+        if (file.size > MAX_PDF_BYTES) {
+          setStatus(`${file.name}: PDF is larger than 10 MB`);
+          continue;
+        }
+        setPendingAttachmentReads((count) => count + 1);
+        file.arrayBuffer()
+          .then(extractPdfText)
+          .then((text) => {
+            if (!text) throw new Error("no readable text found");
+            const error = textAttachmentError({ name: file.name, size: new TextEncoder().encode(text).byteLength });
+            if (error) throw new Error("extracted text is larger than 256 KB");
+            setDocuments((prev) => [
+              ...prev,
+              { name: file.name, mediaType: "application/pdf", text },
+            ]);
+          })
+          .catch((error: unknown) => {
+            const reason = error instanceof Error ? error.message : "could not read file";
+            setStatus(`${file.name}: ${reason}`);
+          })
+          .finally(() => setPendingAttachmentReads((count) => Math.max(0, count - 1)));
       } else if (lang !== null) {
         const error = textAttachmentError(file);
         if (error) {
@@ -1254,7 +1277,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
             ref={fileInputRef}
             type="file"
             aria-label="Attach files"
-            accept="image/*,.txt,.md,.json,.csv,.tsv,.log,.xml,.yml,.yaml,.toml,.ini,.html,.css,.ts,.tsx,.js,.jsx,.py,.sh,.sql,.rs,.go,.java,.c,.cpp,.rb"
+            accept="image/*,.pdf,.txt,.md,.json,.csv,.tsv,.log,.xml,.yml,.yaml,.toml,.ini,.html,.css,.ts,.tsx,.js,.jsx,.py,.sh,.sql,.rs,.go,.java,.c,.cpp,.rb"
             multiple
             className="hidden"
             onChange={(e) => {
@@ -1265,7 +1288,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
           <button
             className="rounded-xl bg-neutral-300 dark:bg-neutral-700 px-3 py-2 transition hover:bg-neutral-400 dark:hover:bg-neutral-600"
             onClick={() => fileInputRef.current?.click()}
-            title="Attach an image or text file"
+            title="Attach an image, PDF, or text file"
           >
             Attach{attachments.length + documents.length > 0 ? ` (${attachments.length + documents.length})` : ""}
           </button>

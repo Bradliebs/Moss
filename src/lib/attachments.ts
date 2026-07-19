@@ -15,6 +15,9 @@ export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
  *  reject before reading rather than after. */
 export const MAX_TEXT_BYTES = 256 * 1024;
 
+/** Maximum PDF size accepted for local text extraction. */
+export const MAX_PDF_BYTES = 10 * 1024 * 1024;
+
 /** Validate a picked file destined to become an image attachment. Returns a
  *  short error string to show the user, or null when the file is acceptable.
  *  Drag-drop and paste bypass the file picker's accept filter, so this guards
@@ -30,6 +33,30 @@ export function imageAttachmentError(file: { type: string; size: number; name: s
 export function textAttachmentError(file: { size: number; name: string }): string | null {
   if (file.size > MAX_TEXT_BYTES) return `${file.name}: text file is larger than 256 KB`;
   return null;
+}
+
+/** Extract readable text from a PDF while preserving page boundaries. */
+export async function extractPdfText(data: ArrayBuffer): Promise<string> {
+  const [{ getDocument, GlobalWorkerOptions }, workerModule] = await Promise.all([
+    import("pdfjs-dist"),
+    import("pdfjs-dist/build/pdf.worker.mjs?url"),
+  ]);
+  GlobalWorkerOptions.workerSrc = workerModule.default;
+
+  const loadingTask = getDocument({ data: new Uint8Array(data) });
+  const document = await loadingTask.promise;
+  try {
+    const pages: string[] = [];
+    for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
+      const page = await document.getPage(pageNumber);
+      const content = await page.getTextContent();
+      pages.push(content.items.map((item) => ("str" in item ? item.str : "")).join(" ").trim());
+      page.cleanup();
+    }
+    return pages.filter(Boolean).join("\n\n");
+  } finally {
+    await loadingTask.destroy();
+  }
 }
 
 /** File extensions inlined as fenced text. PDF/Word need binary parsing and are
@@ -72,6 +99,10 @@ export function textLanguageForFile(file: { type: string; name: string }): strin
   if (ext in TEXT_EXTENSIONS) return TEXT_EXTENSIONS[ext];
   if (file.type.startsWith("text/")) return "";
   return null;
+}
+
+export function isPdfFile(file: { type: string; name: string }): boolean {
+  return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
 }
 
 /** Substrings of model ids known to be vision-capable, matched case-insensitively.
