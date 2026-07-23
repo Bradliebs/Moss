@@ -29,6 +29,7 @@ export interface HarnessMatrixRunnerOptions {
   now?: () => Date;
   registry?: VerificationRegistry;
   evaluatorVersion?: string;
+  evaluatorArtifacts?: string[];
 }
 
 /** Expands model, harness, case, and repetition axes into isolated executions. */
@@ -37,6 +38,7 @@ export class HarnessMatrixRunner {
   private readonly now: () => Date;
   private readonly registry: VerificationRegistry;
   private readonly evaluatorVersion: string;
+  private readonly evaluatorArtifacts: string[];
 
   constructor(
     private readonly createExecutor: MatrixExecutorFactory,
@@ -46,6 +48,7 @@ export class HarnessMatrixRunner {
     this.now = options.now ?? (() => new Date());
     this.registry = options.registry ?? new VerificationRegistry();
     this.evaluatorVersion = options.evaluatorVersion ?? "moss-harness-v1";
+    this.evaluatorArtifacts = options.evaluatorArtifacts ?? [];
   }
 
   async run(
@@ -54,6 +57,7 @@ export class HarnessMatrixRunner {
     variants: readonly HarnessVariant[],
   ): Promise<HarnessMatrixReport> {
     validateHarnessMatrix(cases, targets, variants);
+    const manifest = buildHarnessManifest(cases, targets, variants, this.evaluatorVersion, this.evaluatorArtifacts);
     const cells: HarnessMatrixCellResult[] = [];
 
     for (const target of targets) {
@@ -67,10 +71,16 @@ export class HarnessMatrixRunner {
       }
     }
 
+    const completedManifest = buildHarnessManifest(cases, targets, variants, this.evaluatorVersion, this.evaluatorArtifacts);
+    const invariantHashes = ["evaluatorArtifactHash", "caseSetHash", "targetSetHash", "variantSetHash"] as const;
+    const changedHash = invariantHashes.find((key) => manifest[key] !== completedManifest[key]);
+    if (changedHash) {
+      throw new Error(`Harness input '${changedHash}' changed during the run`);
+    }
     return {
       schemaVersion: 1,
       generatedAt: this.now().toISOString(),
-      manifest: buildHarnessManifest(cases, targets, variants, this.evaluatorVersion),
+      manifest,
       cells,
       summary: summarizeHarnessMatrix(cells, cases),
     };
@@ -119,6 +129,7 @@ export class HarnessMatrixRunner {
         repetition,
         result,
         trace: execution.trace,
+        promptProvenance: execution.promptProvenance,
         harnessScore,
         protectedInputHashesBefore,
         protectedInputHashesAfter,
@@ -150,6 +161,9 @@ export function validateHarnessMatrix(
   for (const variant of variants) {
     if (variant.schemaVersion !== 1 || !variant.description.trim()) {
       throw new Error(`Invalid harness variant '${variant.id}'`);
+    }
+    if (variant.promptProfile !== undefined && !/^[a-zA-Z0-9._-]{1,128}$/.test(variant.promptProfile)) {
+      throw new Error(`Harness variant '${variant.id}' has an invalid prompt profile`);
     }
   }
   const variantBudgets = new Set(variants.map((variant) => JSON.stringify(canonicalize(variant.budget ?? null))));
@@ -241,6 +255,7 @@ export function buildHarnessManifest(
   targets: readonly EvalModelTarget[],
   variants: readonly HarnessVariant[],
   evaluatorVersion = "moss-harness-v1",
+  evaluatorArtifacts: readonly string[] = [],
 ): HarnessMatrixManifest {
   validateHarnessMatrix(cases, targets, variants);
   if (!evaluatorVersion.trim()) throw new Error("Harness evaluator version is required");
@@ -249,6 +264,10 @@ export function buildHarnessManifest(
     caseIds: cases.map((testCase) => testCase.id),
     targetIds: targets.map((target) => target.id),
     variantIds: variants.map((variant) => variant.id),
+    promptProfiles: [...new Set(variants
+      .map((variant) => variant.promptProfile)
+      .filter((profile): profile is string => Boolean(profile)))],
+    evaluatorArtifactHash: fingerprintEvaluatorArtifacts(evaluatorArtifacts),
     caseSetHash: fingerprintCases(cases),
     targetSetHash: stableHash(targets),
     variantSetHash: stableHash(variants),
@@ -283,7 +302,26 @@ export function summarizeHarnessMatrix(
     byDifficulty,
     byTag: Object.fromEntries([...taggedCells].sort(([left], [right]) => left.localeCompare(right))
       .map(([tag, group]) => [tag, aggregateHarnessMetrics(group)])),
+    byCriterion: aggregateCriterionMetrics(cells),
   };
+}
+
+function aggregateCriterionMetrics(cells: readonly HarnessMatrixCellResult[]): NonNullable<HarnessMatrixReport["summary"]["byCriterion"]> {
+  const groups = new Map<string, { passes: number; runs: number; mandatory: boolean }>();
+  for (const cell of cells) {
+    for (const criterion of cell.result.criteria) {
+      const key = `${cell.targetId}/${cell.variantId}/${cell.caseId}/${criterion.criterionId}`;
+      const group = groups.get(key) ?? { passes: 0, runs: 0, mandatory: criterion.mandatory };
+      group.runs++;
+      if (criterion.passed) group.passes++;
+      group.mandatory ||= criterion.mandatory;
+      groups.set(key, group);
+    }
+  }
+  return Object.fromEntries([...groups].sort(([left], [right]) => left.localeCompare(right)).map(([key, group]) => [key, {
+    ...group,
+    passRate: group.runs === 0 ? 0 : group.passes / group.runs,
+  }]));
 }
 
 function groupMetrics(
@@ -329,4 +367,15 @@ function aggregateHarnessMetrics(cells: readonly HarnessMatrixCellResult[]): Har
     averageDurationMs: average(cells.map((cell) => cell.result.durationMs)),
     averageActions: average(cells.map((cell) => cell.trace?.toolCalls.length ?? 0)),
   };
+}
+
+function fingerprintEvaluatorArtifacts(paths: readonly string[]): string | undefined {
+  if (paths.length === 0) return undefined;
+  const artifacts = paths.map((path) => ({ id: basename(path), contentHash: hashExternalPath(path) }));
+  const ids = new Set<string>();
+  for (const artifact of artifacts) {
+    if (ids.has(artifact.id)) throw new Error(`Evaluator artifact ids must be unique: ${artifact.id}`);
+    ids.add(artifact.id);
+  }
+  return stableHash(artifacts.sort((left, right) => left.id.localeCompare(right.id)));
 }

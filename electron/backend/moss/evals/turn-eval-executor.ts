@@ -1,9 +1,10 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import type { EvalAdmission, EvalCase, EvalExecutionObservation, HarnessVariant } from "../../../../common/evals";
 import type { AgentMessage, MossEvent, TokenUsage } from "../../../../common/types";
 import { runTurn } from "../agent-runner";
 import type { ChatProvider } from "../providers/types";
+import { buildSystemMessage } from "../system-prompt";
 import type { Tool } from "../tools";
 import type { EvalExecutionResult, EvalExecutor } from "./eval-runner";
 import { HarnessTraceCollector } from "./trace-collector";
@@ -18,17 +19,34 @@ export interface TurnEvalExecutorOptions {
   autoApprove?: boolean;
   estimateCostUsd?: (usage: TokenUsage) => number;
   now?: () => Date;
+  promptNow?: () => Date;
   variant?: HarnessVariant;
 }
+
+const DEFAULT_PROMPT_PROFILE = "deterministic-production-v1";
 
 /** Adapt the production agent loop to the provider-neutral evaluation runner. */
 export function createTurnEvalExecutor(options: TurnEvalExecutorOptions): EvalExecutor {
   const now = options.now ?? (() => new Date());
   return async (testCase, repetition): Promise<EvalExecutionResult> => {
     const workspaceRoot = await options.workspaceRoot(testCase, repetition);
+    const startedAtDate = now();
+    const promptDate = options.promptNow?.() ?? startedAtDate;
     const messages: AgentMessage[] = options.messages
       ? await options.messages(testCase, repetition)
-      : [{ role: "user", content: testCase.task.objective }];
+      : [
+        buildSystemMessage({
+          includeSkills: false,
+          includeMemory: false,
+          query: testCase.task.objective,
+          now: () => promptDate,
+        }),
+        { role: "user", content: testCase.task.objective },
+      ];
+    const promptProvenance = {
+      profile: options.variant?.promptProfile ?? (options.messages ? "custom" : DEFAULT_PROMPT_PROFILE),
+      seededMessagesHash: createHash("sha256").update(JSON.stringify(messages)).digest("hex"),
+    };
     const allowed = new Set(testCase.allowedCapabilities);
     const tools = [...options.toolRegistry.values()].filter((tool) => allowed.has(tool.name));
     const toolRegistry = new Map(tools.map((tool) => [tool.name, tool]));
@@ -43,7 +61,6 @@ export function createTurnEvalExecutor(options: TurnEvalExecutorOptions): EvalEx
     let failureReason: string | undefined;
     let actionCount = 0;
     let outcome: EvalExecutionObservation["outcome"] = "failed";
-    const startedAtDate = now();
     const startedAt = startedAtDate.toISOString();
 
     const exhaustBudget = (reason: string): void => {
@@ -112,7 +129,7 @@ export function createTurnEvalExecutor(options: TurnEvalExecutorOptions): EvalEx
         maxRounds: options.variant?.maxRounds,
         toolTimeoutMs: options.variant?.toolTimeoutMs,
         verify: options.variant?.verify,
-        now: () => startedAtDate,
+        now: () => promptDate,
       });
     } finally {
       if (durationTimer) clearTimeout(durationTimer);
@@ -125,6 +142,7 @@ export function createTurnEvalExecutor(options: TurnEvalExecutorOptions): EvalEx
     return {
       workspaceRoot,
       trace,
+      promptProvenance,
       observation: {
         caseId: testCase.id,
         runId: `${testCase.id}-${repetition}-${randomUUID()}`,

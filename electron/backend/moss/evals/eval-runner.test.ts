@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { EvalCase, EvalExecutionObservation } from "../../../../common/evals";
 import { collectEvalEvidence, type EvalExecutionResult, EvalRunner, scoreRun, validateCase } from "./eval-runner";
+import { VerificationRegistry } from "../verify/verification-registry";
 
 const temporaryDirectories: string[] = [];
 
@@ -67,6 +68,7 @@ function observation(testCase: EvalCase, repetition: number): EvalExecutionObser
       passed: true,
       summary: `${criterion.description} verified`,
       capturedAt: "2026-07-13T10:00:01.000Z",
+      checks: [],
     })),
     usage: { inputTokens: 80, outputTokens: 20 },
     estimatedCostUsd: 0.01,
@@ -107,6 +109,7 @@ describe("EvalRunner", () => {
           passed: false,
           summary: "Focused test regressed",
           capturedAt: "2026-07-13T10:00:01.500Z",
+          checks: [],
         },
       ],
     });
@@ -171,6 +174,49 @@ describe("EvalRunner", () => {
     expect(evidence).toHaveLength(1);
     expect(evidence[0]).toMatchObject({ criterionId: "state", kind: "file", passed: true });
     expect(evidence[0].summary).toContain("contains the expected text");
+    expect(evidence[0].checks).toEqual([expect.objectContaining({
+      checkId: "state-check",
+      kind: "file-contains",
+      passed: true,
+    })]);
+  });
+
+  it("retains each check result while folding criterion success", async () => {
+    const testCase: EvalCase = {
+      ...CASES[1],
+      checks: [
+        { id: "first-check", criterionId: "state", kind: "receipt", asserted: true },
+        { id: "second-check", criterionId: "state", kind: "receipt", asserted: false },
+      ],
+    };
+
+    const evidence = await collectEvalEvidence(testCase, "", new AbortController().signal);
+
+    expect(evidence[0].passed).toBe(false);
+    expect(evidence[0].checks).toEqual([
+      expect.objectContaining({ checkId: "first-check", passed: true }),
+      expect.objectContaining({ checkId: "second-check", passed: false }),
+    ]);
+  });
+
+  it("does not persist command lines or secrets in verification summaries", async () => {
+    const registry = new VerificationRegistry(false);
+    registry.register("command", async () => ({
+      ok: true,
+      summary: "Command passed: deploy --token super-secret",
+      details: "raw output",
+    }));
+    const testCase: EvalCase = {
+      ...CASES[1],
+      checks: [{ id: "secret-command", criterionId: "state", kind: "command", command: "deploy --token super-secret" }],
+    };
+
+    const evidence = await collectEvalEvidence(testCase, "", new AbortController().signal, { registry });
+
+    expect(evidence[0].summary).toBe("Command passed");
+    expect(evidence[0].checks[0].summary).toBe("Command passed");
+    expect(JSON.stringify(evidence)).not.toContain("super-secret");
+    expect(JSON.stringify(evidence)).not.toContain("raw output");
   });
 
   it("fails a completed run when claimed evidence passes but the independent grader fails", async () => {

@@ -1,0 +1,7 @@
+{
+  "maxTokenIncrease": 2000,
+  "maxCostIncreaseUsd": 0.02,
+  "maxDurationIncreaseMs": 30000,
+  "maxActionIncrease": 1,
+  "minProcessDelta": -0.05
+}

@@ -113,6 +113,15 @@ describe("buildSystemMessage", () => {
     expect(state.query).toBe("how do I deploy");
   });
 
+  it("can exclude mutable memory for deterministic evaluation prompts", () => {
+    state.memory = "## Memory\nremembered thing";
+
+    const msg = buildSystemMessage({ includeSkills: false, includeMemory: false, query: "stable eval" });
+
+    expect(msg.content).not.toContain("## Memory");
+    expect(state.query).toBeUndefined();
+  });
+
   it("orders sections base, skills, then memory", () => {
     state.skills = [skill("alpha")];
     state.memory = "## Memory\nremembered thing";

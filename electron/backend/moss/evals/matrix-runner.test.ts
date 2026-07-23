@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import type { EvalCase, EvalModelTarget, HarnessVariant } from "../../../../common/evals";
 import type { EvalExecutor } from "./eval-runner";
-import { HarnessMatrixRunner } from "./matrix-runner";
+import { buildHarnessManifest, HarnessMatrixRunner } from "./matrix-runner";
 
 const temporaryDirectories: string[] = [];
 
@@ -41,8 +41,8 @@ const TARGET: EvalModelTarget = {
 };
 
 const VARIANTS: HarnessVariant[] = [
-  { schemaVersion: 1, id: "baseline", description: "Baseline controls" },
-  { schemaVersion: 1, id: "guarded", description: "Guarded controls", autoApprove: false },
+  { schemaVersion: 1, id: "baseline", description: "Baseline controls", promptProfile: "deterministic-production-v1" },
+  { schemaVersion: 1, id: "guarded", description: "Guarded controls", promptProfile: "deterministic-production-v1", autoApprove: false },
 ];
 
 describe("HarnessMatrixRunner", () => {
@@ -58,6 +58,10 @@ describe("HarnessMatrixRunner", () => {
         writeFileSync(join(workspaceRoot, "protected.txt"), variant.id, "utf8");
         return {
           workspaceRoot,
+          promptProvenance: {
+            profile: variant.promptProfile!,
+            seededMessagesHash: "a".repeat(64),
+          },
           trace: {
             toolCalls: [{
               callId: `${variant.id}-write`,
@@ -97,6 +101,8 @@ describe("HarnessMatrixRunner", () => {
 
     expect(report.cells).toHaveLength(2);
     expect(report.cells.map((cell) => cell.variantId)).toEqual(["baseline", "guarded"]);
+    expect(report.manifest.promptProfiles).toEqual(["deterministic-production-v1"]);
+    expect(report.cells.every((cell) => cell.promptProvenance?.seededMessagesHash === "a".repeat(64))).toBe(true);
     expect(new Set(workspaceRoots).size).toBe(2);
     expect(workspaceRoots.every((workspaceRoot) => !existsSync(workspaceRoot))).toBe(true);
     expect(readFileSync(join(fixtureRoot, "protected.txt"), "utf8")).toBe("original");
@@ -113,6 +119,10 @@ describe("HarnessMatrixRunner", () => {
     expect(report.summary.byProfile.coding).toMatchObject({ runs: 2 });
     expect(report.summary.byDifficulty.smoke).toMatchObject({ runs: 2 });
     expect(report.summary.byTag.security).toMatchObject({ runs: 2 });
+    expect(report.summary.byCriterion).toEqual({
+      "deterministic-model/baseline/isolated-artifact/artifact": { runs: 1, passes: 1, passRate: 1, mandatory: true },
+      "deterministic-model/guarded/isolated-artifact/artifact": { runs: 1, passes: 1, passRate: 1, mandatory: true },
+    });
   });
 
   it("rejects comparisons that vary the execution budget", async () => {
@@ -124,5 +134,95 @@ describe("HarnessMatrixRunner", () => {
       { ...VARIANTS[0], budget: { maxActions: 2 } },
       { ...VARIANTS[1], budget: { maxActions: 3 } },
     ])).rejects.toThrow("same execution budget");
+  });
+
+  it("fingerprints evaluator artifact identities and contents without depending on their paths", () => {
+    const firstRoot = mkdtempSync(join(tmpdir(), "moss-evaluator-a-"));
+    const secondRoot = mkdtempSync(join(tmpdir(), "moss-evaluator-b-"));
+    const firstPath = join(firstRoot, "validator.cjs");
+    const secondPath = join(secondRoot, "validator.cjs");
+    temporaryDirectories.push(firstRoot, secondRoot);
+    writeFileSync(firstPath, "module.exports = 'same';", "utf8");
+    writeFileSync(secondPath, "module.exports = 'same';", "utf8");
+
+    const first = buildHarnessManifest([TEST_CASE], [TARGET], VARIANTS, "v1", [firstPath]);
+    const sameContent = buildHarnessManifest([TEST_CASE], [TARGET], VARIANTS, "v1", [secondPath]);
+    writeFileSync(secondPath, "module.exports = 'changed';", "utf8");
+    const changedContent = buildHarnessManifest([TEST_CASE], [TARGET], VARIANTS, "v1", [secondPath]);
+
+    expect(first.evaluatorArtifactHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(sameContent.evaluatorArtifactHash).toBe(first.evaluatorArtifactHash);
+    expect(changedContent.evaluatorArtifactHash).not.toBe(first.evaluatorArtifactHash);
+  });
+
+  it("detects evaluator contents swapped between artifact identities", () => {
+    const artifactRoot = mkdtempSync(join(tmpdir(), "moss-evaluator-swap-"));
+    const firstPath = join(artifactRoot, "first.cjs");
+    const secondPath = join(artifactRoot, "second.cjs");
+    temporaryDirectories.push(artifactRoot);
+    writeFileSync(firstPath, "module.exports = 'first';", "utf8");
+    writeFileSync(secondPath, "module.exports = 'second';", "utf8");
+    const before = buildHarnessManifest([TEST_CASE], [TARGET], VARIANTS, "v1", [firstPath, secondPath]);
+    writeFileSync(firstPath, "module.exports = 'second';", "utf8");
+    writeFileSync(secondPath, "module.exports = 'first';", "utf8");
+    const after = buildHarnessManifest([TEST_CASE], [TARGET], VARIANTS, "v1", [firstPath, secondPath]);
+
+    expect(after.evaluatorArtifactHash).not.toBe(before.evaluatorArtifactHash);
+  });
+
+  it("detects evaluator changes during a matrix run", async () => {
+    const artifactRoot = mkdtempSync(join(tmpdir(), "moss-evaluator-mutation-"));
+    const artifactPath = join(artifactRoot, "validator.cjs");
+    temporaryDirectories.push(artifactRoot);
+    writeFileSync(artifactPath, "module.exports = 'before';", "utf8");
+    const runner = new HarnessMatrixRunner((_target, _variant, workspaceRoot) => async (testCase) => {
+      writeFileSync(artifactPath, "module.exports = 'after';", "utf8");
+      writeFileSync(join(workspaceRoot, "artifact.txt"), "done", "utf8");
+      return {
+        workspaceRoot,
+        observation: {
+          caseId: testCase.id,
+          runId: "mutation-run",
+          provider: "deterministic",
+          model: "fixture-model",
+          outcome: "completed",
+          startedAt: "2026-07-17T08:00:00.000Z",
+          completedAt: "2026-07-17T08:00:01.000Z",
+          usage: {},
+          estimatedCostUsd: 0,
+          admissions: [],
+        },
+      };
+    }, { evaluatorArtifacts: [artifactPath] });
+
+    await expect(runner.run([TEST_CASE], [TARGET], [VARIANTS[0]])).rejects.toThrow("changed during");
+  });
+
+  it("detects fixture changes during a matrix run", async () => {
+    const fixtureRoot = mkdtempSync(join(tmpdir(), "moss-fixture-mutation-"));
+    temporaryDirectories.push(fixtureRoot);
+    writeFileSync(join(fixtureRoot, "input.txt"), "before", "utf8");
+    const testCase = { ...TEST_CASE, fixture: { workspaceTemplate: fixtureRoot } };
+    const runner = new HarnessMatrixRunner((_target, _variant, workspaceRoot) => async (currentCase) => {
+      writeFileSync(join(fixtureRoot, "input.txt"), "after", "utf8");
+      writeFileSync(join(workspaceRoot, "artifact.txt"), "done", "utf8");
+      return {
+        workspaceRoot,
+        observation: {
+          caseId: currentCase.id,
+          runId: "fixture-mutation-run",
+          provider: "deterministic",
+          model: "fixture-model",
+          outcome: "completed",
+          startedAt: "2026-07-17T08:00:00.000Z",
+          completedAt: "2026-07-17T08:00:01.000Z",
+          usage: {},
+          estimatedCostUsd: 0,
+          admissions: [],
+        },
+      };
+    });
+
+    await expect(runner.run([testCase], [TARGET], [VARIANTS[0]])).rejects.toThrow("caseSetHash");
   });
 });

@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { EvalCase, EvalModelTarget, HarnessVariant } from "../../../../common/evals";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { resolve } from "node:path";
+
+import type { EvalCase, EvalModelTarget, HarnessMatrixReport, HarnessVariant } from "../../../../common/evals";
 import type { HarnessEvalConfig } from "./eval-cli";
 import { runEvalCli } from "./eval-cli";
 
@@ -56,5 +60,47 @@ describe("runEvalCli", () => {
 
     expect(exitCode).toBe(2);
     expect(stderr).toHaveBeenCalledWith(expect.stringContaining("Usage:"));
+  });
+
+  it("loads an explicit threshold policy for report diffs", async () => {
+    const baseline = JSON.parse(readFileSync(resolve("reports/pilot-baseline.json"), "utf8")) as HarnessMatrixReport;
+    const loadThresholds = vi.fn(() => ({ maxTokenIncrease: 2_000 }));
+    const stdout = vi.fn();
+
+    const exitCode = await runEvalCli([
+      "diff",
+      "baseline.json",
+      "candidate.json",
+      "--policy",
+      "reports/pilot-thresholds.json",
+    ], {
+      readReport: () => baseline,
+      loadThresholds,
+      io: { stdout, stderr: vi.fn() },
+    });
+
+    expect(exitCode).toBe(0);
+    expect(loadThresholds).toHaveBeenCalledWith(resolve("reports/pilot-thresholds.json"));
+    expect(stdout).toHaveBeenCalledWith(expect.stringContaining('"passed": true'));
+  });
+
+  it("rejects process thresholds outside the score delta range", async () => {
+    const root = mkdtempSync(resolve(tmpdir(), "moss-policy-"));
+    const policyPath = resolve(root, "invalid.json");
+    writeFileSync(policyPath, '{"minProcessDelta":-5}', "utf8");
+    const baseline = JSON.parse(readFileSync(resolve("reports/pilot-baseline.json"), "utf8")) as HarnessMatrixReport;
+
+    await expect(runEvalCli([
+      "diff",
+      "baseline.json",
+      "candidate.json",
+      "--policy",
+      policyPath,
+    ], {
+      readReport: () => baseline,
+      io: { stdout: vi.fn(), stderr: vi.fn() },
+    })).rejects.toThrow("Invalid harness threshold policy");
+
+    rmSync(root, { recursive: true, force: true });
   });
 });

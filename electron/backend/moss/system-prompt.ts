@@ -40,6 +40,7 @@ const CUSTOM_INSTRUCTIONS_MAX_CHARS = 2000;
  *  injectable clock used to refresh and test the host's local date each turn. */
 export function buildSystemMessage(opts: {
   includeSkills: boolean;
+  includeMemory?: boolean;
   query?: string;
   customInstructions?: string;
   personalityId?: string;
@@ -61,8 +62,10 @@ export function buildSystemMessage(opts: {
     if (skills) sections.push(skills);
   }
 
-  const memory = memoryStore.selectForSystemPrompt(opts.query ?? "");
-  if (memory) sections.push(memory);
+  if (opts.includeMemory !== false) {
+    const memory = memoryStore.selectForSystemPrompt(opts.query ?? "");
+    if (memory) sections.push(memory);
+  }
 
   sections.push(buildRuntimeContext(opts.now));
 

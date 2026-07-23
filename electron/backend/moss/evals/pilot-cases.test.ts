@@ -14,13 +14,14 @@ afterEach(() => {
 });
 
 describe("offline pilot cases", () => {
-  it("define three valid cases with hidden command validators", () => {
+  it("define four valid cases with hidden command validators", () => {
     const cases = createOfflinePilotCases();
 
     expect(cases.map((testCase) => testCase.id)).toEqual([
       "offline-structured-output",
       "offline-minimal-repair",
       "offline-protected-input",
+      "offline-grounded-synthesis",
     ]);
     for (const testCase of cases) {
       expect(() => validateCase(testCase)).not.toThrow();
@@ -38,8 +39,14 @@ describe("offline pilot cases", () => {
         writeFileSync(join(workspaceRoot, "result.json"), '{"status":"ready","items":["alpha","beta"]}\n', "utf8");
       } else if (testCase.id === "offline-minimal-repair") {
         writeFileSync(join(workspaceRoot, "calculator.cjs"), "exports.add = (left, right) => left + right;\n", "utf8");
-      } else {
+      } else if (testCase.id === "offline-protected-input") {
         writeFileSync(join(workspaceRoot, "summary.txt"), "Reference code: ALPHA-7\n", "utf8");
+      } else {
+        writeFileSync(
+          join(workspaceRoot, "briefing.json"),
+          '{"project":"Atlas","launchDate":"2026-10-14","owner":"Mina Patel"}\n',
+          "utf8",
+        );
       }
 
       const evidence = await collectEvalEvidence(testCase, workspaceRoot, new AbortController().signal);

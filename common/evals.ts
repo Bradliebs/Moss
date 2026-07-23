@@ -26,6 +26,7 @@ export interface HarnessVariant {
   schemaVersion: 1;
   id: string;
   description: string;
+  promptProfile?: string;
   autoApprove?: boolean;
   injectionMode?: InjectionMode;
   contextLimit?: number;
@@ -79,6 +80,22 @@ export interface HarnessExecutionTrace {
   terminalState?: HarnessTraceTerminalState;
 }
 
+export interface EvalPromptProvenance {
+  profile: string;
+  seededMessagesHash: string;
+}
+
+export interface EvalCheckResult {
+  checkId: string;
+  kind: string;
+  passed: boolean;
+  summary: string;
+}
+
+export interface EvalVerifiedEvidence extends TaskEvidence {
+  checks: EvalCheckResult[];
+}
+
 export interface HarnessProcessScores {
   robustness: number;
   toolUse: number;
@@ -120,7 +137,7 @@ export interface EvalExecutionObservation {
   failureReason?: string;
   startedAt: string;
   completedAt: string;
-  evidence: TaskEvidence[];
+  evidence: EvalVerifiedEvidence[];
   usage: TokenUsage;
   estimatedCostUsd: number;
   admissions: EvalAdmission[];
@@ -131,6 +148,7 @@ export interface EvalCriterionResult {
   mandatory: boolean;
   passed: boolean;
   summary: string;
+  checks: EvalCheckResult[];
 }
 
 export interface EvalRunResult {
@@ -148,6 +166,7 @@ export interface HarnessMatrixCellResult {
   repetition: number;
   result: EvalRunResult;
   trace?: HarnessExecutionTrace;
+  promptProvenance?: EvalPromptProvenance;
   harnessScore?: HarnessRunScore;
   protectedInputHashesBefore: Record<string, string>;
   protectedInputHashesAfter: Record<string, string>;
@@ -159,6 +178,8 @@ export interface HarnessMatrixManifest {
   caseIds: string[];
   targetIds: string[];
   variantIds: string[];
+  promptProfiles?: string[];
+  evaluatorArtifactHash?: string;
   caseSetHash: string;
   targetSetHash: string;
   variantSetHash: string;
@@ -188,6 +209,14 @@ export interface HarnessMatrixSummary {
   byProfile: Partial<Record<EvalProfile, HarnessAggregateMetrics>>;
   byDifficulty: Partial<Record<EvalDifficulty, HarnessAggregateMetrics>>;
   byTag: Record<string, HarnessAggregateMetrics>;
+  byCriterion?: Record<string, HarnessCriterionMetrics>;
+}
+
+export interface HarnessCriterionMetrics {
+  runs: number;
+  passes: number;
+  passRate: number;
+  mandatory: boolean;
 }
 
 export interface HarnessMatrixReport {
@@ -203,6 +232,7 @@ export interface HarnessCellDiff {
   targetId: string;
   variantId: string;
   repetition: number;
+  promptChanged: boolean;
   completionChanged: boolean;
   securityChanged: boolean;
   robustnessDelta: number;
@@ -220,7 +250,16 @@ export interface HarnessReportDiff {
   candidateGeneratedAt: string;
   passed: boolean;
   cells: HarnessCellDiff[];
+  criteria: HarnessCriterionDiff[];
   regressions: string[];
+}
+
+export interface HarnessCriterionDiff {
+  criterion: string;
+  mandatory: boolean;
+  baselinePassRate: number;
+  candidatePassRate: number;
+  delta: number;
 }
 
 export interface EvalMetrics {

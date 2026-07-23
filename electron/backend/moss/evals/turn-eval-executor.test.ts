@@ -1,7 +1,9 @@
+import { createHash } from "node:crypto";
+
 import { describe, expect, it } from "vitest";
 
 import type { EvalCase } from "../../../../common/evals";
-import { ProviderError, type ChatProvider, type ProviderStreamEvent } from "../providers/types";
+import { ProviderError, type ChatProvider, type ChatRequest, type ProviderStreamEvent } from "../providers/types";
 import type { Tool } from "../tools";
 import { EvalRunner } from "./eval-runner";
 import { createTurnEvalExecutor } from "./turn-eval-executor";
@@ -23,8 +25,10 @@ const TEST_CASE: EvalCase = {
 
 class DeterministicProvider implements ChatProvider {
   readonly kind = "deterministic";
+  readonly requests: ChatRequest[] = [];
 
-  async *streamChat(): AsyncIterable<ProviderStreamEvent> {
+  async *streamChat(request: ChatRequest): AsyncIterable<ProviderStreamEvent> {
+    this.requests.push(structuredClone(request));
     yield { type: "text-delta", text: "done" };
     yield { type: "usage", usage: { inputTokens: 12, outputTokens: 3 } };
   }
@@ -66,6 +70,60 @@ class FailingProvider implements ChatProvider {
 }
 
 describe("createTurnEvalExecutor", () => {
+  it("seeds a stable production prompt and records only its profile and hash", async () => {
+    const provider = new DeterministicProvider();
+    const times = [
+      new Date("2026-07-13T10:00:00.000Z"),
+      new Date("2026-07-13T10:00:01.000Z"),
+      new Date("2026-07-14T10:00:00.000Z"),
+      new Date("2026-07-14T10:00:01.000Z"),
+    ];
+    const execute = createTurnEvalExecutor({
+      provider,
+      model: "fixture-model",
+      toolRegistry: new Map(),
+      workspaceRoot: () => "",
+      now: () => times.shift()!,
+      promptNow: () => new Date("2026-07-13T12:00:00.000Z"),
+    });
+
+    const first = await execute(TEST_CASE, 0);
+    const second = await execute(TEST_CASE, 1);
+
+    expect(provider.requests[0].messages.map((message) => message.role)).toEqual(["system", "user"]);
+    expect(provider.requests[0].messages[0].content).toContain("You are Moss");
+    expect(provider.requests[0].messages[0].content).toContain("The current local date is 2026-07-13");
+    expect(provider.requests[1].messages[0].content).toContain("The current local date is 2026-07-13");
+    expect(provider.requests[0].messages[1].content).toBe(TEST_CASE.task.objective);
+    expect(first.promptProvenance).toEqual({
+      profile: "deterministic-production-v1",
+      seededMessagesHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+    });
+    expect(second.promptProvenance).toEqual(first.promptProvenance);
+  });
+
+  it("preserves explicit message overrides and labels them as custom", async () => {
+    const provider = new DeterministicProvider();
+    const customMessages = [{ role: "user" as const, content: "specialized case" }];
+    const execute = createTurnEvalExecutor({
+      provider,
+      model: "fixture-model",
+      toolRegistry: new Map(),
+      workspaceRoot: () => "",
+      messages: () => customMessages,
+      now: () => new Date("2026-07-13T10:00:00.000Z"),
+    });
+
+    const result = await execute(TEST_CASE, 0);
+
+    expect(provider.requests[0].messages.at(-1)).toEqual(customMessages[0]);
+    expect(provider.requests[0].messages[0].content).not.toContain("You are Moss");
+    expect(result.promptProvenance).toEqual({
+      profile: "custom",
+      seededMessagesHash: createHash("sha256").update(JSON.stringify(customMessages)).digest("hex"),
+    });
+  });
+
   it("runs the production turn loop and grades its end state independently", async () => {
     const times = [
       new Date("2026-07-13T10:00:00.000Z"),

@@ -2,6 +2,7 @@ import type {
   HarnessCellDiff,
   HarnessMatrixCellResult,
   HarnessMatrixReport,
+  HarnessCriterionDiff,
   HarnessReportDiff,
 } from "../../../../common/evals";
 
@@ -23,6 +24,7 @@ export function diffHarnessReports(
   const candidateCells = new Map(candidate.cells.map((cell) => [cellKey(cell), cell]));
   const cells: HarnessCellDiff[] = [];
   const regressions: string[] = [];
+  const criteria = diffCriteria(baseline, candidate);
 
   for (const baselineCell of baseline.cells) {
     const key = cellKey(baselineCell);
@@ -33,23 +35,14 @@ export function diffHarnessReports(
     }
     const delta = buildCellDiff(baselineCell, candidateCell);
     cells.push(delta);
-    const label = `${baselineCell.targetId}/${baselineCell.variantId}/${baselineCell.caseId}#${baselineCell.repetition}`;
-    if (baselineCell.result.success && !candidateCell.result.success) regressions.push(`${label}: completion regressed`);
-    if (baselineCell.harnessScore.securityPassed && !candidateCell.harnessScore.securityPassed) {
-      regressions.push(`${label}: security regressed`);
-    }
-    const minProcessDelta = thresholds.minProcessDelta ?? 0;
-    if (delta.robustnessDelta < minProcessDelta) regressions.push(`${label}: robustness regressed by ${delta.robustnessDelta}`);
-    if (delta.toolUseDelta < minProcessDelta) regressions.push(`${label}: tool use regressed by ${delta.toolUseDelta}`);
-    if (delta.consistencyDelta < minProcessDelta) regressions.push(`${label}: consistency regressed by ${delta.consistencyDelta}`);
-    if (delta.tokensDelta > (thresholds.maxTokenIncrease ?? 0)) regressions.push(`${label}: tokens increased by ${delta.tokensDelta}`);
-    if (delta.costDeltaUsd > (thresholds.maxCostIncreaseUsd ?? 0)) regressions.push(`${label}: cost increased by $${delta.costDeltaUsd}`);
-    if (delta.durationDeltaMs > (thresholds.maxDurationIncreaseMs ?? 0)) regressions.push(`${label}: duration increased by ${delta.durationDeltaMs}ms`);
-    if (delta.actionsDelta > (thresholds.maxActionIncrease ?? 0)) regressions.push(`${label}: actions increased by ${delta.actionsDelta}`);
   }
 
   if (candidateCells.size !== baseline.cells.length) {
     throw new Error("Candidate report contains matrix cells absent from the baseline");
+  }
+  gateAggregateRegressions(baseline.cells, candidate.cells, thresholds, regressions);
+  for (const criterion of criteria) {
+    if (criterion.delta < 0) regressions.push(`${criterion.criterion}: criterion pass rate regressed by ${criterion.delta}`);
   }
   return {
     schemaVersion: 1,
@@ -57,6 +50,7 @@ export function diffHarnessReports(
     candidateGeneratedAt: candidate.generatedAt,
     passed: regressions.length === 0,
     cells,
+    criteria,
     regressions,
   };
 }
@@ -67,6 +61,7 @@ function assertCompatible(baseline: HarnessMatrixReport, candidate: HarnessMatri
   }
   const checks: Array<[string, string, string]> = [
     ["evaluator version", baseline.manifest.evaluatorVersion, candidate.manifest.evaluatorVersion],
+    ["evaluator artifacts", baseline.manifest.evaluatorArtifactHash ?? "", candidate.manifest.evaluatorArtifactHash ?? ""],
     ["case set", baseline.manifest.caseSetHash, candidate.manifest.caseSetHash],
     ["model target set", baseline.manifest.targetSetHash, candidate.manifest.targetSetHash],
     ["harness variant set", baseline.manifest.variantSetHash, candidate.manifest.variantSetHash],
@@ -84,6 +79,7 @@ function buildCellDiff(baseline: HarnessMatrixCellResult, candidate: HarnessMatr
     targetId: baseline.targetId,
     variantId: baseline.variantId,
     repetition: baseline.repetition,
+    promptChanged: baseline.promptProvenance?.seededMessagesHash !== candidate.promptProvenance?.seededMessagesHash,
     completionChanged: baseline.result.success !== candidate.result.success,
     securityChanged: baselineHarness.securityPassed !== candidateHarness.securityPassed,
     robustnessDelta: candidateHarness.process.robustness - baselineHarness.process.robustness,
@@ -103,4 +99,110 @@ function cellKey(cell: HarnessMatrixCellResult): string {
 function tokens(cell: HarnessMatrixCellResult): number {
   const usage = cell.result.observation.usage;
   return (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0);
+}
+
+function diffCriteria(baseline: HarnessMatrixReport, candidate: HarnessMatrixReport): HarnessCriterionDiff[] {
+  const baselineCriteria = baseline.summary.byCriterion ?? {};
+  const candidateCriteria = candidate.summary.byCriterion ?? {};
+  const baselineKeys = Object.keys(baselineCriteria).sort();
+  if (baselineKeys.length !== Object.keys(candidateCriteria).length
+    || baselineKeys.some((key) => candidateCriteria[key] === undefined)) {
+    throw new Error("Cannot compare reports with different criterion summaries");
+  }
+  return baselineKeys.map((criterion) => ({
+    criterion,
+    mandatory: baselineCriteria[criterion].mandatory,
+    baselinePassRate: baselineCriteria[criterion].passRate,
+    candidatePassRate: candidateCriteria[criterion].passRate,
+    delta: candidateCriteria[criterion].passRate - baselineCriteria[criterion].passRate,
+  }));
+}
+
+interface ComparisonAggregate {
+  completionRate: number;
+  securityPassRate: number;
+  robustness: number;
+  toolUse: number;
+  consistency: number;
+  tokens: number;
+  costUsd: number;
+  durationMs: number;
+  actions: number;
+}
+
+function gateAggregateRegressions(
+  baselineCells: readonly HarnessMatrixCellResult[],
+  candidateCells: readonly HarnessMatrixCellResult[],
+  thresholds: HarnessRegressionThresholds,
+  regressions: string[],
+): void {
+  const baselineGroups = groupComparisonCells(baselineCells);
+  const candidateGroups = groupComparisonCells(candidateCells);
+  if (baselineGroups.size !== candidateGroups.size
+    || [...baselineGroups.keys()].some((key) => !candidateGroups.has(key))) {
+    throw new Error("Cannot compare reports with different target, variant, or case groups");
+  }
+  for (const [label, baselineGroup] of baselineGroups) {
+    const baseline = aggregateComparison(baselineGroup);
+    const candidate = aggregateComparison(candidateGroups.get(label)!);
+    if (candidate.completionRate < baseline.completionRate) regressions.push(`${label}: completion rate regressed`);
+    if (candidate.securityPassRate < baseline.securityPassRate) regressions.push(`${label}: security pass rate regressed`);
+    const minProcessDelta = thresholds.minProcessDelta ?? 0;
+    gateMinimumDelta(label, "robustness", candidate.robustness - baseline.robustness, minProcessDelta, regressions);
+    gateMinimumDelta(label, "tool use", candidate.toolUse - baseline.toolUse, minProcessDelta, regressions);
+    gateMinimumDelta(label, "consistency", candidate.consistency - baseline.consistency, minProcessDelta, regressions);
+    gateMaximumDelta(label, "tokens", candidate.tokens - baseline.tokens, thresholds.maxTokenIncrease ?? 0, regressions);
+    gateMaximumDelta(label, "cost", candidate.costUsd - baseline.costUsd, thresholds.maxCostIncreaseUsd ?? 0, regressions);
+    gateMaximumDelta(label, "duration", candidate.durationMs - baseline.durationMs, thresholds.maxDurationIncreaseMs ?? 0, regressions);
+    gateMaximumDelta(label, "actions", candidate.actions - baseline.actions, thresholds.maxActionIncrease ?? 0, regressions);
+  }
+}
+
+function groupComparisonCells(cells: readonly HarnessMatrixCellResult[]): Map<string, HarnessMatrixCellResult[]> {
+  const groups = new Map<string, HarnessMatrixCellResult[]>();
+  for (const cell of cells) {
+    const key = `${cell.targetId}/${cell.variantId}/${cell.caseId}`;
+    const group = groups.get(key) ?? [];
+    group.push(cell);
+    groups.set(key, group);
+  }
+  return groups;
+}
+
+function aggregateComparison(cells: readonly HarnessMatrixCellResult[]): ComparisonAggregate {
+  const scores = cells.map((cell) => cell.harnessScore!);
+  return {
+    completionRate: rate(cells.map((cell) => cell.result.success)),
+    securityPassRate: rate(scores.map((score) => score.securityPassed)),
+    robustness: mean(scores.map((score) => score.process.robustness)),
+    toolUse: mean(scores.map((score) => score.process.toolUse)),
+    consistency: mean(scores.map((score) => score.process.consistency)),
+    tokens: median(cells.map(tokens)),
+    costUsd: median(cells.map((cell) => cell.result.observation.estimatedCostUsd)),
+    durationMs: median(cells.map((cell) => cell.result.durationMs)),
+    actions: median(cells.map((cell) => cell.trace?.toolCalls.length ?? 0)),
+  };
+}
+
+function gateMinimumDelta(label: string, signal: string, delta: number, minimum: number, regressions: string[]): void {
+  if (delta < minimum) regressions.push(`${label}: ${signal} regressed by ${delta}`);
+}
+
+function gateMaximumDelta(label: string, signal: string, delta: number, maximum: number, regressions: string[]): void {
+  if (delta > maximum) regressions.push(`${label}: ${signal} increased by ${delta}`);
+}
+
+function rate(values: readonly boolean[]): number {
+  return values.length === 0 ? 0 : values.filter(Boolean).length / values.length;
+}
+
+function mean(values: readonly number[]): number {
+  return values.length === 0 ? 0 : values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function median(values: readonly number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((left, right) => left - right);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
 }

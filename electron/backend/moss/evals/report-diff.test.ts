@@ -93,6 +93,17 @@ describe("diffHarnessReports", () => {
     expect(() => diffHarnessReports(report(), candidate)).toThrow("case set");
   });
 
+  it("rejects reports produced by different evaluator artifacts", () => {
+    const baseline = report({
+      manifest: { ...report().manifest, evaluatorArtifactHash: "validator-a" },
+    });
+    const candidate = report({
+      manifest: { ...report().manifest, evaluatorArtifactHash: "validator-b" },
+    });
+
+    expect(() => diffHarnessReports(baseline, candidate)).toThrow("evaluator artifacts");
+  });
+
   it("flags regressions by signal instead of hiding them in the composite", () => {
     const candidate = report();
     candidate.cells[0].result.success = false;
@@ -124,5 +135,56 @@ describe("diffHarnessReports", () => {
       expect.stringContaining("duration"),
       expect.stringContaining("actions"),
     ]));
+  });
+
+  it("surfaces prompt changes without treating the change itself as a regression", () => {
+    const baseline = report();
+    baseline.cells[0].promptProvenance = { profile: "production", seededMessagesHash: "prompt-a" };
+    const candidate = report();
+    candidate.cells[0].promptProvenance = { profile: "production", seededMessagesHash: "prompt-b" };
+
+    const diff = diffHarnessReports(baseline, candidate);
+
+    expect(diff.passed).toBe(true);
+    expect(diff.cells[0].promptChanged).toBe(true);
+  });
+
+  it("flags a criterion pass-rate regression across repetitions", () => {
+    const baseline = report();
+    baseline.summary.byCriterion = {
+      "case-a/grounded": { runs: 3, passes: 3, passRate: 1, mandatory: true },
+    };
+    const candidate = report();
+    candidate.summary.byCriterion = {
+      "case-a/grounded": { runs: 3, passes: 2, passRate: 2 / 3, mandatory: true },
+    };
+
+    const diff = diffHarnessReports(baseline, candidate);
+
+    expect(diff.passed).toBe(false);
+    expect(diff.criteria[0].criterion).toBe("case-a/grounded");
+    expect(diff.criteria[0].delta).toBeCloseTo(-1 / 3);
+    expect(diff.regressions).toContainEqual(expect.stringContaining("criterion pass rate regressed"));
+  });
+
+  it("does not pair unseeded repetition outcomes when aggregate rates are unchanged", () => {
+    const repeated = (successes: boolean[]): HarnessMatrixReport => {
+      const result = report();
+      result.cells = successes.map((success, repetition) => ({
+        ...structuredClone(result.cells[0]),
+        repetition,
+        result: {
+          ...structuredClone(result.cells[0].result),
+          success,
+        },
+      }));
+      return result;
+    };
+
+    const diff = diffHarnessReports(repeated([true, false, true]), repeated([false, true, true]));
+
+    expect(diff.passed).toBe(true);
+    expect(diff.cells.some((cell) => cell.completionChanged)).toBe(true);
+    expect(diff.regressions).toEqual([]);
   });
 });

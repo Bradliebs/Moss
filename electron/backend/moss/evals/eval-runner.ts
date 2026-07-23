@@ -4,9 +4,11 @@ import type {
   EvalCriterionResult,
   EvalExecutionObservation,
   EvalMetrics,
+  EvalPromptProvenance,
   EvalProfile,
   EvalReport,
   EvalRunResult,
+  EvalVerifiedEvidence,
   HarnessExecutionTrace,
 } from "../../../../common/evals";
 import type { TaskBudget, TaskEvidence } from "../../../../common/types";
@@ -31,6 +33,7 @@ export interface EvalExecutionResult {
   };
   workspaceRoot: string;
   trace?: HarnessExecutionTrace;
+  promptProvenance?: EvalPromptProvenance;
 }
 
 export type EvalExecutor = (testCase: EvalCase, repetition: number) => Promise<EvalExecutionResult>;
@@ -224,6 +227,7 @@ export function scoreRun(testCase: EvalCase, observation: EvalExecutionObservati
       mandatory: criterion.mandatory,
       passed: evidence?.passed ?? false,
       summary: evidence?.summary ?? "No evidence captured",
+      checks: evidence?.checks ?? [],
     };
   });
   const passed = criteria.filter((criterion) => criterion.passed).length;
@@ -258,7 +262,7 @@ export function aggregateMetrics(results: readonly EvalRunResult[]): EvalMetrics
   };
 }
 
-function latestEvidence(evidence: readonly TaskEvidence[], criterionId: string): TaskEvidence | undefined {
+function latestEvidence(evidence: readonly EvalVerifiedEvidence[], criterionId: string): EvalVerifiedEvidence | undefined {
   return evidence
     .filter((item) => item.criterionId === criterionId)
     .sort((left, right) => right.capturedAt.localeCompare(left.capturedAt))[0];
@@ -270,14 +274,20 @@ export async function collectEvalEvidence(
   workspaceRoot: string,
   signal: AbortSignal,
   options: EvalEvidenceOptions = {},
-): Promise<TaskEvidence[]> {
+): Promise<EvalVerifiedEvidence[]> {
   validateCase(testCase);
   const registry = options.registry ?? new VerificationRegistry();
   const checkEvidence = await registry.runChecks(structuredClone(testCase.checks), workspaceRoot, signal);
   const capturedAt = new Date().toISOString();
-  return testCase.task.acceptanceCriteria.map((criterion): TaskEvidence => {
+  return testCase.task.acceptanceCriteria.map((criterion): EvalVerifiedEvidence => {
     const items = checkEvidence.filter((item) => item.criterionId === criterion.id);
     const passed = items.length > 0 && items.every((item) => item.ok);
+    const checks = items.map((item) => ({
+      checkId: item.checkId,
+      kind: item.kind,
+      passed: item.ok,
+      summary: safeCheckSummary(item.kind, item.ok, item.summary),
+    }));
     return {
       id: `eval-${safeEvidenceId(testCase.id)}-${safeEvidenceId(criterion.id)}`,
       criterionId: criterion.id,
@@ -285,10 +295,15 @@ export async function collectEvalEvidence(
       passed,
       summary: items.length === 0
         ? "No independent checks ran"
-        : items.map((item) => item.summary).join("; "),
+        : boundedSummary(checks.map((item) => item.summary).join("; ")),
       capturedAt,
+      checks,
     };
   });
+}
+
+function boundedSummary(summary: string): string {
+  return summary.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 500);
 }
 
 function evidenceKind(checks: readonly VerificationCheck[]): TaskEvidence["kind"] {
@@ -301,4 +316,8 @@ function evidenceKind(checks: readonly VerificationCheck[]): TaskEvidence["kind"
 
 function safeEvidenceId(value: string): string {
   return value.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 128) || "evidence";
+}
+
+function safeCheckSummary(kind: string, passed: boolean, summary: string): string {
+  return kind === "command" ? `Command ${passed ? "passed" : "failed"}` : boundedSummary(summary);
 }

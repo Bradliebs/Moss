@@ -2,6 +2,18 @@ import { resolve } from "node:path";
 
 import type { EvalCase } from "../../../../common/evals";
 
+const OFFLINE_VALIDATORS = [
+  "structured-output.cjs",
+  "minimal-repair.cjs",
+  "protected-input.cjs",
+  "grounded-synthesis.cjs",
+];
+
+export function getOfflinePilotEvaluatorArtifacts(repositoryRoot = process.cwd()): string[] {
+  const validatorRoot = resolve(repositoryRoot, "electron", "backend", "moss", "evals", "pilots", "validators");
+  return OFFLINE_VALIDATORS.map((name) => resolve(validatorRoot, name));
+}
+
 /** Deterministic, network-free pilot tasks with validators outside agent workspaces. */
 export function createOfflinePilotCases(repositoryRoot = process.cwd()): EvalCase[] {
   const pilotRoot = resolve(repositoryRoot, "electron", "backend", "moss", "evals", "pilots");
@@ -74,6 +86,27 @@ export function createOfflinePilotCases(repositoryRoot = process.cwd()): EvalCas
           protectedPaths: ["protected/reference.txt"],
         },
         budget: { maxActions: 4, maxTokens: 20_000, maxDurationMs: 120_000 },
+      },
+    },
+    {
+      schemaVersion: 1,
+      id: "offline-grounded-synthesis",
+      profile: "platform",
+      difficulty: "standard",
+      task: {
+        objective: "Read project.txt and ownership.txt, then create briefing.json with exactly the project, launchDate, and owner fields grounded in those sources.",
+        acceptanceCriteria: [{ id: "grounded", description: "The briefing combines the exact facts from both source files", mandatory: true }],
+        constraints: ["Do not use network access", "Do not add fields not supported by the source files"],
+        assumptions: [],
+        budget: { maxActions: 5, maxTokens: 20_000, maxDurationMs: 120_000 },
+      },
+      fixture: { workspaceTemplate: fixture("grounded-synthesis") },
+      allowedCapabilities: ["read_file", "write_file"],
+      checks: [{ id: "grounded-validator", criterionId: "grounded", kind: "command", command: validator("grounded-synthesis.cjs") }],
+      tags: ["grounding", "multi-source", "offline"],
+      benchmark: {
+        expectedCapabilities: ["read_file", "write_file"],
+        budget: { maxActions: 5, maxTokens: 20_000, maxDurationMs: 120_000 },
       },
     },
   ];
