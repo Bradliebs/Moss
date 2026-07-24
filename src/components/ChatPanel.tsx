@@ -76,6 +76,91 @@ interface MessageView {
 
 type ViewItem = MessageView | ToolView;
 
+function ToolCard({ tool, onApprove }: { tool: ToolView; onApprove: (callId: string, approved: boolean) => void }): React.ReactElement {
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+  const active = tool.status === "running" || tool.status === "approval";
+
+  useEffect(() => {
+    if (detailsRef.current) detailsRef.current.open = active;
+  }, [active]);
+
+  return (
+    <details
+      ref={detailsRef}
+      open={active}
+      className="group mr-auto w-full max-w-2xl animate-fade-in overflow-hidden rounded-lg border border-neutral-300/60 bg-white/80 text-sm shadow-sm dark:border-neutral-700/60 dark:bg-neutral-900/80"
+    >
+      <summary
+        className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 marker:hidden"
+        title={`${tool.name}(${tool.args})`}
+      >
+        <span className="font-mono text-xs text-emerald-700 dark:text-emerald-300">{tool.name}</span>
+        <span className="min-w-0 flex-1 truncate font-mono text-xs text-neutral-500 dark:text-neutral-400">
+          {tool.args}
+        </span>
+        {tool.autoApproved ? (
+          <span
+            className="rounded-full border border-amber-500/30 bg-amber-500/15 px-1.5 py-0.5 font-sans text-[10px] font-medium text-amber-700 dark:text-amber-300"
+            title="Ran automatically without asking because auto-approve was on."
+          >
+            auto
+          </span>
+        ) : null}
+        <span className={`text-xs ${toolStatusColor(tool.status)}`}>{tool.status}</span>
+        <span className="text-[10px] text-neutral-400 transition-transform group-open:rotate-180" aria-hidden="true">▼</span>
+      </summary>
+
+      <div className="border-t border-neutral-200/70 px-3 py-2 dark:border-neutral-700/70">
+        <div className="text-[10px] font-medium uppercase text-neutral-500 dark:text-neutral-400">Arguments</div>
+        <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap rounded-md bg-neutral-50 p-2 text-xs text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">
+          {tool.args}
+        </pre>
+        {tool.status === "approval" ? (
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span className="text-amber-700 dark:text-amber-300">Approval required.</span>
+            {tool.risk === "destructive" ? (
+              <span
+                className="rounded-full border border-red-500/40 bg-red-500/15 px-1.5 py-0.5 text-[10px] font-medium text-red-700 dark:text-red-300"
+                title="This command can delete data or change your system, so it always asks for approval even when auto-approve is on."
+              >
+                destructive
+              </span>
+            ) : tool.risk === "mutating" ? (
+              <span
+                className="rounded-full border border-amber-500/30 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300"
+                title="This command can change files or state, so it asks for approval unless auto-approve is on."
+              >
+                mutating
+              </span>
+            ) : null}
+            <button
+              type="button"
+              className="rounded-md bg-emerald-600 px-2.5 py-0.5 font-medium text-white transition hover:bg-emerald-500"
+              onClick={() => onApprove(tool.callId, true)}
+            >
+              Approve
+            </button>
+            <button
+              type="button"
+              className="rounded-md bg-red-700 px-2.5 py-0.5 font-medium text-white transition hover:bg-red-600"
+              onClick={() => onApprove(tool.callId, false)}
+            >
+              Deny
+            </button>
+          </div>
+        ) : tool.result ? (
+          <>
+            <div className="mt-2 text-[10px] font-medium uppercase text-neutral-500 dark:text-neutral-400">Output</div>
+            <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-neutral-50 p-2 text-xs text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">
+              {tool.result}
+            </pre>
+          </>
+        ) : null}
+      </div>
+    </details>
+  );
+}
+
 /** Render a token count with thousands separators so large conversation totals
  *  stay scannable (e.g. 12530 -> "12,530"). */
 function formatTokens(n: number): string {
@@ -1015,62 +1100,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
               ) : null}
               {it.role === "assistant" && it.turnId ? <TurnRevert turnId={it.turnId} /> : null}
             </div>
-          ) : (
-            <div key={i} className="mr-auto max-w-2xl animate-fade-in rounded-2xl border border-neutral-300/60 dark:border-neutral-700/60 bg-white/80 dark:bg-neutral-900/80 px-4 py-2.5 text-sm shadow-sm">
-              <div className="font-mono text-xs text-neutral-700 dark:text-neutral-300">
-                <span className="text-emerald-700 dark:text-emerald-300">{it.name}</span>({it.args})
-                {it.autoApproved ? (
-                  <span
-                    className="ml-2 rounded-full border border-amber-500/30 bg-amber-500/15 px-1.5 py-0.5 font-sans text-[10px] font-medium text-amber-300"
-                    title="Ran automatically without asking because auto-approve was on."
-                  >
-                    auto
-                  </span>
-                ) : null}
-              </div>
-              {it.status === "approval" ? (
-                <div className="mt-2 flex items-center gap-2">
-                  <span className="text-amber-300">Approval required.</span>
-                  {it.risk === "destructive" ? (
-                    <span
-                      className="rounded-full border border-red-500/40 bg-red-500/15 px-1.5 py-0.5 text-[10px] font-medium text-red-300"
-                      title="This command can delete data or change your system, so it always asks for approval even when auto-approve is on."
-                    >
-                      destructive
-                    </span>
-                  ) : it.risk === "mutating" ? (
-                    <span
-                      className="rounded-full border border-amber-500/30 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-300"
-                      title="This command can change files or state, so it asks for approval unless auto-approve is on."
-                    >
-                      mutating
-                    </span>
-                  ) : null}
-                  <button
-                    className="rounded-md bg-emerald-600 px-2.5 py-0.5 font-medium text-white transition hover:bg-emerald-500"
-                    onClick={() => approve(it.callId, true)}
-                  >
-                    Approve
-                  </button>
-                  <button
-                    className="rounded-md bg-red-700 px-2.5 py-0.5 font-medium text-white transition hover:bg-red-600"
-                    onClick={() => approve(it.callId, false)}
-                  >
-                    Deny
-                  </button>
-                </div>
-              ) : (
-                <div className="mt-1.5 text-xs">
-                  <span className={toolStatusColor(it.status)}>{it.status}</span>
-                  {it.result ? (
-                    <pre className="mt-1.5 max-h-48 overflow-auto whitespace-pre-wrap rounded-lg bg-neutral-50 dark:bg-neutral-950 p-2 text-neutral-700 dark:text-neutral-300">
-                      {it.result}
-                    </pre>
-                  ) : null}
-                </div>
-              )}
-            </div>
-          ),
+          ) : <ToolCard key={i} tool={it} onApprove={approve} />,
         ))}
       </div>
 

@@ -892,7 +892,32 @@ describe("ChatPanel", () => {
     expect(window.moss.tool.approve).toHaveBeenCalledWith({ turnId, callId: "c1", approved: true });
 
     emit(turnId, { type: "tool-result", callId: "c1", name: "read_file", ok: true, content: "file body" });
+    const card = screen.getByText("read_file").closest("details") as HTMLDetailsElement;
+    expect(card.open).toBe(false);
+    fireEvent.click(screen.getByText("read_file"));
+    expect(card.open).toBe(true);
     expect(screen.getByText("file body")).toBeDefined();
+  });
+
+  it("renders completed tool history collapsed and expandable", () => {
+    mockSession.value = {
+      id: "s1",
+      title: "New chat",
+      messages: [
+        { role: "user", content: "search" },
+        { role: "assistant", content: "", toolCalls: [{ id: "c1", name: "web_search", arguments: '{"query":"news"}' }] },
+        { role: "tool", toolCallId: "c1", content: "result body", autoApproved: true },
+      ],
+      createdAt: 0,
+      updatedAt: 0,
+    };
+
+    render(<Harness />);
+    const card = screen.getByText("web_search").closest("details") as HTMLDetailsElement;
+    expect(card.open).toBe(false);
+    fireEvent.click(screen.getByText("web_search"));
+    expect(card.open).toBe(true);
+    expect(screen.getByText("result body")).toBeDefined();
   });
 
   it("flags a destructive command on the approval prompt", () => {
