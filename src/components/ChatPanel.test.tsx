@@ -42,6 +42,7 @@ const mockToolState = vi.hoisted(() => ({
 const mockSettingsDefaults = {
   model: "gpt-4",
   enableTools: true,
+  maxToolRounds: 8,
   autoApproveTools: false,
   workspaceRoot: null as string | null,
   baseUrl: "http://localhost:11434/v1",
@@ -58,6 +59,7 @@ const mockSettingsDefaults = {
 const mockSettings = vi.hoisted(() => ({
   model: "gpt-4",
   enableTools: true,
+  maxToolRounds: 8,
   autoApproveTools: false,
   workspaceRoot: null as string | null,
   baseUrl: "http://localhost:11434/v1",
@@ -201,6 +203,18 @@ describe("ChatPanel", () => {
 
     expect(window.moss.chat.send).toHaveBeenCalledWith(
       expect.not.objectContaining({ taskSpec: expect.anything() }),
+    );
+  });
+
+  it("forwards the configured tool-round limit", () => {
+    mockSettings.maxToolRounds = 32;
+    render(<Harness />);
+    const composer = screen.getByPlaceholderText("Message…");
+    fireEvent.change(composer, { target: { value: "Complete the long task" } });
+    fireEvent.keyDown(composer, { key: "Enter" });
+
+    expect(window.moss.chat.send).toHaveBeenCalledWith(
+      expect.objectContaining({ maxToolRounds: 32 }),
     );
   });
 

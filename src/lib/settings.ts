@@ -32,6 +32,8 @@ export interface MossSettings {
   /** compact data URL for the user-selected in-app avatar; null uses the built-in portrait */
   avatarDataUrl: string | null;
   enableTools: boolean;
+  /** maximum tool-execution rounds in one turn */
+  maxToolRounds: number;
   /** when true, tools that mutate files or run commands run without prompting */
   autoApproveTools: boolean;
   browserEnabled: boolean;
@@ -92,6 +94,7 @@ const DEFAULT_SETTINGS: MossSettings = {
   model: "",
   avatarDataUrl: null,
   enableTools: true,
+  maxToolRounds: 8,
   autoApproveTools: false,
   browserEnabled: false,
   browserAllowedDomains: "",

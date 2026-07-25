@@ -24,7 +24,22 @@ vi.mock("electron", () => ({
   shell: { openPath: vi.fn(), openExternal: vi.fn() },
 }));
 
-import { registerChatIpc } from "./chat-ipc";
+import { registerChatIpc, resolveMaxToolRounds } from "./chat-ipc";
+
+describe("resolveMaxToolRounds", () => {
+  it("uses eight rounds by default and preserves a configured long-task limit", () => {
+    expect(resolveMaxToolRounds(undefined, false)).toBe(8);
+    expect(resolveMaxToolRounds(32, false)).toBe(32);
+  });
+
+  it("reserves verification room and clamps unsupported values", () => {
+    expect(resolveMaxToolRounds(4, true)).toBe(12);
+    expect(resolveMaxToolRounds(32, true)).toBe(32);
+    expect(resolveMaxToolRounds(0, false)).toBe(1);
+    expect(resolveMaxToolRounds(100, false)).toBe(64);
+    expect(resolveMaxToolRounds(Number.NaN, false)).toBe(8);
+  });
+});
 
 describe("registerChatIpc", () => {
   it("registers the fire-and-forget channels via ipcMain.on", () => {

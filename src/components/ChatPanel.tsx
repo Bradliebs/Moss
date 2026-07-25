@@ -612,6 +612,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
       messages: [...base, userMsg],
       workspaceRoot: settings.workspaceRoot ?? undefined,
       enableTools: settings.enableTools,
+      maxToolRounds: settings.maxToolRounds ?? 8,
       autoApproveTools: settings.autoApproveTools,
       automation: {
         browserEnabled: settings.browserEnabled === true,

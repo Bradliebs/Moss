@@ -53,6 +53,15 @@ import { skillsStore } from "../backend/moss/skills/skills-store";
 import { transcribeAudio } from "../backend/moss/stt";
 import { buildSystemMessage } from "../backend/moss/system-prompt";
 import { taskEngine } from "../backend/moss/task/task-engine";
+
+const DEFAULT_TOOL_ROUNDS = 8;
+const MAX_TOOL_ROUNDS = 64;
+
+export function resolveMaxToolRounds(requested: number | undefined, verifyEnabled: boolean): number {
+  const configured = Number.isFinite(requested) ? Math.floor(requested as number) : DEFAULT_TOOL_ROUNDS;
+  const withVerificationRoom = verifyEnabled ? Math.max(12, configured) : configured;
+  return Math.min(MAX_TOOL_ROUNDS, Math.max(1, withVerificationRoom));
+}
 import { taskStore } from "../backend/moss/task/task-store";
 import { TOOL_DEFINITIONS, TOOL_REGISTRY } from "../backend/moss/tools";
 import { detectWorkspaceVerificationChecks, VerificationRegistry } from "../backend/moss/verify/verification-registry";
@@ -252,6 +261,7 @@ async function startTurn(event: Electron.IpcMainEvent, req: ChatStartRequest): P
     if (workspaceRoot) checkpointStore.prune();
     // Give the fix/verify cycle extra rounds to converge when verification runs.
     const verifyEnabled = req.verify?.enabled === true && (req.verify.commands?.length ?? 0) > 0;
+    const maxRounds = resolveMaxToolRounds(req.maxToolRounds, verifyEnabled);
     let attemptId: string | undefined;
     let acceptedCompletion: CompletionContext | undefined;
     const task = req.taskSpec ? await ensureTurnTask(req.taskId ?? req.turnId, req.taskSpec, send) : undefined;
@@ -299,7 +309,7 @@ async function startTurn(event: Electron.IpcMainEvent, req: ChatStartRequest): P
       ...(req.showConfidence ? { showConfidence: true } : {}),
       ...(req.injectionMode ? { injectionMode: req.injectionMode } : {}),
       ...(req.contextLimit ? { contextLimit: req.contextLimit } : {}),
-      ...(verifyEnabled ? { maxRounds: 12 } : {}),
+      maxRounds,
     });
     if (task && attemptId) {
       await finalizeTurnTask(task.id, attemptId, acceptedCompletion, terminalEvent, workspaceRoot, controller.signal, send);

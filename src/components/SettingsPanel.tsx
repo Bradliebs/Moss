@@ -416,10 +416,25 @@ export function SettingsPanel({ onClose }: { onClose: () => void }): React.React
               />
               Auto-approve all tool calls
             </label>
+            <label className="flex items-center gap-2">
+              <span className="whitespace-nowrap">Tool rounds per turn</span>
+              <input
+                type="number"
+                min={1}
+                max={64}
+                className="w-20 rounded bg-neutral-200 dark:bg-neutral-800 px-2 py-1 text-xs"
+                value={settings.maxToolRounds ?? 8}
+                disabled={!settings.enableTools}
+                onChange={(e) => updateSettings({
+                  maxToolRounds: Math.min(64, Math.max(1, Math.floor(Number(e.target.value) || 8))),
+                })}
+              />
+            </label>
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
               Read-only tools always run automatically. When auto-approve is off, tools that write
               files or run commands pause for your approval before each call. Turn it on to skip those
-              prompts — the workspace sandbox still confines file access either way.
+              prompts — the workspace sandbox still confines file access either way. Increase tool
+              rounds for long-running tasks; higher values can use more time and tokens.
             </p>
           </section>
 

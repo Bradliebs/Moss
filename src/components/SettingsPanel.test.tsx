@@ -22,6 +22,7 @@ const settingsValue: Record<string, unknown> & { avatarDataUrl: string | null } 
   model: "",
   avatarDataUrl: null,
   enableTools: true,
+  maxToolRounds: 8,
   workspaceRoot: null,
   sttBaseUrl: "",
   sttModel: "whisper-1",
@@ -135,6 +136,17 @@ describe("SettingsPanel", () => {
     await waitFor(() => expect(screen.getByText("No MCP servers configured or connected.")).toBeDefined());
     fireEvent.click(screen.getByLabelText("Enable tools and skills"));
     expect(settings.updateSettings).toHaveBeenCalledWith({ enableTools: false });
+  });
+
+  it("updates and clamps the tool-round limit", () => {
+    render(<SettingsPanel onClose={() => {}} />);
+    const input = screen.getByLabelText("Tool rounds per turn");
+
+    fireEvent.change(input, { target: { value: "32" } });
+    expect(settings.updateSettings).toHaveBeenCalledWith({ maxToolRounds: 32 });
+
+    fireEvent.change(input, { target: { value: "100" } });
+    expect(settings.updateSettings).toHaveBeenCalledWith({ maxToolRounds: 64 });
   });
 
   it("closes when the close button is clicked", async () => {
