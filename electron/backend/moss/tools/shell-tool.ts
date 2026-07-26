@@ -16,7 +16,7 @@ export const runCommandTool: Tool = {
     "Run a shell command with its working directory set to the workspace root. Returns combined stdout/stderr.",
   parameters: {
     type: "object",
-    properties: { command: { type: "string", description: "The shell command to execute" } },
+    properties: { command: { type: "string" } },
     required: ["command"],
   },
   execute(args: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> {

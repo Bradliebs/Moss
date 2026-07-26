@@ -141,7 +141,7 @@ export const webSearchTool: Tool = {
   parameters: {
     type: "object",
     properties: {
-      query: { type: "string", description: "The search query" },
+      query: { type: "string" },
       count: {
         type: "number",
         description: `Number of results to return (1-${MAX_RESULTS}, default ${DEFAULT_RESULTS})`,
@@ -201,7 +201,7 @@ export const fetchUrlTool: Tool = {
     "Fetch a single http(s) web page and return its readable text content (scripts, styles, and markup stripped). Returns up to 100k characters.",
   parameters: {
     type: "object",
-    properties: { url: { type: "string", description: "The absolute http(s) URL to fetch" } },
+    properties: { url: { type: "string", description: "Absolute http(s) URL" } },
     required: ["url"],
   },
   async execute(args: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> {

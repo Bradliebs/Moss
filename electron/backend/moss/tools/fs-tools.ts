@@ -34,7 +34,7 @@ export const readFileTool: Tool = {
   description: "Read a UTF-8 text file from the workspace. Returns up to 100k characters.",
   parameters: {
     type: "object",
-    properties: { path: { type: "string", description: "File path relative to the workspace root" } },
+    properties: { path: { type: "string", description: "Workspace-relative file path" } },
     required: ["path"],
   },
   async execute(args: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> {
@@ -53,7 +53,7 @@ export const listDirTool: Tool = {
   description: "List the entries of a directory in the workspace. Directories end with a trailing slash.",
   parameters: {
     type: "object",
-    properties: { path: { type: "string", description: "Directory path relative to the workspace root (default '.')" } },
+    properties: { path: { type: "string", description: "Workspace-relative directory path (default '.')" } },
   },
   async execute(args: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> {
     const target = String(args.path ?? ".");
@@ -73,8 +73,8 @@ export const writeFileTool: Tool = {
   parameters: {
     type: "object",
     properties: {
-      path: { type: "string", description: "File path relative to the workspace root" },
-      content: { type: "string", description: "Full file contents to write" },
+      path: { type: "string", description: "Workspace-relative file path" },
+      content: { type: "string", description: "Full file contents" },
     },
     required: ["path", "content"],
   },
@@ -95,12 +95,12 @@ export const editFileTool: Tool = {
   parameters: {
     type: "object",
     properties: {
-      path: { type: "string", description: "File path relative to the workspace root" },
+      path: { type: "string", description: "Workspace-relative file path" },
       oldText: {
         type: "string",
         description: "Exact existing text to replace, including enough surrounding context to be unique",
       },
-      newText: { type: "string", description: "Replacement text" },
+      newText: { type: "string" },
       replaceAll: {
         type: "boolean",
         description: "Replace every occurrence instead of requiring a unique match (default false)",
@@ -144,14 +144,14 @@ export const editFileTool: Tool = {
 export const searchFilesTool: Tool = {
   name: "search_files",
   description:
-    "Search the workspace for a literal, case-insensitive text string and return matching lines as 'path:line: text'. Skips .git, node_modules, and build output directories.",
+    "Search the workspace for a literal, case-insensitive text string and return matching lines as 'path:line: text'.",
   parameters: {
     type: "object",
     properties: {
       query: { type: "string", description: "Literal text to search for (case-insensitive)" },
       path: {
         type: "string",
-        description: "Directory to search under, relative to the workspace root (default '.')",
+        description: "Workspace-relative directory to search under (default '.')",
       },
       maxResults: { type: "number", description: "Maximum matching lines to return (default 100, max 1000)" },
     },
@@ -262,7 +262,7 @@ export const globFilesTool: Tool = {
       pattern: { type: "string", description: "Glob pattern relative to the search root, e.g. 'src/**/*.ts'" },
       path: {
         type: "string",
-        description: "Directory to search under, relative to the workspace root (default '.')",
+        description: "Workspace-relative directory to search under (default '.')",
       },
       maxResults: { type: "number", description: "Maximum paths to return (default 200, max 2000)" },
     },
@@ -319,8 +319,8 @@ export const moveFileTool: Tool = {
   parameters: {
     type: "object",
     properties: {
-      from: { type: "string", description: "Existing path relative to the workspace root" },
-      to: { type: "string", description: "New path relative to the workspace root" },
+      from: { type: "string", description: "Existing workspace-relative path" },
+      to: { type: "string", description: "New workspace-relative path" },
     },
     required: ["from", "to"],
   },

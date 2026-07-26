@@ -23,7 +23,6 @@ export const rememberTool: Tool = {
       category: {
         type: "string",
         enum: CATEGORIES as unknown as string[],
-        description: "One of: preference, fact, decision, context.",
       },
     },
     required: ["fact"],
@@ -71,7 +70,7 @@ export const forgetTool: Tool = {
   description: "Delete a remembered fact by its id (as shown by m_recall).",
   parameters: {
     type: "object",
-    properties: { id: { type: "string", description: "The memory id to delete." } },
+    properties: { id: { type: "string" } },
     required: ["id"],
   },
   async execute(args) {
@@ -107,7 +106,7 @@ export const getSkillTool: Tool = {
   description: "Load the full instructions for a skill by name before using it.",
   parameters: {
     type: "object",
-    properties: { name: { type: "string", description: "The skill name." } },
+    properties: { name: { type: "string" } },
     required: ["name"],
   },
   async execute(args) {
@@ -156,7 +155,7 @@ export const updateSkillTool: Tool = {
   parameters: {
     type: "object",
     properties: {
-      name: { type: "string", description: "The name of the skill to update." },
+      name: { type: "string" },
       description: { type: "string", description: "New description (optional; unchanged if omitted)." },
       instructions: { type: "string", description: "New instructions (optional; unchanged if omitted)." },
     },
@@ -188,7 +187,7 @@ export const deleteSkillTool: Tool = {
   description: "Delete a skill by name. Requires user approval.",
   parameters: {
     type: "object",
-    properties: { name: { type: "string", description: "The name of the skill to delete." } },
+    properties: { name: { type: "string" } },
     required: ["name"],
   },
   async execute(args) {

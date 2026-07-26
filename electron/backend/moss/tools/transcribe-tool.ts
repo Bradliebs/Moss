@@ -33,7 +33,7 @@ export const transcribeAudioTool: Tool = {
     properties: {
       path: {
         type: "string",
-        description: "Path to the audio file, relative to the workspace root.",
+        description: "Workspace-relative path to the audio file.",
       },
     },
     required: ["path"],
