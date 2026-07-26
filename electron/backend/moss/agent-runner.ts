@@ -19,6 +19,7 @@ import { INJECTION_BLOCK_THRESHOLD, scanForInjection } from "./safety/injection-
 import type { InjectionMode } from "./safety/injection-scan";
 import { isExternalContentTool, wrapExternalContent } from "./safety/untrusted-wrap";
 import type { Tool, ToolResult } from "./tools";
+import { PlanStore } from "./task/plan-store";
 import { RecoveryPolicy } from "./task/recovery-policy";
 import { formatVerifyReport, runVerify } from "./verify/verifier";
 import type { VerifyResult } from "./verify/verifier";
@@ -89,6 +90,10 @@ export interface RunTurnOptions {
   completionGuard?: (context: CompletionContext) => Promise<CompletionDecision> | CompletionDecision;
   /** Clock used to refresh trusted runtime context at the start of each turn. */
   now?: () => Date;
+  /** Checklist state for the plan tool. Omitted by ordinary chat, which gets a
+   *  fresh per-turn store; a caller that wants a plan to survive across turns
+   *  supplies its own session-scoped store here. */
+  plan?: PlanStore;
 }
 
 export interface CompletionContext {
@@ -150,6 +155,8 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
   let latestVerification: VerifyResult | undefined;
   const failedActionSignatures: string[] = [];
   const usedToolNames = new Set<string>();
+  // Falls back to a turn-scoped checklist when the caller supplies no store.
+  const plan = opts.plan ?? new PlanStore();
 
   try {
     // maxRounds limits tool-execution rounds. One additional tool-disabled
@@ -266,7 +273,7 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
         usedToolNames.add(call.name);
         onEvent({ type: "tool-call", callId: call.id, name: call.name, arguments: call.arguments });
         const startedAt = Date.now();
-        const { result, autoApproved, risk } = await executeCallWithRecovery(call, opts, failedActionSignatures);
+        const { result, autoApproved, risk } = await executeCallWithRecovery(call, opts, failedActionSignatures, plan);
         const durationMs = Date.now() - startedAt;
         const toolMsg: AgentMessage = {
           role: "tool",
@@ -357,11 +364,12 @@ async function executeCallWithRecovery(
   call: ToolCall,
   opts: RunTurnOptions,
   failedActionSignatures: string[],
+  plan: PlanStore,
 ): Promise<ExecOutcome> {
   const signature = `${call.name}:${call.arguments}`;
   let retryCount = 0;
   for (;;) {
-    const outcome = await executeCall(call, opts);
+    const outcome = await executeCall(call, opts, plan);
     if (outcome.result.ok) return outcome;
     const decision = recoveryPolicy.decide(outcome.result.content, {
       retryCount,
@@ -409,7 +417,7 @@ interface ExecOutcome {
   risk?: CommandRisk;
 }
 
-async function executeCall(call: ToolCall, opts: RunTurnOptions): Promise<ExecOutcome> {
+async function executeCall(call: ToolCall, opts: RunTurnOptions, plan: PlanStore): Promise<ExecOutcome> {
   const tool = opts.toolRegistry.get(call.name);
   if (!tool) return { result: { ok: false, content: `Unknown tool: ${call.name}` }, autoApproved: false };
 
@@ -449,7 +457,7 @@ async function executeCall(call: ToolCall, opts: RunTurnOptions): Promise<ExecOu
 
   try {
     const result = await runWithTimeout(
-    (sig) => tool.execute(args, { workspaceRoot: opts.workspaceRoot, signal: sig, stt: opts.stt, email: opts.email, embed: opts.embed, checkpoint: opts.checkpoint, approvalGranted, gatedMemory: opts.gatedMemory }),
+    (sig) => tool.execute(args, { workspaceRoot: opts.workspaceRoot, signal: sig, stt: opts.stt, email: opts.email, embed: opts.embed, checkpoint: opts.checkpoint, approvalGranted, gatedMemory: opts.gatedMemory, plan }),
       opts.signal,
       opts.toolTimeoutMs ?? TOOL_TIMEOUT_MS,
       call.name,

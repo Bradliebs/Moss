@@ -2,6 +2,7 @@
 
 import type { EmailConfig, EmbedConfig, SttConfig } from "../../../../common/types";
 import type { CheckpointRecorder } from "../checkpoint/checkpoint-store";
+import type { PlanStore } from "../task/plan-store";
 
 export interface ToolContext {
   /** absolute sandbox root; empty string means no workspace selected */
@@ -22,6 +23,9 @@ export interface ToolContext {
   /** when true, m_remember queues a proposal for human review instead of
    *  writing straight to durable memory */
   gatedMemory?: boolean;
+  /** checklist state for the plan tool; scoped to the turn unless the caller
+   *  supplies a longer-lived store */
+  plan?: PlanStore;
 }
 
 export interface ToolResult {
