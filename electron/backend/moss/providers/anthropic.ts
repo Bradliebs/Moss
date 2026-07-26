@@ -16,6 +16,13 @@ const DEFAULT_ANTHROPIC_MODELS = [
   "claude-3-5-haiku-20241022",
 ];
 
+/** Prompt-cache breakpoint. Anthropic caches the whole prefix (tools, then
+ *  system, then messages) up to and including the block this is attached to, so
+ *  a later request with an identical prefix reads it back at 10% of the input
+ *  price instead of reprocessing it. Breakpoints themselves are free; writing a
+ *  prefix costs 1.25x and entries live for 5 minutes, refreshed on every hit. */
+const CACHE_BREAKPOINT = { type: "ephemeral" } as const;
+
 interface AnthropicBlock {
   type: string;
   text?: string;
@@ -25,6 +32,7 @@ interface AnthropicBlock {
   tool_use_id?: string;
   content?: string;
   source?: { type: "base64"; media_type: string; data: string };
+  cache_control?: typeof CACHE_BREAKPOINT;
 }
 
 interface AnthropicMessage {
@@ -32,12 +40,20 @@ interface AnthropicMessage {
   content: string | AnthropicBlock[];
 }
 
+interface AnthropicUsage {
+  input_tokens?: number;
+  output_tokens?: number;
+  cache_creation_input_tokens?: number;
+  cache_read_input_tokens?: number;
+}
+
 interface AnthropicStreamEvent {
   type?: string;
   index?: number;
   content_block?: { type?: string; id?: string; name?: string };
   delta?: { type?: string; text?: string; partial_json?: string };
-  usage?: { output_tokens?: number };
+  message?: { usage?: AnthropicUsage };
+  usage?: AnthropicUsage;
   error?: { message?: string };
 }
 
@@ -110,6 +126,23 @@ export function toAnthropic(messages: AgentMessage[]): { system?: string; messag
   return { system: system || undefined, messages: out };
 }
 
+/** Put a cache breakpoint on the final content block of the conversation, so the
+ *  next request in the same agent turn (and the next turn in the same session)
+ *  reads everything up to here from cache instead of reprocessing it. Mutates the
+ *  freshly built array from `toAnthropic`. Empty blocks cannot be cached, so a
+ *  message with no content is left alone. */
+function markConversationBreakpoint(messages: AnthropicMessage[]): void {
+  const last = messages[messages.length - 1];
+  if (!last) return;
+  if (typeof last.content === "string") {
+    if (!last.content) return;
+    last.content = [{ type: "text", text: last.content, cache_control: CACHE_BREAKPOINT }];
+    return;
+  }
+  const block = last.content[last.content.length - 1];
+  if (block) block.cache_control = CACHE_BREAKPOINT;
+}
+
 export class AnthropicProvider implements ChatProvider {
   readonly kind = "anthropic";
 
@@ -120,9 +153,21 @@ export class AnthropicProvider implements ChatProvider {
 
   async *streamChat(req: ChatRequest, signal: AbortSignal): AsyncIterable<ProviderStreamEvent> {
     const { system, messages } = toAnthropic(req.messages);
+    markConversationBreakpoint(messages);
+
+    // Three breakpoints, ordered by how often each section changes: tools are
+    // stable for a whole session, the system prompt for a whole turn, and the
+    // conversation grows every round. If a later section changes, the earlier
+    // caches still hit.
+    const reqTools = req.tools;
     const tools =
-      req.tools && req.tools.length > 0
-        ? req.tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.parameters }))
+      reqTools && reqTools.length > 0
+        ? reqTools.map((t, i) => ({
+            name: t.name,
+            description: t.description,
+            input_schema: t.parameters,
+            ...(i === reqTools.length - 1 ? { cache_control: CACHE_BREAKPOINT } : {}),
+          }))
         : undefined;
 
     const res = await fetch(joinUrl(this.baseUrl, "/v1/messages"), {
@@ -135,7 +180,7 @@ export class AnthropicProvider implements ChatProvider {
       body: JSON.stringify({
         model: req.model,
         max_tokens: req.maxTokens ?? 4096,
-        system,
+        ...(system ? { system: [{ type: "text", text: system, cache_control: CACHE_BREAKPOINT }] } : {}),
         messages,
         stream: true,
         ...(tools ? { tools } : {}),
@@ -156,6 +201,24 @@ export class AnthropicProvider implements ChatProvider {
         continue;
       }
       switch (json.type) {
+        case "message_start": {
+          // Anthropic splits the prompt across three counters once caching is on:
+          // `input_tokens` only covers what follows the last breakpoint. Sum them
+          // so the runner sees the real prompt size, as it does for OpenAI.
+          const u = json.message?.usage;
+          if (u) {
+            yield {
+              type: "usage",
+              usage: {
+                inputTokens:
+                  (u.input_tokens ?? 0) +
+                  (u.cache_creation_input_tokens ?? 0) +
+                  (u.cache_read_input_tokens ?? 0),
+              },
+            };
+          }
+          break;
+        }
         case "content_block_start":
           blocks.set(json.index ?? 0, {
             type: json.content_block?.type ?? "",

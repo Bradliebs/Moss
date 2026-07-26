@@ -122,6 +122,19 @@ describe("AnthropicProvider.streamChat", () => {
     expect(events).toEqual([{ type: "usage", usage: { outputTokens: 42 } }]);
   });
 
+  it("sums fresh, cache-write and cache-read tokens from message_start into input usage", async () => {
+    stubStream(
+      sse({
+        type: "message_start",
+        message: {
+          usage: { input_tokens: 5, cache_creation_input_tokens: 100, cache_read_input_tokens: 900 },
+        },
+      }),
+    );
+    const events = await collect(new AnthropicProvider("https://api"));
+    expect(events).toEqual([{ type: "usage", usage: { inputTokens: 1005 } }]);
+  });
+
   it("throws when the stream carries an error event", async () => {
     stubStream(sse({ type: "error", error: { message: "boom" } }));
     await expect(collect(new AnthropicProvider("https://api"))).rejects.toThrow(/boom/);
@@ -150,10 +163,68 @@ describe("AnthropicProvider.streamChat", () => {
       events.push(e);
     }
     const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
-    expect(body.system).toBe("be nice");
-    expect(body.messages).toEqual([{ role: "user", content: "hi" }]);
+    expect(body.system).toEqual([
+      { type: "text", text: "be nice", cache_control: { type: "ephemeral" } },
+    ]);
+    expect(body.messages).toEqual([
+      { role: "user", content: [{ type: "text", text: "hi", cache_control: { type: "ephemeral" } }] },
+    ]);
     expect(body.tools).toEqual([
-      { name: "do_thing", description: "does a thing", input_schema: { type: "object" } },
+      {
+        name: "do_thing",
+        description: "does a thing",
+        input_schema: { type: "object" },
+        cache_control: { type: "ephemeral" },
+      },
+    ]);
+  });
+
+  it("puts the tools cache breakpoint only on the last tool", async () => {
+    const fetchMock = stubStream(sse({ type: "content_block_stop", index: 0 }));
+    const withTools: ChatRequest = {
+      model: "claude",
+      messages: [{ role: "user", content: "hi" }],
+      tools: [
+        { name: "first", description: "a", parameters: { type: "object" } },
+        { name: "second", description: "b", parameters: { type: "object" } },
+      ],
+    };
+    for await (const _ of new AnthropicProvider("https://api", "key").streamChat(
+      withTools,
+      new AbortController().signal,
+    )) {
+      /* drain */
+    }
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(body.tools[0].cache_control).toBeUndefined();
+    expect(body.tools[1].cache_control).toEqual({ type: "ephemeral" });
+  });
+
+  it("marks the last block of a multi-block final message instead of replacing it", async () => {
+    const fetchMock = stubStream(sse({ type: "content_block_stop", index: 0 }));
+    const withToolResult: ChatRequest = {
+      model: "claude",
+      messages: [
+        { role: "user", content: "hi" },
+        { role: "assistant", content: "", toolCalls: [{ id: "tu1", name: "do_thing", arguments: "{}" }] },
+        { role: "tool", content: "done", toolCallId: "tu1" },
+      ],
+    };
+    for await (const _ of new AnthropicProvider("https://api", "key").streamChat(
+      withToolResult,
+      new AbortController().signal,
+    )) {
+      /* drain */
+    }
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    const last = body.messages[body.messages.length - 1];
+    expect(last.content).toEqual([
+      {
+        type: "tool_result",
+        tool_use_id: "tu1",
+        content: "done",
+        cache_control: { type: "ephemeral" },
+      },
     ]);
   });
 });
