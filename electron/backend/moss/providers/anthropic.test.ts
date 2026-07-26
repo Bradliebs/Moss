@@ -252,6 +252,21 @@ describe("AnthropicProvider.listModels", () => {
 });
 
 describe("toAnthropic", () => {
+  it("puts tool-result images in the same user message as the tool result", () => {
+    const { messages } = toAnthropic([
+      { role: "assistant", content: "", toolCalls: [{ id: "c1", name: "view_image", arguments: "{}" }] },
+      { role: "tool", content: "Viewing shot.png", toolCallId: "c1", images: ["data:image/png;base64,AAAA"] },
+    ]);
+    // Two consecutive user messages would be rejected by the API, so the image
+    // must be a sibling block rather than a message of its own.
+    const userMessages = messages.filter((m) => m.role === "user");
+    expect(userMessages).toHaveLength(1);
+    expect(userMessages[0].content).toEqual([
+      { type: "tool_result", tool_use_id: "c1", content: "Viewing shot.png" },
+      { type: "image", source: { type: "base64", media_type: "image/png", data: "AAAA" } },
+    ]);
+  });
+
   it("converts a user message with images into text and image blocks", () => {
     const { messages } = toAnthropic([
       { role: "user", content: "describe", images: ["data:image/jpeg;base64,ZZZZ"] },

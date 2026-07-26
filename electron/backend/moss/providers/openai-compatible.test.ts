@@ -150,6 +150,21 @@ describe("OpenAiCompatibleProvider.listModels", () => {
 });
 
 describe("toOpenAiMessages", () => {
+  it("follows a tool result carrying images with a user image message", () => {
+    const out = toOpenAiMessages([
+      { role: "tool", content: "Viewing shot.png", toolCallId: "c1", images: ["data:image/png;base64,AAAA"] },
+    ]);
+    expect(out).toEqual([
+      { role: "tool", tool_call_id: "c1", content: "Viewing shot.png" },
+      { role: "user", content: [{ type: "image_url", image_url: { url: "data:image/png;base64,AAAA" } }] },
+    ]);
+  });
+
+  it("leaves a tool result with no images as a single message", () => {
+    const out = toOpenAiMessages([{ role: "tool", content: "done", toolCallId: "c1" }]);
+    expect(out).toEqual([{ role: "tool", tool_call_id: "c1", content: "done" }]);
+  });
+
   it("emits a content-parts array for a user message with images", () => {
     const out = toOpenAiMessages([
       { role: "user", content: "what is this?", images: ["data:image/png;base64,AAAA"] },

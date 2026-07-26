@@ -31,6 +31,10 @@ export interface ToolContext {
 export interface ToolResult {
   ok: boolean;
   content: string;
+  /** Images the tool wants the model to see, as data URLs
+   *  (data:<mime>;base64,...). Provider adapters attach these alongside the
+   *  tool result; models without vision simply receive the text. */
+  images?: string[];
 }
 
 export interface Tool {

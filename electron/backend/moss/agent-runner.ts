@@ -279,6 +279,7 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
           role: "tool",
           content: result.content,
           toolCallId: call.id,
+          ...(result.images?.length ? { images: result.images } : {}),
           ...(autoApproved ? { autoApproved: true } : {}),
           ...(risk ? { risk } : {}),
           durationMs,
@@ -298,6 +299,7 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
           role: "tool" as const,
           content: prepareModelToolContent(call.name, result.content, injectionMode, onEvent),
           toolCallId: call.id,
+          ...(result.images?.length ? { images: result.images } : {}),
         };
         conversation.push(convToolMsg);
         if (result.ok) successfulToolCalls++;

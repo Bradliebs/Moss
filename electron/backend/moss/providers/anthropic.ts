@@ -115,10 +115,20 @@ export function toAnthropic(messages: AgentMessage[]): { system?: string; messag
     } else if (m.role === "tool") {
       const block: AnthropicBlock = { type: "tool_result", tool_use_id: m.toolCallId, content: m.content };
       const last = out[out.length - 1];
-      if (last && last.role === "user" && Array.isArray(last.content)) {
-        last.content.push(block);
-      } else {
-        out.push({ role: "user", content: [block] });
+      const target = last && last.role === "user" && Array.isArray(last.content) ? last.content : null;
+      if (target) target.push(block);
+      else out.push({ role: "user", content: [block] });
+      // Images a tool produced ride in the same user message as sibling blocks.
+      // A separate user message would put two user turns back to back, which
+      // Anthropic rejects, so they are never pushed as their own message.
+      if ((m.images?.length ?? 0) > 0) {
+        const content = target ?? (out[out.length - 1].content as AnthropicBlock[]);
+        for (const url of m.images ?? []) {
+          const parsed = parseDataUrl(url);
+          if (parsed) {
+            content.push({ type: "image", source: { type: "base64", media_type: parsed.media_type, data: parsed.data } });
+          }
+        }
       }
     }
   }

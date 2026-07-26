@@ -31,20 +31,36 @@ interface OpenAiModelList {
 }
 
 export function toOpenAiMessages(messages: AgentMessage[]): unknown[] {
-  return messages.map((m) => {
+  // flatMap, not map: a tool result carrying images expands into two messages.
+  return messages.flatMap((m): unknown[] => {
     if (m.role === "assistant" && m.toolCalls && m.toolCalls.length > 0) {
-      return {
-        role: "assistant",
-        content: m.content || null,
-        tool_calls: m.toolCalls.map((tc) => ({
-          id: tc.id,
-          type: "function",
-          function: { name: tc.name, arguments: tc.arguments },
-        })),
-      };
+      return [
+        {
+          role: "assistant",
+          content: m.content || null,
+          tool_calls: m.toolCalls.map((tc) => ({
+            id: tc.id,
+            type: "function",
+            function: { name: tc.name, arguments: tc.arguments },
+          })),
+        },
+      ];
     }
     if (m.role === "tool") {
-      return { role: "tool", tool_call_id: m.toolCallId, content: m.content };
+      const toolMsg = { role: "tool", tool_call_id: m.toolCallId, content: m.content };
+      // A tool message may only carry a string, so images a tool produced follow
+      // as their own user message. Unlike Anthropic, this API does not require
+      // roles to alternate, so an extra user turn here is well formed.
+      if ((m.images?.length ?? 0) > 0) {
+        return [
+          toolMsg,
+          {
+            role: "user",
+            content: (m.images ?? []).map((url) => ({ type: "image_url", image_url: { url } })),
+          },
+        ];
+      }
+      return [toolMsg];
     }
     if (m.role === "user" && ((m.images?.length ?? 0) > 0 || (m.documents?.length ?? 0) > 0)) {
       const parts: unknown[] = [];
@@ -56,9 +72,9 @@ export function toOpenAiMessages(messages: AgentMessage[]): unknown[] {
         });
       }
       for (const url of m.images ?? []) parts.push({ type: "image_url", image_url: { url } });
-      return { role: "user", content: parts };
+      return [{ role: "user", content: parts }];
     }
-    return { role: m.role, content: m.content };
+    return [{ role: m.role, content: m.content }];
   });
 }
 

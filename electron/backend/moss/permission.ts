@@ -14,6 +14,8 @@ const AUTO_ALLOW = new Set<string>([
   "search_files",
   "glob_files",
   "search_codebase",
+  // view_image only reads a file inside the workspace sandbox.
+  "view_image",
   // git_status and git_diff only read repository state; they cannot mutate it.
   "git_status",
   "git_diff",
