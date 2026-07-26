@@ -4,6 +4,8 @@ import type { ToolDefinition } from "../../../../common/types";
 import { searchCodebaseTool } from "./codebase-tool";
 import { editFileTool, globFilesTool, listDirTool, moveFileTool, readFileTool, searchFilesTool, writeFileTool } from "./fs-tools";
 import { sendEmailTool } from "./email-tool";
+import { GIT_TOOLS } from "./git-tools";
+import { planTool } from "./plan-tool";
 import { SELF_TOOLS } from "./self-tools";
 import { runCommandTool } from "./shell-tool";
 import { transcribeAudioTool } from "./transcribe-tool";
@@ -11,6 +13,7 @@ import type { Tool } from "./types";
 import { fetchUrlTool, webSearchTool } from "./web-tools";
 
 export const TOOLS: Tool[] = [
+  planTool,
   readFileTool,
   listDirTool,
   searchFilesTool,
@@ -19,6 +22,7 @@ export const TOOLS: Tool[] = [
   writeFileTool,
   editFileTool,
   moveFileTool,
+  ...GIT_TOOLS,
   runCommandTool,
   webSearchTool,
   fetchUrlTool,

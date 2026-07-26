@@ -7,11 +7,16 @@
 export type Permission = "allow" | "ask" | "deny";
 
 const AUTO_ALLOW = new Set<string>([
+  // plan only mutates in-memory checklist state, never the filesystem.
+  "plan",
   "read_file",
   "list_dir",
   "search_files",
   "glob_files",
   "search_codebase",
+  // git_status and git_diff only read repository state; they cannot mutate it.
+  "git_status",
+  "git_diff",
   "browser_inspect",
   "browser_assert_url",
   "browser_assert_text",
