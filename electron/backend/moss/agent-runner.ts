@@ -94,6 +94,10 @@ export interface RunTurnOptions {
    *  fresh per-turn store; a caller that wants a plan to survive across turns
    *  supplies its own session-scoped store here. */
   plan?: PlanStore;
+  /** How many delegate hops deep this turn already is. The top-level turn is 0;
+   *  a subagent runs at 1 and is denied the delegate tool, so recursion cannot
+   *  run away. Callers should not set this. */
+  delegateDepth?: number;
 }
 
 export interface CompletionContext {
@@ -157,6 +161,7 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
   const usedToolNames = new Set<string>();
   // Falls back to a turn-scoped checklist when the caller supplies no store.
   const plan = opts.plan ?? new PlanStore();
+  const delegate = makeDelegate(opts);
 
   try {
     // maxRounds limits tool-execution rounds. One additional tool-disabled
@@ -273,7 +278,7 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
         usedToolNames.add(call.name);
         onEvent({ type: "tool-call", callId: call.id, name: call.name, arguments: call.arguments });
         const startedAt = Date.now();
-        const { result, autoApproved, risk } = await executeCallWithRecovery(call, opts, failedActionSignatures, plan);
+        const { result, autoApproved, risk } = await executeCallWithRecovery(call, opts, failedActionSignatures, plan, delegate);
         const durationMs = Date.now() - startedAt;
         const toolMsg: AgentMessage = {
           role: "tool",
@@ -362,16 +367,75 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
   }
 }
 
+/** Runs a self-contained task in its own conversation and reports back. */
+type DelegateFn = (task: string, signal: AbortSignal) => Promise<string>;
+
+/** How many delegate hops are allowed. One means the main turn may spawn a
+ *  subagent, and that subagent may not spawn another. */
+const MAX_DELEGATE_DEPTH = 1;
+
+/** Build the delegate capability for this turn, or nothing if we are already as
+ *  deep as delegation is allowed to go. The subagent inherits the provider and
+ *  model but starts from an empty conversation, and is given only the tools the
+ *  permission policy already treats as safe without asking. Approval is refused
+ *  outright rather than forwarded, so a subagent can never become a quieter
+ *  route to a mutating tool than the main loop. */
+function makeDelegate(opts: RunTurnOptions): DelegateFn | undefined {
+  const depth = opts.delegateDepth ?? 0;
+  if (depth >= MAX_DELEGATE_DEPTH) return undefined;
+
+  return async (task: string, signal: AbortSignal): Promise<string> => {
+    const readOnly = new Map<string, Tool>();
+    for (const [name, tool] of opts.toolRegistry) {
+      if (name !== "delegate" && classifyTool(name) === "allow") readOnly.set(name, tool);
+    }
+    const toolDefs: ToolDefinition[] = opts.tools.filter((t) => readOnly.has(t.name));
+
+    let report = "";
+    let failure = "";
+    await runTurn({
+      ...opts,
+      messages: [{ role: "user", content: task }],
+      tools: toolDefs,
+      toolRegistry: readOnly,
+      delegateDepth: depth + 1,
+      signal,
+      autoApprove: false,
+      requestApproval: async () => false,
+      // A subagent cannot mutate, so there is nothing to check point, verify or
+      // gate on completion, and it keeps its own fresh checklist.
+      checkpoint: undefined,
+      verify: undefined,
+      completionGuard: undefined,
+      plan: undefined,
+      // The subagent's own rounds stay out of the parent's transcript; the
+      // parent already shows the delegate call and the report it returned.
+      onEvent: (event: MossEvent) => {
+        if (event.type === "turn-complete") {
+          const last = [...event.messages].reverse().find((m) => m.role === "assistant" && m.content.trim());
+          if (last) report = last.content;
+        } else if (event.type === "turn-error") {
+          failure = event.message;
+        }
+      },
+    });
+
+    if (!report && failure) throw new Error(failure);
+    return report;
+  };
+}
+
 async function executeCallWithRecovery(
   call: ToolCall,
   opts: RunTurnOptions,
   failedActionSignatures: string[],
   plan: PlanStore,
+  delegate?: DelegateFn,
 ): Promise<ExecOutcome> {
   const signature = `${call.name}:${call.arguments}`;
   let retryCount = 0;
   for (;;) {
-    const outcome = await executeCall(call, opts, plan);
+    const outcome = await executeCall(call, opts, plan, delegate);
     if (outcome.result.ok) return outcome;
     const decision = recoveryPolicy.decide(outcome.result.content, {
       retryCount,
@@ -419,7 +483,7 @@ interface ExecOutcome {
   risk?: CommandRisk;
 }
 
-async function executeCall(call: ToolCall, opts: RunTurnOptions, plan: PlanStore): Promise<ExecOutcome> {
+async function executeCall(call: ToolCall, opts: RunTurnOptions, plan: PlanStore, delegate?: DelegateFn): Promise<ExecOutcome> {
   const tool = opts.toolRegistry.get(call.name);
   if (!tool) return { result: { ok: false, content: `Unknown tool: ${call.name}` }, autoApproved: false };
 
@@ -459,7 +523,7 @@ async function executeCall(call: ToolCall, opts: RunTurnOptions, plan: PlanStore
 
   try {
     const result = await runWithTimeout(
-    (sig) => tool.execute(args, { workspaceRoot: opts.workspaceRoot, signal: sig, stt: opts.stt, email: opts.email, embed: opts.embed, checkpoint: opts.checkpoint, approvalGranted, gatedMemory: opts.gatedMemory, plan }),
+    (sig) => tool.execute(args, { workspaceRoot: opts.workspaceRoot, signal: sig, stt: opts.stt, email: opts.email, embed: opts.embed, checkpoint: opts.checkpoint, approvalGranted, gatedMemory: opts.gatedMemory, plan, delegate }),
       opts.signal,
       opts.toolTimeoutMs ?? TOOL_TIMEOUT_MS,
       call.name,

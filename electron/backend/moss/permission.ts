@@ -14,6 +14,8 @@ const AUTO_ALLOW = new Set<string>([
   "search_files",
   "glob_files",
   "search_codebase",
+  // delegate spawns a read-only subagent; it cannot reach a mutating tool.
+  "delegate",
   // view_image only reads a file inside the workspace sandbox.
   "view_image",
   // git_status and git_diff only read repository state; they cannot mutate it.

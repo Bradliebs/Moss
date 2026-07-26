@@ -5,6 +5,7 @@ import { searchCodebaseTool } from "./codebase-tool";
 import { editFileTool, globFilesTool, listDirTool, moveFileTool, readFileTool, searchFilesTool, writeFileTool } from "./fs-tools";
 import { sendEmailTool } from "./email-tool";
 import { GIT_TOOLS } from "./git-tools";
+import { DELEGATE_TOOLS } from "./delegate-tool";
 import { IMAGE_TOOLS } from "./image-tools";
 import { planTool } from "./plan-tool";
 import { SELF_TOOLS } from "./self-tools";
@@ -25,6 +26,7 @@ export const TOOLS: Tool[] = [
   moveFileTool,
   ...GIT_TOOLS,
   ...IMAGE_TOOLS,
+  ...DELEGATE_TOOLS,
   runCommandTool,
   webSearchTool,
   fetchUrlTool,

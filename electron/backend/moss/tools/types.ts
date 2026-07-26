@@ -26,6 +26,10 @@ export interface ToolContext {
   /** checklist state for the plan tool; scoped to the turn unless the caller
    *  supplies a longer-lived store */
   plan?: PlanStore;
+  /** runs a read-only subagent in its own conversation and resolves its report.
+   *  Absent when the host has not wired delegation, or inside a subagent, where
+   *  the depth cap withholds it to stop unbounded recursion. */
+  delegate?: (task: string, signal: AbortSignal) => Promise<string>;
 }
 
 export interface ToolResult {
