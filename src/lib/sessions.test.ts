@@ -8,6 +8,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AgentMessage } from "@common/types";
 
+import type { Session } from "./sessions";
+
 type SessionsModule = typeof import("./sessions");
 
 let sessions: SessionsModule;
@@ -382,5 +384,143 @@ describe("contextWindowUsage", () => {
       outputTokens: 0,
     });
     expect(sessions.contextWindowUsage([])).toEqual({ inputTokens: 0, outputTokens: 0 });
+  });
+});
+
+describe("continueInNewSession", () => {
+  /** Build a source conversation with several turns and one tool call. */
+  function seedSource(): string {
+    const id = sessions.createSession();
+    sessions.renameSession(id, "Refactor the parser");
+    sessions.setSessionMessages(id, [
+      userMsg("first ask"),
+      { role: "assistant", content: "first reply", toolCalls: [{ id: "c1", name: "read_file", arguments: "{}" }] },
+      { role: "tool", content: "file body", toolCallId: "c1", risk: "readonly" },
+      userMsg("second ask"),
+      { role: "assistant", content: "second reply" },
+      userMsg("third ask"),
+      { role: "assistant", content: "third reply" },
+    ]);
+    return id;
+  }
+
+  it("creates a new current session seeded with a user digest and an assistant reply", () => {
+    const source = seedSource();
+    const forked = sessions.continueInNewSession(source);
+    expect(forked).toBeTruthy();
+    expect(sessions.ensureCurrentSession()).toBe(forked);
+
+    const seeded = sessions.getSessionMessages(forked!);
+    expect(seeded).toHaveLength(2);
+    expect(seeded[0].role).toBe("user");
+    expect(seeded[0].handoff).toBe(true);
+    // Alternation matters: the next message the user sends is a user turn, and
+    // two user turns back to back are rejected by strict providers.
+    expect(seeded[1].role).toBe("assistant");
+    expect(seeded[1].handoff).toBe(true);
+  });
+
+  it("seeds the model-written summary when one is supplied, under the carried-over framing", () => {
+    const source = seedSource();
+    const forked = sessions.continueInNewSession(source, "## Goal\nShip the parser refactor.")!;
+    const seeded = sessions.getSessionMessages(forked);
+    expect(seeded[0].content).toContain('# Carried-over context from "Refactor the parser"');
+    expect(seeded[0].content).toContain("## Goal\nShip the parser refactor.");
+    // The model summary replaces the digest rather than sitting alongside it.
+    expect(seeded[0].content).not.toContain("## Most recent exchange (verbatim)");
+  });
+
+  it("falls back to the local digest when the summary is missing or blank", () => {
+    const source = seedSource();
+    const blank = sessions.continueInNewSession(source, "   ")!;
+    expect(sessions.getSessionMessages(blank)[0].content).toContain("## Most recent exchange (verbatim)");
+  });
+
+  it("leaves the source conversation untouched", () => {
+    const source = seedSource();
+    const before = sessions.getSessionMessages(source);
+    sessions.continueInNewSession(source);
+    expect(sessions.getSessionMessages(source)).toEqual(before);
+    expect(sessions.getSessionTitle(source)).toBe("Refactor the parser");
+  });
+
+  it("carries the per-chat personality override", () => {
+    const source = seedSource();
+    sessions.setSessionPersonality(source, "concise");
+    const forked = sessions.continueInNewSession(source)!;
+    expect(sessions.getSessionPersonality(forked)).toBe("concise");
+  });
+
+  it("numbers repeat handoffs so chained continuations stay distinguishable", () => {
+    const source = seedSource();
+    const first = sessions.continueInNewSession(source)!;
+    expect(sessions.getSessionTitle(first)).toBe("Refactor the parser (continued)");
+    const second = sessions.continueInNewSession(first)!;
+    expect(sessions.getSessionTitle(second)).toBe("Refactor the parser (continued 2)");
+    const third = sessions.continueInNewSession(second)!;
+    expect(sessions.getSessionTitle(third)).toBe("Refactor the parser (continued 3)");
+  });
+
+  it("returns null for an unknown or empty conversation", () => {
+    expect(sessions.continueInNewSession("nope")).toBeNull();
+    expect(sessions.continueInNewSession(sessions.createSession())).toBeNull();
+  });
+});
+
+describe("buildHandoffDigest", () => {
+  function session(messages: AgentMessage[]): Session {
+    return { id: "s", title: "Refactor the parser", messages, createdAt: "", updatedAt: "" };
+  }
+
+  it("keeps the last two turns verbatim and reduces earlier ones to their requests", () => {
+    const digest = sessions.buildHandoffDigest(
+      session([
+        userMsg("first ask"),
+        { role: "assistant", content: "first reply" },
+        userMsg("second ask"),
+        { role: "assistant", content: "second reply" },
+        userMsg("third ask"),
+        { role: "assistant", content: "third reply" },
+      ]),
+    );
+    expect(digest).toContain('Carried-over context from "Refactor the parser"');
+    expect(digest).toContain("- first ask");
+    expect(digest).toContain("second ask");
+    expect(digest).toContain("second reply");
+    expect(digest).toContain("third reply");
+    // The first turn's reply is dropped; only its request survives.
+    expect(digest).not.toContain("first reply");
+  });
+
+  it("lists tools that already ran, with their risk tier and count", () => {
+    const digest = sessions.buildHandoffDigest(
+      session([
+        userMsg("go"),
+        {
+          role: "assistant",
+          content: "working",
+          toolCalls: [
+            { id: "c1", name: "read_file", arguments: "{}" },
+            { id: "c2", name: "read_file", arguments: "{}" },
+          ],
+        },
+        { role: "tool", content: "a", toolCallId: "c1", risk: "readonly" },
+        { role: "tool", content: "b", toolCallId: "c2", risk: "readonly" },
+      ]),
+    );
+    expect(digest).toContain("- read_file (readonly) ×2");
+  });
+
+  it("bounds long content so the continuation does not inherit the problem", () => {
+    const digest = sessions.buildHandoffDigest(
+      session([userMsg("x".repeat(5000)), { role: "assistant", content: "y".repeat(5000) }]),
+    );
+    expect(digest).toContain("…[truncated]");
+    expect(digest.length).toBeLessThan(4000);
+  });
+
+  it("handles a conversation with no assistant reply yet", () => {
+    const digest = sessions.buildHandoffDigest(session([userMsg("only ask")]));
+    expect(digest).toContain("only ask");
   });
 });

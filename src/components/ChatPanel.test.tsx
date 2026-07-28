@@ -26,6 +26,8 @@ vi.mock("../lib/attachments", async (importOriginal) => ({
 
 const mockSetSessionMessages = vi.fn();
 const mockClearSession = vi.fn();
+const mockContinueInNewSession = vi.fn();
+const mockSummarize = vi.fn();
 
 // Holds the session ChatPanel renders; tests override `value.messages` to drive
 // messagesToItems (e.g. multi-round turns) and beforeEach resets it to empty.
@@ -92,6 +94,7 @@ vi.mock("../lib/sessions", () => ({
   setSessionMessages: (...args: unknown[]) => mockSetSessionMessages(...args),
   setSessionTitle: vi.fn(),
   clearSession: (...args: unknown[]) => mockClearSession(...args),
+  continueInNewSession: (...args: unknown[]) => mockContinueInNewSession(...args),
   sessionTokenUsage: () => ({ inputTokens: 0, outputTokens: 0 }),
   contextWindowTokens: () => 0,
   contextWindowUsage: () => ({ inputTokens: 0, outputTokens: 0 }),
@@ -153,6 +156,9 @@ function taskSnapshot(state: TaskState, blocker?: TaskSnapshot["blocker"]): Task
 beforeEach(() => {
   eventHandler = null;
   mockExtractPdfText.mockReset();
+  mockContinueInNewSession.mockReset();
+  mockSummarize.mockReset();
+  mockSummarize.mockResolvedValue({ ok: true, summary: "MODEL SUMMARY" });
   mockSession.value = { id: "s1", title: "New chat", messages: [], createdAt: 0, updatedAt: 0 };
   mockToolState.usage = { total: 0, autoApproved: 0 };
   mockToolState.audit = [];
@@ -164,6 +170,7 @@ beforeEach(() => {
       chat: {
         send: vi.fn(),
         abort: vi.fn(),
+        summarize: mockSummarize,
         onEvent: vi.fn((h: (payload: ChatEventPayload) => void) => {
           eventHandler = h;
           return off;
@@ -833,6 +840,64 @@ describe("ChatPanel", () => {
   it("hides the Clear action for an empty conversation", () => {
     render(<Harness />);
     expect(screen.queryByText("Clear")).toBeNull();
+  });
+
+  it("forks the conversation with a model-written summary when Continue in new chat is clicked", async () => {
+    mockSession.value = {
+      id: "s1",
+      title: "Refactor the parser",
+      messages: [
+        { role: "user", content: "hi" },
+        { role: "assistant", content: "hello" },
+      ],
+      createdAt: 0,
+      updatedAt: 0,
+    };
+    render(<Harness />);
+    fireEvent.click(screen.getByText("Continue in new chat"));
+    await waitFor(() => expect(mockContinueInNewSession).toHaveBeenCalledWith("s1", "MODEL SUMMARY"));
+    expect(mockSummarize).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Refactor the parser", messages: mockSession.value.messages }),
+    );
+  });
+
+  it("falls back to the local digest and explains why when the summary fails", async () => {
+    mockSummarize.mockResolvedValue({ ok: false, summary: "", error: "provider unreachable" });
+    mockSession.value = {
+      id: "s1",
+      title: "New chat",
+      messages: [
+        { role: "user", content: "hi" },
+        { role: "assistant", content: "hello" },
+      ],
+      createdAt: 0,
+      updatedAt: 0,
+    };
+    render(<Harness />);
+    fireEvent.click(screen.getByText("Continue in new chat"));
+    await waitFor(() => expect(mockContinueInNewSession).toHaveBeenCalledWith("s1", undefined));
+    expect(screen.getByText(/provider unreachable/)).toBeDefined();
+  });
+
+  it("hides the Continue in new chat action for an empty conversation", () => {
+    render(<Harness />);
+    expect(screen.queryByText("Continue in new chat")).toBeNull();
+  });
+
+  it("renders a carried-over context message as a collapsed card", () => {
+    mockSession.value = {
+      id: "s1",
+      title: "Old chat (continued)",
+      messages: [
+        { role: "user", content: "# Carried-over context", handoff: true },
+        { role: "assistant", content: "Ready to continue.", handoff: true },
+      ],
+      createdAt: 0,
+      updatedAt: 0,
+    };
+    render(<Harness />);
+    expect(screen.getByText("Carried-over context")).toBeDefined();
+    expect(screen.getByText("Summary of the previous chat, sent as the first message")).toBeDefined();
   });
 
   it("shows the auto-approve indicator only when the setting is on", () => {

@@ -11,6 +11,8 @@ import { IPC } from "../../common/ipc-contract";
 import type {
   ChatStartRequest,
   EmbedConfig,
+  HandoffSummaryRequest,
+  HandoffSummaryResult,
   MemoryCategory,
   MossEvent,
   SkillCreateRequest,
@@ -31,6 +33,7 @@ import { createBundledCapabilityTools } from "../backend/moss/capabilities/bundl
 import { BudgetEnforcingProvider } from "../backend/moss/budget/budget-provider";
 import { checkpointStore } from "../backend/moss/checkpoint/checkpoint-store";
 import { codebaseIndex } from "../backend/moss/codebase/codebase-index";
+import { summarizeForHandoff } from "../backend/moss/context/handoff";
 import { createDesktopTools } from "../backend/moss/desktop/desktop-tools";
 import { createWindowsUiaDriverFactory } from "../backend/moss/desktop/windows-uia-driver";
 import {
@@ -107,6 +110,16 @@ export function registerChatIpc(): void {
   ipcMain.handle(IPC.providerListModels, async (_event, config: ChatStartRequest["config"]) => {
     const provider = createProvider(config);
     return provider.listModels();
+  });
+
+  ipcMain.handle(IPC.chatSummarize, async (_event, req: HandoffSummaryRequest): Promise<HandoffSummaryResult> => {
+    if (!req.config.model) return { ok: false, summary: "", error: "No model is configured." };
+    try {
+      const provider = createProvider(req.config);
+      return await summarizeForHandoff(provider, req.config.model, req.messages, req.title);
+    } catch (error) {
+      return { ok: false, summary: "", error: error instanceof Error ? error.message : String(error) };
+    }
   });
 
   ipcMain.handle(IPC.workspacePick, async () => {

@@ -257,6 +257,10 @@ export interface AgentMessage {
   /** id of the turn that produced this message; stamped on assistant turns so
    *  the renderer can look up and revert the files that turn changed */
   turnId?: string;
+  /** set on the seed messages of a conversation continued from another chat, so
+   *  the renderer can render the carried-over digest as a collapsed card rather
+   *  than a wall-of-text bubble. Ignored by providers. */
+  handoff?: boolean;
 }
 
 export interface TokenUsage {
@@ -267,6 +271,24 @@ export interface TokenUsage {
 /** Shadow confidence label for a completed turn, derived from what happened in
  *  the turn (no extra model call). Shown as an opt-in chip in the renderer. */
 export type ConfidenceMode = "settled" | "reasoned" | "web-fresh" | "needs-review";
+
+/** Ask the model to write a handoff summary of a conversation so the user can
+ *  continue it in a fresh chat without re-sending the whole history. */
+export interface HandoffSummaryRequest {
+  config: ProviderConfig;
+  /** the conversation to summarize, oldest first */
+  messages: AgentMessage[];
+  /** the conversation's title, used to orient the summary */
+  title: string;
+}
+
+export interface HandoffSummaryResult {
+  ok: boolean;
+  /** the model's summary; empty when ok is false */
+  summary: string;
+  /** why the summary could not be written, for the fallback path */
+  error?: string;
+}
 
 /** How the agent loop reacts to prompt-injection phrasing in external tool
  *  output. `off` disables scanning, `flag` prepends a visible warning, `block`

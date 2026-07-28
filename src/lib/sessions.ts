@@ -159,6 +159,143 @@ export function renameSession(id: string, title: string): void {
   }));
 }
 
+// --- Continue in a new chat -------------------------------------------------
+//
+// When a conversation has grown past what is comfortable to keep re-sending, the
+// user can fork it into a fresh chat seeded with a summary of the old one. The
+// summary is normally written by the model (see the chat.summarize IPC); the
+// locally-built digest below is the fallback for when that call cannot be made
+// or fails, so the button always does something.
+
+/** Budgets for the locally-built fallback digest. Bounded on purpose — a handoff
+ *  exists to make the new chat small, so an unbounded transcript would recreate
+ *  the problem it is meant to solve. */
+const HANDOFF_RECENT_TURNS = 2;
+const HANDOFF_RECENT_CHARS = 1500;
+const HANDOFF_REQUEST_CHARS = 160;
+const HANDOFF_MAX_REQUESTS = 20;
+
+/** The reply seeded alongside the summary. The new conversation must start with a
+ *  user turn followed by an assistant turn: two user messages back to back are
+ *  rejected by strict providers (Anthropic), and the next thing the user types
+ *  would be exactly that. */
+const HANDOFF_REPLY = "I've read the carried-over context from our previous chat. Ready to continue — what next?";
+
+function collapse(text: string, max: number): string {
+  const clean = text.trim().replace(/\s+/g, " ");
+  return clean.length > max ? `${clean.slice(0, max)}…` : clean;
+}
+
+function clip(text: string, max: number): string {
+  const clean = text.trim();
+  return clean.length > max ? `${clean.slice(0, max)}\n…[truncated]` : clean;
+}
+
+/** Wrap a summary body in the framing the receiving model needs: where this came
+ *  from, and that the rest of the history is genuinely gone. */
+function wrapHandoff(title: string, body: string): string {
+  return [
+    `# Carried-over context from "${title}"`,
+    "",
+    "This chat continues an earlier conversation. The earlier messages are not in this context window — the summary below is everything that carried over. If you need a detail that is not here, say so rather than guessing.",
+    "",
+    body.trim(),
+  ].join("\n");
+}
+
+/** Build the fallback digest locally, with no model call. Used when the model
+ *  cannot write the summary. Lossier than a written summary: it preserves what
+ *  was asked and what ran, but not what was concluded. */
+export function buildHandoffDigest(session: Session): string {
+  const messages = session.messages;
+  const userIdxs = messages.reduce<number[]>((acc, m, i) => (m.role === "user" ? [...acc, i] : acc), []);
+  // Everything from this index on is carried verbatim; everything before it is
+  // reduced to the list of requests that were made.
+  const recentStart =
+    userIdxs.length > HANDOFF_RECENT_TURNS ? userIdxs[userIdxs.length - HANDOFF_RECENT_TURNS] : (userIdxs[0] ?? 0);
+
+  const lines: string[] = [];
+
+  const earlierRequests = userIdxs
+    .filter((i) => i < recentStart)
+    .map((i) => collapse(messages[i].content, HANDOFF_REQUEST_CHARS))
+    .filter(Boolean)
+    .slice(-HANDOFF_MAX_REQUESTS);
+  if (earlierRequests.length > 0) {
+    lines.push("## Earlier requests (oldest first)", "");
+    for (const r of earlierRequests) lines.push(`- ${r}`);
+    lines.push("");
+  }
+
+  const audit = sessionToolAudit(messages);
+  if (audit.length > 0) {
+    const counts = new Map<string, { risk: ToolRisk; count: number }>();
+    for (const e of audit) {
+      const prev = counts.get(e.name);
+      if (prev) prev.count += 1;
+      else counts.set(e.name, { risk: e.risk, count: 1 });
+    }
+    lines.push("## Tools already run in the earlier chat", "");
+    for (const [name, { risk, count }] of counts) lines.push(`- ${name} (${risk}) ×${count}`);
+    lines.push("");
+  }
+
+  const recent = messages.slice(recentStart).filter((m) => m.role === "user" || m.role === "assistant");
+  if (recent.length > 0) {
+    lines.push("## Most recent exchange (verbatim)", "");
+    for (const m of recent) {
+      const body = clip(m.content, HANDOFF_RECENT_CHARS);
+      if (!body) continue;
+      lines.push(m.role === "user" ? "### User" : "### Assistant", "", body, "");
+    }
+  }
+
+  return wrapHandoff(session.title, lines.join("\n")).trimEnd();
+}
+
+/** Derive the continuation's title, numbering repeat handoffs so a conversation
+ *  forked more than once stays distinguishable in the left nav. */
+function continuedTitle(title: string): string {
+  const match = /^(.*) \(continued(?: (\d+))?\)$/.exec(title);
+  if (!match) return `${title} (continued)`;
+  return `${match[1]} (continued ${match[2] ? Number(match[2]) + 1 : 2})`;
+}
+
+/** Fork a conversation into a fresh chat seeded with a summary of it, and make
+ *  the new chat current. The source conversation is left untouched. Pass the
+ *  model-written summary when one is available; omit it to fall back to the
+ *  locally-built digest. Returns the new session id, or null when the source is
+ *  missing or empty. */
+export function continueInNewSession(id: string, modelSummary?: string): string | null {
+  const source = sessionsState.get().sessions.find((s) => s.id === id);
+  if (!source || source.messages.length === 0) return null;
+
+  const content = modelSummary?.trim()
+    ? wrapHandoff(source.title, modelSummary)
+    : buildHandoffDigest(source);
+  const newId = crypto.randomUUID();
+  const now = new Date().toISOString();
+  const seed: AgentMessage[] = [
+    { role: "user", content, handoff: true },
+    { role: "assistant", content: HANDOFF_REPLY, handoff: true },
+  ];
+  sessionsState.update((prev) => ({
+    sessions: [
+      {
+        id: newId,
+        title: continuedTitle(source.title),
+        messages: seed,
+        createdAt: now,
+        updatedAt: now,
+        ...(source.personalityId ? { personalityId: source.personalityId } : {}),
+      },
+      ...prev.sessions,
+    ],
+    currentId: newId,
+  }));
+  return newId;
+}
+
 /** Serialize a conversation to a Markdown transcript for export. Only the
  *  human-readable user and assistant turns are included; system and tool-result
  *  messages are omitted so the export reads as a clean conversation. */

@@ -13,6 +13,9 @@ export const IPC = {
   chatEvent: "moss:chat:event",
   /** renderer -> main: approve or deny a pending tool call */
   toolApprove: "moss:tool:approve",
+  /** renderer -> main (invoke): write a handoff summary of a conversation so it
+   *  can be continued in a fresh chat; returns HandoffSummaryResult */
+  chatSummarize: "moss:chat:summarize",
   /** renderer -> main (invoke): durable task lifecycle */
   taskCreate: "moss:task:create",
   taskList: "moss:task:list",

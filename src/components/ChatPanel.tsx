@@ -14,6 +14,7 @@ import {
   clearSession,
   contextWindowTokens,
   contextWindowUsage,
+  continueInNewSession,
   currentSession,
   ensureCurrentSession,
   getSessionMessages,
@@ -72,6 +73,8 @@ interface MessageView {
    *  assistant message so the revert affordance can look up its file changes */
   turnId?: string;
   sourceUserIndex?: number;
+  /** carried-over context seeded by "Continue in new chat"; rendered collapsed */
+  handoff?: boolean;
 }
 
 type ViewItem = MessageView | ToolView;
@@ -352,7 +355,7 @@ function messagesToItems(messages: AgentMessage[]): ViewItem[] {
     if (m.role === "user") {
       closeTurn();
       sourceUserIndex = mi;
-      items.push({ kind: "message", role: "user", content: m.content, images: m.images, documents: m.documents, historyIndex: mi });
+      items.push({ kind: "message", role: "user", content: m.content, images: m.images, documents: m.documents, historyIndex: mi, handoff: m.handoff });
     } else if (m.role === "assistant") {
       if (m.turnId) turnId = m.turnId;
       if (m.usage) {
@@ -368,6 +371,7 @@ function messagesToItems(messages: AgentMessage[]): ViewItem[] {
           interrupted: m.interrupted,
           usage: m.usage,
           sourceUserIndex,
+          handoff: m.handoff,
         };
         items.push(reply);
         lastTurnReply = reply;
@@ -427,6 +431,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
   const [showToolAudit, setShowToolAudit] = useState(false);
   const [auditHideReadonly, setAuditHideReadonly] = useState(false);
   const [auditSortByRisk, setAuditSortByRisk] = useState(false);
+  const [summarizing, setSummarizing] = useState(false);
   const dictation = useDictation((text) =>
     setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text)),
   );
@@ -683,6 +688,35 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
     } catch (error) {
       setStatus(`Could not cancel task: ${error instanceof Error ? error.message : String(error)}`);
     }
+  }
+
+  /** Fork this conversation into a fresh chat carrying a model-written summary.
+   *  The summary is a one-shot, tool-free call that never touches this session's
+   *  transcript. If it cannot be made — no model configured, provider error — we
+   *  still fork, using the locally-built digest, and say why. */
+  async function handleContinueInNewChat(sessionId: string): Promise<void> {
+    if (history.length === 0) return;
+    setSummarizing(true);
+    setStatus("");
+    let summary: string | undefined;
+    try {
+      if (settings.model) {
+        const result = await window.moss.chat.summarize({
+          config: toProviderConfig(settings),
+          messages: history,
+          title: current?.title ?? "Untitled chat",
+        });
+        if (result.ok) summary = result.summary;
+        else setStatus(`Carried over a basic digest instead of a written summary: ${result.error ?? "unknown error"}`);
+      }
+    } catch (error) {
+      setStatus(
+        `Carried over a basic digest instead of a written summary: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      setSummarizing(false);
+    }
+    continueInNewSession(sessionId, summary);
   }
 
   /** Re-run the user turn at the given history index, dropping that turn's
@@ -996,6 +1030,16 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
         {current && history.length > 0 ? (
           <button
             className="rounded-md bg-neutral-300 dark:bg-neutral-700 px-2 py-1 transition hover:bg-neutral-400 dark:hover:bg-neutral-600 disabled:opacity-50"
+            onClick={() => void handleContinueInNewChat(current.id)}
+            disabled={busy || summarizing}
+            title="Start a fresh chat that carries a summary of this conversation. Resets the context window without losing the thread; this conversation is kept."
+          >
+            {summarizing ? "Summarizing…" : "Continue in new chat"}
+          </button>
+        ) : null}
+        {current && history.length > 0 ? (
+          <button
+            className="rounded-md bg-neutral-300 dark:bg-neutral-700 px-2 py-1 transition hover:bg-neutral-400 dark:hover:bg-neutral-600 disabled:opacity-50"
             onClick={() => clearSession(current.id)}
             disabled={busy}
             title="Clear this conversation: removes its messages but keeps it in the list."
@@ -1013,7 +1057,23 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
           <WelcomeScreen onPick={(text) => send(text)} needsSetup={!settings.model} onOpenSettings={onOpenSettings} />
         ) : (
           items.map((it, i) =>
-          it.kind === "message" ? (
+          it.kind === "message" && it.handoff && it.role === "user" ? (
+            <details
+              key={i}
+              className="group mx-auto w-full max-w-[52rem] animate-fade-in overflow-hidden rounded-lg border border-neutral-300/60 bg-white/70 shadow-sm dark:border-neutral-700/60 dark:bg-neutral-900/70"
+            >
+              <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 marker:hidden">
+                <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Carried-over context</span>
+                <span className="min-w-0 flex-1 truncate text-xs text-neutral-500 dark:text-neutral-400">
+                  Summary of the previous chat, sent as the first message
+                </span>
+                <span className="text-[10px] text-neutral-400 transition-transform group-open:rotate-180" aria-hidden="true">▼</span>
+              </summary>
+              <pre className="max-h-96 overflow-auto whitespace-pre-wrap border-t border-neutral-200/70 px-3 py-2 text-xs text-neutral-700 dark:border-neutral-700/70 dark:text-neutral-300">
+                {it.content}
+              </pre>
+            </details>
+          ) : it.kind === "message" ? (
             <div
               key={i}
               className={

@@ -10,6 +10,7 @@ const CH = {
   chatAbort: "moss:chat:abort",
   chatEvent: "moss:chat:event",
   toolApprove: "moss:tool:approve",
+  chatSummarize: "moss:chat:summarize",
   taskCreate: "moss:task:create",
   taskList: "moss:task:list",
   taskGet: "moss:task:get",
@@ -53,6 +54,7 @@ contextBridge.exposeInMainWorld("moss", {
   chat: {
     send: (request) => ipcRenderer.send(CH.chatStart, request),
     abort: (turnId) => ipcRenderer.send(CH.chatAbort, turnId),
+    summarize: (request) => ipcRenderer.invoke(CH.chatSummarize, request),
     onEvent: (handler) => {
       const listener = (_event, payload) => handler(payload);
       ipcRenderer.on(CH.chatEvent, listener);

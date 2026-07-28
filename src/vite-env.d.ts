@@ -8,6 +8,8 @@ import type {
   CodebaseReindexResult,
   CodebaseStatus,
   EmbedConfig,
+  HandoffSummaryRequest,
+  HandoffSummaryResult,
   McpServerStatus,
   MemoryCategory,
   MemoryEntry,
@@ -37,6 +39,7 @@ declare global {
       chat: {
         send: (request: ChatStartRequest) => void;
         abort: (turnId: string) => void;
+        summarize: (request: HandoffSummaryRequest) => Promise<HandoffSummaryResult>;
         onEvent: (handler: (payload: ChatEventPayload) => void) => () => void;
       };
       tool: {
