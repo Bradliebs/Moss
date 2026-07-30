@@ -32,6 +32,7 @@ export function estimateTokens(messages: readonly AgentMessage[]): number {
   for (const m of messages) {
     chars += m.content.length + 8;
     if (m.toolCalls) for (const c of m.toolCalls) chars += c.name.length + c.arguments.length;
+    if (m.documents) for (const document of m.documents) chars += document.name.length + document.mediaType.length + document.text.length + 32;
   }
   return Math.ceil(chars / 4);
 }
@@ -43,6 +44,50 @@ function noteText(dropped: number): string {
 function systemWithNote(system: AgentMessage | undefined, dropped: number): AgentMessage {
   if (system) return { ...system, content: `${system.content}\n\n${noteText(dropped)}` };
   return { role: "system", content: noteText(dropped) };
+}
+
+function splitSystem(messages: readonly AgentMessage[]): {
+  system: AgentMessage | undefined;
+  body: readonly AgentMessage[];
+} {
+  const hasSystem = messages.length > 0 && messages[0].role === "system";
+  return {
+    system: hasSystem ? messages[0] : undefined,
+    body: hasSystem ? messages.slice(1) : messages,
+  };
+}
+
+/** Return whether a provider error specifically reports an oversized model
+ *  input. Kept deliberately narrow so unrelated permanent request errors are
+ *  not retried with less conversation history. */
+export function isContextOverflowError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /context[_ -]length[_ -]exceeded|maximum context length|context window|prompt (?:is )?too long|too many (?:input )?tokens|input length.{0,40}exceed/i.test(message);
+}
+
+/** Make the largest safe emergency reduction after a provider reports context
+ *  overflow. The retained suffix starts at the newest user message, preserving
+ *  provider alternation and any tool-call/result pairs inside that suffix. */
+export function compactForOverflow(messages: readonly AgentMessage[]): CompactionResult {
+  const unchanged: CompactionResult = { messages: [...messages], compacted: false, droppedCount: 0 };
+  const { system, body } = splitSystem(messages);
+  let cut = -1;
+  for (let i = body.length - 1; i > 0; i--) {
+    if (body[i].role === "user") {
+      cut = i;
+      break;
+    }
+  }
+  if (cut < 1) return unchanged;
+
+  const compacted = [systemWithNote(system, cut), ...body.slice(cut)];
+  if (estimateTokens(compacted) >= estimateTokens(messages)) return unchanged;
+
+  return {
+    messages: compacted,
+    compacted: true,
+    droppedCount: cut,
+  };
 }
 
 /** Drop the oldest messages when the history exceeds the input budget. Returns
@@ -59,9 +104,7 @@ export function compactIfNeeded(
   const inputBudget = Math.floor(limit * INPUT_BUDGET_FRACTION);
   if (estimateTokens(messages) <= inputBudget) return unchanged;
 
-  const hasSystem = messages.length > 0 && messages[0].role === "system";
-  const system = hasSystem ? messages[0] : undefined;
-  const body = hasSystem ? messages.slice(1) : messages.slice();
+  const { system, body } = splitSystem(messages);
 
   // Safe cut points: indices where a retained tail begins with a user message.
   const userIdxs: number[] = [];

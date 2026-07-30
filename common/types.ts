@@ -368,8 +368,9 @@ export interface ChatStartRequest {
   /** how external tool output is scanned for prompt injection; defaults to
    *  "flag" on the backend when absent. */
   injectionMode?: InjectionMode;
-  /** the model's context window in tokens; when > 0, the runner drops the oldest
-   *  messages once the history exceeds a fraction of it. 0 disables compaction. */
+  /** the model's context window in tokens; when > 0, the runner proactively
+   *  drops the oldest messages once history exceeds a fraction of it. Provider
+   *  overflow can still trigger one reactive compaction when absent or 0. */
   contextLimit?: number;
 }
 

@@ -6,7 +6,7 @@
 
 import type { AgentMessage, EmailConfig, EmbedConfig, MossEvent, SttConfig, TokenUsage, ToolCall, ToolDefinition, VerifyConfig } from "../../../common/types";
 import type { CheckpointRecorder } from "./checkpoint/checkpoint-store";
-import { compactIfNeeded } from "./context/compaction";
+import { compactForOverflow, compactIfNeeded, isContextOverflowError } from "./context/compaction";
 import { compressToolOutput } from "./context/tool-output-compaction";
 import { classifyConfidenceMode, describeConfidence } from "./governed/confidence";
 import { resolvePermission } from "./permission";
@@ -82,7 +82,8 @@ export interface RunTurnOptions {
   /** when true, emit a shadow confidence label at turn end (no behavior change). */
   showConfidence?: boolean;
   /** the model's context window in tokens; when > 0, older messages are dropped
-   *  once the history exceeds a fraction of it. 0 disables compaction. */
+   *  proactively once history exceeds a fraction of it. Provider-reported
+   *  overflow can still trigger one reactive compaction when this is 0. */
   contextLimit?: number;
   /** Optional task-level completion gate. Ordinary chat omits this and keeps
    *  the historical behavior; durable tasks use it to reject unsupported
@@ -129,7 +130,7 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
   // set. Runs once at seed time; the current turn's own messages are the tail and
   // are never dropped.
   const compaction = compactIfNeeded(seeded, { contextLimit: opts.contextLimit ?? 0 });
-  const conversation = compaction.messages;
+  let conversation = compaction.messages;
   if (compaction.compacted) {
     onEvent({
       type: "notice",
@@ -183,7 +184,9 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
       // Stream the round, retrying a transient provider failure only while
       // nothing has been emitted to the renderer yet -- once text or usage has
       // been shown, a retry would duplicate it, so we let the error propagate.
-      for (let attempt = 0; ; attempt++) {
+      let transientAttempts = 0;
+      let overflowRecoveryAttempted = false;
+      for (;;) {
         pendingText = "";
         calls = [];
         let usageIn = 0;
@@ -209,14 +212,28 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
           break;
         } catch (err) {
           if (signal.aborted) throw err;
-          const emitted = pendingText.length > 0 || sawUsage;
-          if (emitted || attempt >= MAX_STREAM_RETRIES || !isRetryableStreamError(err)) throw err;
+          const emitted = pendingText.length > 0 || calls.length > 0 || sawUsage;
+          if (!emitted && !overflowRecoveryAttempted && isContextOverflowError(err)) {
+            overflowRecoveryAttempted = true;
+            const overflowCompaction = compactForOverflow(conversation);
+            if (overflowCompaction.compacted) {
+              conversation = overflowCompaction.messages;
+              onEvent({
+                type: "notice",
+                level: "info",
+                message: `Provider context limit reached; trimmed ${overflowCompaction.droppedCount} older message${overflowCompaction.droppedCount === 1 ? "" : "s"} and retrying.`,
+              });
+              continue;
+            }
+          }
+          if (emitted || transientAttempts >= MAX_STREAM_RETRIES || !isRetryableStreamError(err)) throw err;
           onEvent({
             type: "notice",
             level: "warn",
-            message: `Stream interrupted; retrying (${attempt + 1}/${MAX_STREAM_RETRIES})...`,
+            message: `Stream interrupted; retrying (${transientAttempts + 1}/${MAX_STREAM_RETRIES})...`,
           });
-          await delay((opts.streamRetryBaseMs ?? STREAM_RETRY_BASE_MS) * 2 ** attempt, signal);
+          await delay((opts.streamRetryBaseMs ?? STREAM_RETRY_BASE_MS) * 2 ** transientAttempts, signal);
+          transientAttempts += 1;
         }
       }
 

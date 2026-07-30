@@ -515,6 +515,95 @@ describe("runTurn", () => {
     expect(complete.messages).toEqual([{ role: "assistant", content: "recovered" }]);
   });
 
+  it("compacts and retries once when the provider reports context overflow before output", async () => {
+    let attempts = 0;
+    const requests: ChatRequest[] = [];
+    const provider: ChatProvider = {
+      kind: "test",
+      async *streamChat(request): AsyncIterable<ProviderStreamEvent> {
+        requests.push({ ...request, messages: request.messages.map((message) => ({ ...message })) });
+        attempts += 1;
+        if (attempts === 1) throw new ProviderError("maximum context length exceeded", 400);
+        yield { type: "text-delta", text: "recovered" };
+      },
+      async listModels() {
+        return [];
+      },
+    };
+    const oldContent = "x".repeat(4000);
+    const h = await run(provider, [], {
+      messages: [
+        { role: "user", content: oldContent },
+        { role: "assistant", content: oldContent },
+        { role: "user", content: "latest" },
+      ],
+    });
+
+    expect(attempts).toBe(2);
+    expect(requests[1].messages.length).toBeLessThan(requests[0].messages.length);
+    expect(requests[1].messages.at(-1)?.content).toBe("latest");
+    expect(requests[1].messages[0].content).toContain("earlier messages were omitted");
+    const notice = h.events.find((event) => event.type === "notice") as Extract<MossEvent, { type: "notice" }>;
+    expect(notice.level).toBe("info");
+    expect(notice.message).toContain("Provider context limit reached");
+    const complete = h.events.at(-1) as Extract<MossEvent, { type: "turn-complete" }>;
+    expect(complete.messages).toEqual([{ role: "assistant", content: "recovered" }]);
+  });
+
+  it("surfaces a repeated context overflow after one compacted retry", async () => {
+    let attempts = 0;
+    const provider: ChatProvider = {
+      kind: "test",
+      // eslint-disable-next-line require-yield
+      async *streamChat(): AsyncIterable<ProviderStreamEvent> {
+        attempts += 1;
+        throw new ProviderError("context_length_exceeded", 400);
+      },
+      async listModels() {
+        return [];
+      },
+    };
+    const oldContent = "x".repeat(4000);
+    const h = await run(provider, [], {
+      messages: [
+        { role: "user", content: oldContent },
+        { role: "assistant", content: oldContent },
+        { role: "user", content: "latest" },
+      ],
+    });
+
+    expect(attempts).toBe(2);
+    expect(types(h).filter((type) => type === "notice")).toHaveLength(1);
+    const error = h.events.at(-1) as Extract<MossEvent, { type: "turn-error" }>;
+    expect(error.message).toContain("context_length_exceeded");
+  });
+
+  it("does not compact or retry a context overflow after text was streamed", async () => {
+    let attempts = 0;
+    const provider: ChatProvider = {
+      kind: "test",
+      async *streamChat(): AsyncIterable<ProviderStreamEvent> {
+        attempts += 1;
+        yield { type: "text-delta", text: "partial" };
+        throw new ProviderError("maximum context length exceeded", 400);
+      },
+      async listModels() {
+        return [];
+      },
+    };
+    const oldContent = "x".repeat(4000);
+    const h = await run(provider, [], {
+      messages: [
+        { role: "user", content: oldContent },
+        { role: "assistant", content: oldContent },
+        { role: "user", content: "latest" },
+      ],
+    });
+
+    expect(attempts).toBe(1);
+    expect(types(h)).toEqual(["text-delta", "turn-error"]);
+  });
+
   it("gives up after the retry cap when the stream keeps failing before output", async () => {
     let attempts = 0;
     const provider: ChatProvider = {

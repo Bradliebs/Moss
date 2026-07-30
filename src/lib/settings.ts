@@ -66,8 +66,8 @@ export interface MossSettings {
   verifyEnabled: boolean;
   /** newline-separated shell commands run in the workspace to verify edits */
   verifyCommands: string;
-  /** optional context-window size for the chosen model; 0 hides the meter.
-   *  User-supplied so it never drifts against a bundled per-model table. */
+  /** optional context-window size for proactive compaction and the usage meter;
+   *  0 disables both, while provider-reported overflow remains recoverable. */
   contextLimit: number;
   /** soft daily USD spend cap enforced by the backend; 0 disables it. */
   dailyBudgetUsd: number;

@@ -149,6 +149,16 @@ describe("SettingsPanel", () => {
     expect(settings.updateSettings).toHaveBeenCalledWith({ maxToolRounds: 64 });
   });
 
+  it("updates the proactive context limit and explains overflow recovery", () => {
+    render(<SettingsPanel onClose={() => {}} />);
+    const input = screen.getByLabelText("Token limit (optional)");
+
+    fireEvent.change(input, { target: { value: "8192" } });
+
+    expect(settings.updateSettings).toHaveBeenCalledWith({ contextLimit: 8192 });
+    expect(screen.getByText(/Moss still trims the model-facing history and retries once/)).toBeDefined();
+  });
+
   it("closes when the close button is clicked", async () => {
     const onClose = vi.fn();
     render(<SettingsPanel onClose={onClose} />);

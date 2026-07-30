@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { AgentMessage } from "../../../../common/types";
-import { compactIfNeeded, estimateTokens } from "./compaction";
+import { compactForOverflow, compactIfNeeded, estimateTokens, isContextOverflowError } from "./compaction";
 
 const sys = (content: string): AgentMessage => ({ role: "system", content });
 const user = (content: string): AgentMessage => ({ role: "user", content });
@@ -27,6 +27,53 @@ describe("estimateTokens", () => {
   it("grows with content length", () => {
     expect(estimateTokens([user("x".repeat(400))])).toBeGreaterThan(estimateTokens([user("x".repeat(40))]));
   });
+
+  it("includes attached document text", () => {
+    const plain = user("read this");
+    const attached: AgentMessage = {
+      ...plain,
+      documents: [{ name: "notes.txt", mediaType: "text/plain", text: "x".repeat(4000) }],
+    };
+    expect(estimateTokens([attached]) - estimateTokens([plain])).toBeGreaterThan(1000);
+  });
+});
+
+describe("compactForOverflow", () => {
+  it("keeps the system message and newest user-led suffix", () => {
+    const oldContent = "x".repeat(4000);
+    const messages = [sys("rules"), user(oldContent), asst(oldContent), user("latest"), asst("latest reply")];
+    const result = compactForOverflow(messages);
+
+    expect(result.compacted).toBe(true);
+    expect(result.droppedCount).toBe(2);
+    expect(result.messages[0].content).toContain("rules");
+    expect(result.messages[0].content).toContain("2 earlier messages were omitted");
+    expect(result.messages.slice(1)).toEqual([user("latest"), asst("latest reply")]);
+    expect(estimateTokens(result.messages)).toBeLessThan(estimateTokens(messages));
+  });
+
+  it("does nothing when no older user-led turn can be removed", () => {
+    const messages = [sys("rules"), user("only turn"), asst("reply")];
+    expect(compactForOverflow(messages)).toEqual({ messages, compacted: false, droppedCount: 0 });
+  });
+});
+
+describe("isContextOverflowError", () => {
+  it.each([
+    "maximum context length is 8192 tokens",
+    "context_length_exceeded",
+    "prompt is too long",
+    "input length 9000 exceeds the supported limit",
+  ])("recognizes context overflow: %s", (message) => {
+    expect(isContextOverflowError(new Error(message))).toBe(true);
+  });
+
+  it.each(["HTTP 401 bad key", "HTTP 400 invalid tool schema", "model not found"])(
+    "rejects unrelated provider errors: %s",
+    (message) => {
+      expect(isContextOverflowError(new Error(message))).toBe(false);
+    },
+  );
 });
 
 describe("compactIfNeeded", () => {

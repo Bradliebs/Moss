@@ -794,9 +794,9 @@ export function SettingsPanel({ onClose }: { onClose: () => void }): React.React
               />
             </label>
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
-              Set your model&apos;s context size to show a used/limit meter in the header. Left at 0,
-              the meter stays hidden. The value is yours to set, so it never drifts against the model
-              you actually picked.
+              Set your model&apos;s context size to show a used/limit meter and trim old turns before the
+              limit is reached. Left at 0, proactive trimming and the meter stay off; if the provider
+              reports an overflow, Moss still trims the model-facing history and retries once.
             </p>
           </section>
 
