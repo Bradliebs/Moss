@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 
 import type { EvalAdmission, EvalCase, EvalExecutionObservation, HarnessVariant } from "../../../../common/evals";
-import type { AgentMessage, MossEvent, TokenUsage } from "../../../../common/types";
+import type { AgentMessage, MossEvent, TokenUsage, ToolApprovalResponse } from "../../../../common/types";
 import { runTurn } from "../agent-runner";
 import type { ChatProvider } from "../providers/types";
 import { buildSystemMessage } from "../system-prompt";
@@ -15,7 +15,7 @@ export interface TurnEvalExecutorOptions {
   toolRegistry: Map<string, Tool>;
   workspaceRoot: (testCase: EvalCase, repetition: number) => Promise<string> | string;
   messages?: (testCase: EvalCase, repetition: number) => Promise<AgentMessage[]> | AgentMessage[];
-  requestApproval?: (callId: string) => Promise<boolean>;
+  requestApproval?: (callId: string) => Promise<ToolApprovalResponse>;
   autoApprove?: boolean;
   estimateCostUsd?: (usage: TokenUsage) => number;
   now?: () => Date;
@@ -122,7 +122,7 @@ export function createTurnEvalExecutor(options: TurnEvalExecutorOptions): EvalEx
         workspaceRoot,
         signal: controller.signal,
         onEvent,
-        requestApproval: options.requestApproval ?? (async () => false),
+        requestApproval: options.requestApproval ?? (async () => ({ approved: false })),
         autoApprove: options.variant?.autoApprove ?? options.autoApprove,
         injectionMode: options.variant?.injectionMode,
         contextLimit: options.variant?.contextLimit,

@@ -6,6 +6,7 @@
 import { randomUUID } from "node:crypto";
 
 import type {
+  TaskApproval,
   TaskAttempt,
   TaskBlocker,
   TaskEvidence,
@@ -63,6 +64,9 @@ export class TaskEngine {
 
   async start(id: string): Promise<TaskSnapshot> {
     const task = await this.requireTask(id);
+    if (task.state === "waiting_for_approval" && task.approval?.status === "pending") {
+      throw new Error(`Task '${id}' has a pending approval for call '${task.approval.callId}'`);
+    }
     if (task.state === "paused" || task.state === "blocked" || task.state === "waiting_for_approval") {
       return this.store.transition(id, task.steps.length > 0 ? "executing" : "planning", { clearBlocker: true });
     }
@@ -197,6 +201,79 @@ export class TaskEngine {
     return this.store.transition(id, "paused", { blocker });
   }
 
+  async requestApproval(id: string, approval: TaskApproval): Promise<TaskSnapshot> {
+    const task = await this.requireTask(id);
+    if (task.state !== "executing" && task.state !== "planning") {
+      throw new Error(`Cannot request approval while task is ${task.state}`);
+    }
+    if (approval.taskId !== id) throw new Error(`Approval task '${approval.taskId}' does not match '${id}'`);
+    if (approval.status !== "pending") throw new Error("A new approval must be pending");
+    if (task.approval?.status === "pending") {
+      throw new Error(`Task '${id}' already has a pending approval for call '${task.approval.callId}'`);
+    }
+    return this.store.transition(id, "waiting_for_approval", {
+      blocker: {
+        kind: "approval",
+        summary: `Approval required for ${approval.toolName}`,
+        resumable: true,
+        createdAt: approval.requestedAt,
+      },
+      approval,
+    });
+  }
+
+  async resolveApproval(
+    id: string,
+    callId: string,
+    approved: boolean,
+    comment?: string,
+  ): Promise<TaskSnapshot> {
+    const task = await this.requireTask(id);
+    if (task.state !== "waiting_for_approval" || task.approval?.status !== "pending") {
+      throw new Error(`Task '${id}' has no pending approval`);
+    }
+    if (task.approval.callId !== callId) {
+      throw new Error(`Approval call '${callId}' does not match pending call '${task.approval.callId}'`);
+    }
+    const respondedAt = this.now().toISOString();
+    const normalizedComment = comment?.trim().slice(0, 500);
+    return this.store.transition(id, "executing", {
+      clearBlocker: true,
+      approval: {
+        ...task.approval,
+        status: approved ? "approved" : "denied",
+        respondedAt,
+        ...(normalizedComment ? { comment: normalizedComment } : {}),
+      },
+    });
+  }
+
+  async interruptApproval(id: string, callId: string, comment: string): Promise<TaskSnapshot> {
+    const task = await this.requireTask(id);
+    if (task.state !== "waiting_for_approval" || task.approval?.status !== "pending") {
+      throw new Error(`Task '${id}' has no pending approval`);
+    }
+    if (task.approval.callId !== callId) {
+      throw new Error(`Approval call '${callId}' does not match pending call '${task.approval.callId}'`);
+    }
+    const respondedAt = this.now().toISOString();
+    const normalizedComment = comment.trim().slice(0, 500) || "Approval was interrupted";
+    return this.store.transition(id, "paused", {
+      blocker: {
+        kind: "approval",
+        summary: `${normalizedComment}; the pending tool call was not executed. Resume to start a fresh attempt.`,
+        resumable: true,
+        createdAt: respondedAt,
+      },
+      approval: {
+        ...task.approval,
+        status: "interrupted",
+        respondedAt,
+        comment: normalizedComment,
+      },
+    });
+  }
+
   async block(id: string, blocker: TaskBlocker): Promise<TaskSnapshot> {
     return this.store.transition(id, "blocked", { blocker });
   }
@@ -214,6 +291,14 @@ export class TaskEngine {
     const recovered: TaskSnapshot[] = [];
     for (const task of tasks) {
       if (!ACTIVE_STATES.has(task.state)) continue;
+      if (task.state === "waiting_for_approval" && task.approval?.status === "pending") {
+        recovered.push(await this.interruptApproval(
+          task.id,
+          task.approval.callId,
+          "Application stopped before a decision was completed",
+        ));
+        continue;
+      }
       const blocker: TaskBlocker = {
         kind: "external",
         summary: "Execution was interrupted by application shutdown; inspect the last action before resuming.",

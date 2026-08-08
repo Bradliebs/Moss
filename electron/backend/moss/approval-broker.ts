@@ -2,28 +2,35 @@
 //
 // Bridges the async agent loop (main process) and the user's approve/deny click
 // (renderer). The runner awaits `request(callId)`; the IPC handler calls
-// `resolve(callId, approved)` when the user responds.
+// `resolve(callId, response)` when the user responds.
+
+import type { ToolApprovalResponse } from "../../../common/types";
 
 export class ApprovalBroker {
-  private readonly pending = new Map<string, (approved: boolean) => void>();
+  private readonly pending = new Map<string, (response: ToolApprovalResponse) => void>();
 
-  request(callId: string): Promise<boolean> {
-    return new Promise<boolean>((resolve) => {
+  pendingCallId(): string | undefined {
+    return this.pending.keys().next().value;
+  }
+
+  request(callId: string): Promise<ToolApprovalResponse> {
+    return new Promise<ToolApprovalResponse>((resolve) => {
       this.pending.set(callId, resolve);
     });
   }
 
-  resolve(callId: string, approved: boolean): void {
+  resolve(callId: string, response: ToolApprovalResponse): void {
     const fn = this.pending.get(callId);
     if (fn) {
       this.pending.delete(callId);
-      fn(approved);
+      fn(response);
     }
   }
 
   /** Deny everything still waiting (used on abort). */
-  denyAll(): void {
-    for (const fn of this.pending.values()) fn(false);
+  denyAll(comment?: string): void {
+    const response: ToolApprovalResponse = { approved: false, ...(comment ? { comment } : {}) };
+    for (const fn of this.pending.values()) fn(response);
     this.pending.clear();
   }
 }

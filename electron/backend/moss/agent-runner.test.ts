@@ -83,6 +83,7 @@ async function run(
     maxRounds?: number;
     completionGuard?: (context: CompletionContext) => CompletionDecision;
     now?: () => Date;
+    approvalComment?: string;
   },
 ): Promise<Harness> {
   const events: MossEvent[] = [];
@@ -109,7 +110,10 @@ async function run(
     onEvent: (e) => events.push(e),
     requestApproval: async (id) => {
       approvals.push(id);
-      return opts?.approve ?? true;
+      return {
+        approved: opts?.approve ?? true,
+        ...(opts?.approvalComment ? { comment: opts.approvalComment } : {}),
+      };
     },
     autoApprove: opts?.autoApprove ?? false,
     // Zero backoff keeps the failure tests instant; retry behavior is exercised
@@ -219,11 +223,15 @@ describe("runTurn", () => {
 
   it("returns a denial result when the user rejects an ask-gated tool", async () => {
     const provider = scriptedProvider([[call("c1", "write_file")], [{ type: "text-delta", text: "ok" }]]);
-    const h = await run(provider, [tool("write_file", { ok: true, content: "WROTE" })], { approve: false });
+    const h = await run(provider, [tool("write_file", { ok: true, content: "WROTE" })], {
+      approve: false,
+      approvalComment: "Use the sandbox workspace instead",
+    });
 
     const res = h.events.find((e) => e.type === "tool-result") as Extract<MossEvent, { type: "tool-result" }>;
     expect(res).toMatchObject({ ok: false });
     expect(res.content).toContain("User denied");
+    expect(res.content).toContain("Use the sandbox workspace instead");
   });
 
   it("runs an ask-gated tool without prompting when autoApprove is on", async () => {
@@ -388,7 +396,7 @@ describe("runTurn", () => {
       workspaceRoot: "/work",
       signal: controller.signal,
       onEvent: (e) => events.push(e),
-      requestApproval: async () => true,
+      requestApproval: async () => ({ approved: true }),
     });
 
     expect(events.map((e) => e.type)).toEqual(["text-delta", "turn-aborted"]);

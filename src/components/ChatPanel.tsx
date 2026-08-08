@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Copy, FileText, RefreshCw, X } from "lucide-react";
 
-import type { AgentMessage, ChatEventPayload, ConfidenceMode, DocumentAttachment, Skill, TaskSnapshot, TokenUsage } from "@common/types";
+import type { AgentMessage, ChatEventPayload, ConfidenceMode, DocumentAttachment, Skill, TaskHistoryEntry, TaskSnapshot, TokenUsage } from "@common/types";
 import { PERSONALITY_PRESETS } from "@common/personalities";
 
 import { useDictation } from "../lib/dictation";
@@ -79,8 +79,9 @@ interface MessageView {
 
 type ViewItem = MessageView | ToolView;
 
-function ToolCard({ tool, onApprove }: { tool: ToolView; onApprove: (callId: string, approved: boolean) => void }): React.ReactElement {
+function ToolCard({ tool, onApprove }: { tool: ToolView; onApprove: (callId: string, approved: boolean, comment?: string) => void }): React.ReactElement {
   const detailsRef = useRef<HTMLDetailsElement>(null);
+  const [approvalComment, setApprovalComment] = useState("");
   const active = tool.status === "running" || tool.status === "approval";
 
   useEffect(() => {
@@ -136,17 +137,25 @@ function ToolCard({ tool, onApprove }: { tool: ToolView; onApprove: (callId: str
                 mutating
               </span>
             ) : null}
+            <input
+              aria-label="Approval reason"
+              className="min-w-48 flex-1 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-200"
+              maxLength={500}
+              placeholder="Optional reason"
+              value={approvalComment}
+              onChange={(event) => setApprovalComment(event.target.value)}
+            />
             <button
               type="button"
               className="rounded-md bg-emerald-600 px-2.5 py-0.5 font-medium text-white transition hover:bg-emerald-500"
-              onClick={() => onApprove(tool.callId, true)}
+              onClick={() => onApprove(tool.callId, true, approvalComment)}
             >
               Approve
             </button>
             <button
               type="button"
               className="rounded-md bg-red-700 px-2.5 py-0.5 font-medium text-white transition hover:bg-red-600"
-              onClick={() => onApprove(tool.callId, false)}
+              onClick={() => onApprove(tool.callId, false, approvalComment)}
             >
               Deny
             </button>
@@ -425,6 +434,7 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
   const [dragging, setDragging] = useState(false);
   const [status, setStatus] = useState("");
   const [task, setTask] = useState<TaskSnapshot | null>(null);
+  const [taskHistory, setTaskHistory] = useState<TaskHistoryEntry[]>([]);
   const [confidence, setConfidence] = useState<{ mode: ConfidenceMode; note: string } | null>(null);
   const [mcpToolCount, setMcpToolCount] = useState(0);
   const [mcpDownCount, setMcpDownCount] = useState(0);
@@ -497,6 +507,24 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
     return off;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!task) {
+      setTaskHistory([]);
+      return;
+    }
+    let cancelled = false;
+    void window.moss.task.history(task.id)
+      .then((entries) => {
+        if (!cancelled) setTaskHistory(entries);
+      })
+      .catch(() => {
+        if (!cancelled) setTaskHistory([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [task?.id, task?.revision]);
 
   // Surface how many tools the connected MCP servers contribute, mirroring the
   // settings panel count so it is visible without opening settings. Guarded so
@@ -826,9 +854,15 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
     }
   }
 
-  function approve(callId: string, approved: boolean): void {
+  function approve(callId: string, approved: boolean, comment?: string): void {
     if (!turnIdRef.current) return;
-    window.moss.tool.approve({ turnId: turnIdRef.current, callId, approved });
+    const normalizedComment = comment?.trim();
+    window.moss.tool.approve({
+      turnId: turnIdRef.current,
+      callId,
+      approved,
+      ...(normalizedComment ? { comment: normalizedComment } : {}),
+    });
     setActivity((prev) =>
       prev.map((it) =>
         it.kind === "tool" && it.callId === callId
@@ -1189,7 +1223,12 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
                 {task.attempts.reduce((total, attempt) => total + attempt.actionCount, 0)}/{task.spec.budget.maxActions} actions
               </span>
             ) : null}
-            {(task.state === "paused" || task.state === "blocked" || task.state === "waiting_for_approval") ? (
+            {task.approval ? (
+              <span className="font-mono text-neutral-500 dark:text-neutral-400">
+                {task.approval.toolName} {task.approval.status}
+              </span>
+            ) : null}
+            {(task.state === "paused" || task.state === "blocked") ? (
               <button className="rounded bg-neutral-200 dark:bg-neutral-800 px-2 py-0.5 hover:bg-neutral-300 dark:hover:bg-neutral-700" onClick={() => void resumeTask()}>
                 Resume
               </button>
@@ -1201,6 +1240,23 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
             ) : null}
           </div>
           {task.blocker ? <p className="mt-1 whitespace-pre-wrap text-amber-700 dark:text-amber-300">{task.blocker.summary}</p> : null}
+          {taskHistory.length > 0 ? (
+            <details className="mt-1 border-t border-neutral-200 pt-1 dark:border-neutral-800">
+              <summary className="w-fit cursor-pointer select-none text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100">
+                Timeline ({taskHistory.length})
+              </summary>
+              <ol className="mt-1 max-h-40 space-y-1 overflow-y-auto border-l border-neutral-300 pl-3 dark:border-neutral-700">
+                {taskHistory.map((entry) => (
+                  <li key={entry.id} className="flex gap-2 text-neutral-600 dark:text-neutral-300">
+                    <time className="shrink-0 tabular-nums text-neutral-400 dark:text-neutral-500" dateTime={entry.occurredAt}>
+                      {new Date(entry.occurredAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </time>
+                    <span>{entry.summary}</span>
+                  </li>
+                ))}
+              </ol>
+            </details>
+          ) : null}
         </section>
       ) : null}
 

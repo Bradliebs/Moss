@@ -102,6 +102,86 @@ describe("TaskStore", () => {
     expect((await new TaskStore(dir).get("task-1"))?.revision).toBe(0);
   });
 
+  it("derives sanitized ordered history entries and ignores a corrupt tail", async () => {
+    await store.create(SPEC, "task-1");
+    await store.transition("task-1", "planning");
+    await store.transition("task-1", "waiting_for_approval", {
+      approval: {
+        taskId: "task-1",
+        turnId: "turn-1",
+        callId: "call-1",
+        toolName: "write_file",
+        arguments: '{"token":"raw-secret"}',
+        status: "pending",
+        requestedAt: "2026-01-01T00:00:00.000Z",
+      },
+    });
+    await store.transition("task-1", "executing", {
+      approval: {
+        taskId: "task-1",
+        turnId: "turn-1",
+        callId: "call-1",
+        toolName: "write_file",
+        arguments: '{"token":"raw-secret"}',
+        status: "denied",
+        requestedAt: "2026-01-01T00:00:00.000Z",
+        respondedAt: "2026-01-01T00:01:00.000Z",
+        comment: "comment-secret",
+      },
+    });
+    await store.update("task-1", (task) => ({
+      ...task,
+      attempts: [{
+        id: "attempt-1",
+        startedAt: "2026-01-01T00:02:00.000Z",
+        actionCount: 0,
+        usage: {},
+        estimatedCostUsd: 0,
+      }],
+    }));
+    await store.update("task-1", (task) => ({
+      ...task,
+      attempts: [{ ...task.attempts[0], completedAt: "2026-01-01T00:03:00.000Z", outcome: "interrupted" }],
+    }));
+    await store.update("task-1", (task) => ({
+      ...task,
+      evidence: [{
+        id: "evidence-1",
+        criterionId: "criterion-1",
+        kind: "command",
+        passed: false,
+        summary: "raw command output secret",
+        capturedAt: "2026-01-01T00:04:00.000Z",
+        attemptId: "attempt-1",
+      }],
+    }));
+    const journal = join(dir, "tasks", "task-1", "events.jsonl");
+    writeFileSync(journal, `${readFileSync(journal, "utf8")}{partial`, "utf8");
+
+    const history = await store.history("task-1");
+
+    expect(history.map((entry) => entry.kind)).toEqual([
+      "created",
+      "transition",
+      "transition",
+      "approval",
+      "transition",
+      "approval",
+      "attempt",
+      "attempt",
+      "evidence",
+    ]);
+    expect(history.map((entry) => entry.sequence)).toEqual(history.map((_, index) => index));
+    expect(history.find((entry) => entry.kind === "approval" && entry.approvalStatus === "denied")).toMatchObject({
+      turnId: "turn-1",
+      callId: "call-1",
+      toolName: "write_file",
+    });
+    expect(JSON.stringify(history)).not.toContain("raw-secret");
+    expect(JSON.stringify(history)).not.toContain("comment-secret");
+    expect(JSON.stringify(history)).not.toContain("raw command output secret");
+  });
+
   it("lists newest tasks first and deletes task data", async () => {
     await store.create(SPEC, "task-1");
     await store.create(SPEC, "task-2");

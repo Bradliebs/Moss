@@ -180,6 +180,7 @@ beforeEach(() => {
       task: {
         resume: vi.fn(async () => taskSnapshot("executing")),
         cancel: vi.fn(async () => taskSnapshot("cancelled")),
+        history: vi.fn(async () => []),
       },
       shell: { openExternal: vi.fn() },
       mcp: { status: vi.fn(() => Promise.resolve([])) },
@@ -254,6 +255,69 @@ describe("ChatPanel", () => {
     fireEvent.click(screen.getByText("Cancel"));
     await waitFor(() => expect(window.moss.task.cancel).toHaveBeenCalledWith("task-1"));
     expect(screen.getByLabelText("Task status").textContent).toContain("cancelled");
+  });
+
+  it("does not offer Resume while a durable approval is pending", () => {
+    render(<Harness />);
+    const turnId = startTurn();
+    emit(turnId, {
+      type: "task-state",
+      task: {
+        ...taskSnapshot("waiting_for_approval", {
+          kind: "approval",
+          summary: "Approval required for write_file",
+          resumable: true,
+          createdAt: "2026-01-01T00:00:00.000Z",
+        }),
+        approval: {
+          taskId: "task-1",
+          turnId,
+          callId: "call-1",
+          toolName: "write_file",
+          arguments: "{}",
+          status: "pending",
+          requestedAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+    });
+
+    expect(screen.getByLabelText("Task status").textContent).toContain("write_file pending");
+    expect(screen.queryByText("Resume")).toBeNull();
+  });
+
+  it("loads and renders the sanitized task timeline", async () => {
+    vi.mocked(window.moss.task.history).mockResolvedValue([
+      {
+        id: "event-1",
+        taskId: "task-1",
+        revision: 0,
+        sequence: 0,
+        occurredAt: "2026-01-01T00:00:00.000Z",
+        kind: "created",
+        summary: "Task created",
+      },
+      {
+        id: "event-2",
+        taskId: "task-1",
+        revision: 3,
+        sequence: 1,
+        occurredAt: "2026-01-01T00:01:00.000Z",
+        kind: "approval",
+        summary: "write_file approval denied",
+        turnId: "turn-1",
+        callId: "call-1",
+        toolName: "write_file",
+        approvalStatus: "denied",
+      },
+    ]);
+    render(<Harness />);
+    const turnId = startTurn();
+    emit(turnId, { type: "task-state", task: taskSnapshot("completed") });
+
+    await screen.findByText("Timeline (2)");
+    expect(window.moss.task.history).toHaveBeenCalledWith("task-1");
+    expect(screen.getByText("Task created")).toBeDefined();
+    expect(screen.getByText("write_file approval denied")).toBeDefined();
   });
 
   it("stamps a per-turn token subtotal on the final reply of a multi-round turn", () => {
@@ -976,6 +1040,23 @@ describe("ChatPanel", () => {
     fireEvent.click(screen.getByText("read_file"));
     expect(card.open).toBe(true);
     expect(screen.getByText("file body")).toBeDefined();
+  });
+
+  it("sends an optional reason with an approval decision", () => {
+    render(<Harness />);
+    const turnId = startTurn();
+    emit(turnId, { type: "tool-call", callId: "c1", name: "write_file", arguments: "{}" });
+    emit(turnId, { type: "tool-approval-request", callId: "c1", name: "write_file", arguments: "{}" });
+
+    fireEvent.change(screen.getByLabelText("Approval reason"), { target: { value: "Use another path" } });
+    fireEvent.click(screen.getByText("Deny"));
+
+    expect(window.moss.tool.approve).toHaveBeenCalledWith({
+      turnId,
+      callId: "c1",
+      approved: false,
+      comment: "Use another path",
+    });
   });
 
   it("renders completed tool history collapsed and expandable", () => {

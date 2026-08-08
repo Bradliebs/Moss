@@ -20,6 +20,7 @@ export const IPC = {
   taskCreate: "moss:task:create",
   taskList: "moss:task:list",
   taskGet: "moss:task:get",
+  taskHistory: "moss:task:history",
   taskStart: "moss:task:start",
   taskPause: "moss:task:pause",
   taskResume: "moss:task:resume",

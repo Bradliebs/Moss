@@ -18,6 +18,7 @@ import type {
   SkillCreateRequest,
   SkillUpdateRequest,
   SkillRenameRequest,
+  TaskSnapshot,
   TaskSpec,
   ToolApprovalDecision,
   TranscribeRequest,
@@ -72,6 +73,13 @@ import { detectWorkspaceVerificationChecks, VerificationRegistry } from "../back
 interface Inflight {
   controller: AbortController;
   broker: ApprovalBroker;
+  taskId?: string;
+  send: (event: MossEvent) => void;
+}
+
+function approvalResponse(decision: Pick<ToolApprovalDecision, "approved" | "comment">) {
+  const comment = decision.comment?.trim().slice(0, 500);
+  return { approved: decision.approved, ...(comment ? { comment } : {}) };
 }
 
 const inflight = new Map<string, Inflight>();
@@ -91,17 +99,41 @@ export function registerChatIpc(): void {
     const entry = inflight.get(turnId);
     if (entry) {
       entry.controller.abort();
-      entry.broker.denyAll();
+      if (entry.taskId) {
+        void taskEngine
+          .resolveApproval(entry.taskId, entry.broker.pendingCallId() ?? "", false, "Turn aborted")
+          .then((task) => entry.send({ type: "task-state", task }))
+          .catch(() => undefined)
+          .finally(() => entry.broker.denyAll("Turn aborted"));
+      } else {
+        entry.broker.denyAll("Turn aborted");
+      }
     }
   });
 
   ipcMain.on(IPC.toolApprove, (_event, decision: ToolApprovalDecision) => {
-    inflight.get(decision.turnId)?.broker.resolve(decision.callId, decision.approved);
+    const entry = inflight.get(decision.turnId);
+    if (!entry) return;
+    if (!entry.taskId) {
+      entry.broker.resolve(decision.callId, approvalResponse(decision));
+      return;
+    }
+    void taskEngine
+      .resolveApproval(entry.taskId, decision.callId, decision.approved, decision.comment)
+      .then((task) => {
+        entry.send({ type: "task-state", task });
+        entry.broker.resolve(decision.callId, {
+          approved: decision.approved,
+          ...(task.approval?.comment ? { comment: task.approval.comment } : {}),
+        });
+      })
+      .catch(() => undefined);
   });
 
   ipcMain.handle(IPC.taskCreate, (_event, spec: TaskSpec, id?: string) => taskEngine.create(spec, id));
   ipcMain.handle(IPC.taskList, () => taskStore.list());
   ipcMain.handle(IPC.taskGet, (_event, id: string) => taskStore.get(id));
+  ipcMain.handle(IPC.taskHistory, (_event, id: string) => taskStore.history(id));
   ipcMain.handle(IPC.taskStart, (_event, id: string) => taskEngine.start(id));
   ipcMain.handle(IPC.taskPause, (_event, id: string, summary: string) => taskEngine.pause(id, summary));
   ipcMain.handle(IPC.taskResume, (_event, id: string) => taskEngine.start(id));
@@ -218,17 +250,41 @@ export function registerChatIpc(): void {
 async function startTurn(event: Electron.IpcMainEvent, req: ChatStartRequest): Promise<void> {
   const controller = new AbortController();
   const broker = new ApprovalBroker();
-  inflight.set(req.turnId, { controller, broker });
+  const durableTaskId = req.taskSpec ? req.taskId ?? req.turnId : undefined;
+  let preserveTaskOnAbort = false;
+  let pendingDurableApproval: { callId: string; persisted: Promise<TaskSnapshot> } | undefined;
 
   let terminalEvent: Extract<MossEvent, { type: "turn-complete" | "turn-aborted" | "turn-error" }> | undefined;
+  const approvalEvents = new Map<string, Extract<MossEvent, { type: "tool-approval-request" }>>();
   const send = (mossEvent: MossEvent) => {
     if (mossEvent.type === "turn-complete" || mossEvent.type === "turn-aborted" || mossEvent.type === "turn-error") {
       terminalEvent = mossEvent;
     }
+    if (mossEvent.type === "tool-approval-request") approvalEvents.set(mossEvent.callId, mossEvent);
     if (!event.sender.isDestroyed()) {
       event.sender.send(IPC.chatEvent, { turnId: req.turnId, event: mossEvent });
     }
   };
+  inflight.set(req.turnId, { controller, broker, send, ...(durableTaskId ? { taskId: durableTaskId } : {}) });
+  const handleRendererDestroyed = () => {
+    const entry = inflight.get(req.turnId);
+    if (!entry) return;
+    entry.controller.abort();
+    const callId = entry.broker.pendingCallId() ?? pendingDurableApproval?.callId;
+    if (entry.taskId && callId) {
+      preserveTaskOnAbort = true;
+      const persisted = pendingDurableApproval?.callId === callId
+        ? pendingDurableApproval.persisted
+        : Promise.resolve();
+      void persisted
+        .then(() => taskEngine.interruptApproval(entry.taskId!, callId, "Renderer closed before the approval was completed"))
+        .catch(() => undefined)
+        .finally(() => entry.broker.denyAll("Renderer closed before the approval was completed"));
+    } else {
+      entry.broker.denyAll("Renderer closed");
+    }
+  };
+  event.sender.once("destroyed", handleRendererDestroyed);
 
   try {
     const baseProvider = createProvider(req.config);
@@ -277,7 +333,7 @@ async function startTurn(event: Electron.IpcMainEvent, req: ChatStartRequest): P
     const maxRounds = resolveMaxToolRounds(req.maxToolRounds, verifyEnabled);
     let attemptId: string | undefined;
     let acceptedCompletion: CompletionContext | undefined;
-    const task = req.taskSpec ? await ensureTurnTask(req.taskId ?? req.turnId, req.taskSpec, send) : undefined;
+    const task = req.taskSpec ? await ensureTurnTask(durableTaskId!, req.taskSpec, send) : undefined;
     if (task) {
       const attempt = await taskEngine.beginAttempt(task.id, "execute-request");
       attemptId = attempt.attempt.id;
@@ -292,7 +348,30 @@ async function startTurn(event: Electron.IpcMainEvent, req: ChatStartRequest): P
       workspaceRoot,
       signal: controller.signal,
       onEvent: send,
-      requestApproval: (callId) => broker.request(callId),
+      requestApproval: async (callId) => {
+        if (task) {
+          const approvalEvent = approvalEvents.get(callId);
+          if (!approvalEvent) throw new Error(`Missing approval event for call '${callId}'`);
+          const persisted = taskEngine.requestApproval(task.id, {
+            taskId: task.id,
+            turnId: req.turnId,
+            callId,
+            toolName: approvalEvent.name,
+            arguments: approvalEvent.arguments,
+            ...(approvalEvent.risk ? { risk: approvalEvent.risk } : {}),
+            status: "pending",
+            requestedAt: new Date().toISOString(),
+          });
+          pendingDurableApproval = { callId, persisted };
+          const waiting = await persisted;
+          send({ type: "task-state", task: waiting });
+        }
+        try {
+          return await broker.request(callId);
+        } finally {
+          if (pendingDurableApproval?.callId === callId) pendingDurableApproval = undefined;
+        }
+      },
       autoApprove: req.autoApproveTools === true,
       stt: req.stt,
       email: req.email,
@@ -325,11 +404,21 @@ async function startTurn(event: Electron.IpcMainEvent, req: ChatStartRequest): P
       maxRounds,
     });
     if (task && attemptId) {
-      await finalizeTurnTask(task.id, attemptId, acceptedCompletion, terminalEvent, workspaceRoot, controller.signal, send);
+      await finalizeTurnTask(
+        task.id,
+        attemptId,
+        acceptedCompletion,
+        terminalEvent,
+        workspaceRoot,
+        controller.signal,
+        send,
+        preserveTaskOnAbort,
+      );
     }
   } catch (err) {
     send({ type: "turn-error", message: err instanceof Error ? err.message : String(err), messages: [] });
   } finally {
+    event.sender.removeListener("destroyed", handleRendererDestroyed);
     inflight.delete(req.turnId);
   }
 }
@@ -391,6 +480,7 @@ async function finalizeTurnTask(
   workspaceRoot: string,
   signal: AbortSignal,
   send: (event: MossEvent) => void,
+  preserveOnAbort = false,
 ): Promise<void> {
   const usage = completion?.messages.reduce(
     (total, message) => ({
@@ -459,8 +549,13 @@ async function finalizeTurnTask(
       task = await taskEngine.complete(taskId);
     }
   } else if (terminalEvent?.type === "turn-aborted") {
-    await taskEngine.finishAttempt(taskId, attemptId, "interrupted", "User aborted the task");
-    task = await taskEngine.cancel(taskId);
+    task = await taskEngine.finishAttempt(
+      taskId,
+      attemptId,
+      "interrupted",
+      preserveOnAbort ? "Renderer closed during approval" : "User aborted the task",
+    );
+    if (!preserveOnAbort) task = await taskEngine.cancel(taskId);
   } else {
     const message = terminalEvent?.type === "turn-error" ? terminalEvent.message : "Task execution ended unexpectedly";
     await taskEngine.finishAttempt(taskId, attemptId, "failed", message);

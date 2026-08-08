@@ -142,6 +142,100 @@ describe("TaskEngine", () => {
     expect(recovered[0].blocker?.summary).toContain("interrupted");
   });
 
+  it("persists approval waiting and only resumes after the matching decision", async () => {
+    await engine.create(SPEC, "task-1");
+    await engine.setPlan("task-1", PLAN);
+    await engine.start("task-1");
+
+    const waiting = await engine.requestApproval("task-1", {
+      taskId: "task-1",
+      turnId: "turn-1",
+      callId: "call-1",
+      toolName: "write_file",
+      arguments: '{"path":"result.txt"}',
+      risk: "mutating",
+      status: "pending",
+      requestedAt: now.toISOString(),
+    });
+
+    expect(waiting.state).toBe("waiting_for_approval");
+    expect((await new TaskStore(dir).get("task-1"))?.approval).toEqual(waiting.approval);
+    await expect(engine.start("task-1")).rejects.toThrow("pending approval");
+    await expect(engine.resolveApproval("task-1", "other-call", true)).rejects.toThrow("does not match");
+
+    now = new Date("2026-07-12T10:01:00.000Z");
+    const resolved = await engine.resolveApproval("task-1", "call-1", true, "Reviewed");
+    expect(resolved).toMatchObject({
+      state: "executing",
+      approval: {
+        callId: "call-1",
+        status: "approved",
+        comment: "Reviewed",
+        respondedAt: now.toISOString(),
+      },
+    });
+  });
+
+  it("interrupts a pending approval on restart without replaying it", async () => {
+    await engine.create(SPEC, "task-1");
+    await engine.setPlan("task-1", PLAN);
+    await engine.start("task-1");
+    await engine.requestApproval("task-1", {
+      taskId: "task-1",
+      turnId: "turn-1",
+      callId: "call-1",
+      toolName: "run_command",
+      arguments: '{"command":"npm test"}',
+      risk: "mutating",
+      status: "pending",
+      requestedAt: now.toISOString(),
+    });
+
+    now = new Date("2026-07-12T10:02:00.000Z");
+    const [recovered] = await engine.recoverInterruptedTasks();
+
+    expect(recovered).toMatchObject({
+      state: "paused",
+      approval: {
+        callId: "call-1",
+        status: "interrupted",
+        respondedAt: now.toISOString(),
+      },
+      blocker: { kind: "approval", resumable: true },
+    });
+    expect(recovered.blocker?.summary).toContain("not executed");
+  });
+
+  it("interrupts a matching pending approval when its renderer disappears", async () => {
+    await engine.create(SPEC, "task-1");
+    await engine.setPlan("task-1", PLAN);
+    await engine.start("task-1");
+    await engine.requestApproval("task-1", {
+      taskId: "task-1",
+      turnId: "turn-1",
+      callId: "call-1",
+      toolName: "write_file",
+      arguments: "{}",
+      status: "pending",
+      requestedAt: now.toISOString(),
+    });
+
+    await expect(engine.interruptApproval("task-1", "other-call", "Renderer closed")).rejects.toThrow("does not match");
+    now = new Date("2026-07-12T10:03:00.000Z");
+    const interrupted = await engine.interruptApproval("task-1", "call-1", "Renderer closed");
+
+    expect(interrupted).toMatchObject({
+      state: "paused",
+      approval: {
+        callId: "call-1",
+        status: "interrupted",
+        comment: "Renderer closed",
+        respondedAt: now.toISOString(),
+      },
+      blocker: { kind: "approval", resumable: true },
+    });
+  });
+
   it("cancels non-terminal tasks idempotently", async () => {
     await engine.create(SPEC, "task-1");
     const cancelled = await engine.cancel("task-1");

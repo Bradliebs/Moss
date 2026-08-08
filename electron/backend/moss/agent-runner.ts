@@ -4,7 +4,7 @@
 // permission-gate + execute them, feed results back, and repeat until the model
 // stops calling tools (or a round cap is hit).
 
-import type { AgentMessage, EmailConfig, EmbedConfig, MossEvent, SttConfig, TokenUsage, ToolCall, ToolDefinition, VerifyConfig } from "../../../common/types";
+import type { AgentMessage, EmailConfig, EmbedConfig, MossEvent, SttConfig, TokenUsage, ToolApprovalResponse, ToolCall, ToolDefinition, VerifyConfig } from "../../../common/types";
 import type { CheckpointRecorder } from "./checkpoint/checkpoint-store";
 import { compactForOverflow, compactIfNeeded, isContextOverflowError } from "./context/compaction";
 import { compressToolOutput } from "./context/tool-output-compaction";
@@ -50,8 +50,8 @@ export interface RunTurnOptions {
   workspaceRoot: string;
   signal: AbortSignal;
   onEvent: (event: MossEvent) => void;
-  /** resolves true if the user approves the gated call */
-  requestApproval: (callId: string) => Promise<boolean>;
+  /** resolves with the user's decision for the gated call */
+  requestApproval: (callId: string) => Promise<ToolApprovalResponse>;
   /** when true, skip the approval gate and run mutating tools automatically */
   autoApprove?: boolean;
   /** speech-to-text config for the transcribe_audio tool */
@@ -418,7 +418,7 @@ function makeDelegate(opts: RunTurnOptions): DelegateFn | undefined {
       delegateDepth: depth + 1,
       signal,
       autoApprove: false,
-      requestApproval: async () => false,
+      requestApproval: async () => ({ approved: false }),
       // A subagent cannot mutate, so there is nothing to check point, verify or
       // gate on completion, and it keeps its own fresh checklist.
       checkpoint: undefined,
@@ -533,8 +533,17 @@ async function executeCall(call: ToolCall, opts: RunTurnOptions, plan: PlanStore
       arguments: call.arguments,
       risk: decision.risk,
     });
-    const approved = await opts.requestApproval(call.id);
-    if (!approved) return { result: { ok: false, content: `User denied: ${call.name}` }, autoApproved: false };
+    const approval = await opts.requestApproval(call.id);
+    if (!approval.approved) {
+      const comment = approval.comment?.trim().slice(0, 500);
+      return {
+        result: {
+          ok: false,
+          content: comment ? `User denied: ${call.name}. Reason: ${comment}` : `User denied: ${call.name}`,
+        },
+        autoApproved: false,
+      };
+    }
     approvalGranted = true;
   }
 

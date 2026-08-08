@@ -185,6 +185,24 @@ export interface TaskLease {
   expiresAt: string;
 }
 
+export type TaskApprovalStatus = "pending" | "approved" | "denied" | "interrupted";
+
+/** Durable record of the tool call currently awaiting, or most recently given,
+ *  a human decision. It is audit state only after resolution; interrupted calls
+ *  are never replayed automatically. */
+export interface TaskApproval {
+  taskId: string;
+  turnId: string;
+  callId: string;
+  toolName: string;
+  arguments: string;
+  risk?: ToolRisk;
+  status: TaskApprovalStatus;
+  requestedAt: string;
+  respondedAt?: string;
+  comment?: string;
+}
+
 /** Materialized durable task state. It is persisted after each transition so
  *  main-process execution can resume after a renderer reload or app restart. */
 export interface TaskSnapshot {
@@ -196,10 +214,38 @@ export interface TaskSnapshot {
   attempts: TaskAttempt[];
   blocker?: TaskBlocker;
   lease?: TaskLease;
+  approval?: TaskApproval;
   createdAt: string;
   updatedAt: string;
   completedAt?: string;
   revision: number;
+}
+
+export type TaskHistoryKind = "created" | "transition" | "approval" | "attempt" | "evidence";
+
+/** Renderer-safe projection of the append-only task journal. Raw snapshots,
+ * tool arguments, approval comments, and evidence output are intentionally
+ * excluded. */
+export interface TaskHistoryEntry {
+  id: string;
+  taskId: string;
+  revision: number;
+  sequence: number;
+  occurredAt: string;
+  kind: TaskHistoryKind;
+  summary: string;
+  fromState?: TaskState;
+  toState?: TaskState;
+  turnId?: string;
+  callId?: string;
+  toolName?: string;
+  approvalStatus?: TaskApprovalStatus;
+  risk?: ToolRisk;
+  attemptId?: string;
+  attemptOutcome?: TaskAttempt["outcome"];
+  criterionId?: string;
+  evidenceKind?: TaskEvidence["kind"];
+  passed?: boolean;
 }
 
 export type ChatRole = "system" | "user" | "assistant" | "tool";
@@ -374,10 +420,14 @@ export interface ChatStartRequest {
   contextLimit?: number;
 }
 
-export interface ToolApprovalDecision {
+export interface ToolApprovalResponse {
+  approved: boolean;
+  comment?: string;
+}
+
+export interface ToolApprovalDecision extends ToolApprovalResponse {
   turnId: string;
   callId: string;
-  approved: boolean;
 }
 
 export interface ChatEventPayload {

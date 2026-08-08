@@ -9,7 +9,7 @@ import { dirname, join } from "node:path";
 
 import { app } from "electron";
 
-import type { TaskBlocker, TaskSnapshot, TaskSpec, TaskState } from "../../../../common/types";
+import type { TaskApproval, TaskBlocker, TaskHistoryEntry, TaskSnapshot, TaskSpec, TaskState } from "../../../../common/types";
 
 const RENAME_RETRIES = 5;
 const RENAME_RETRY_BASE_MS = 20;
@@ -42,6 +42,7 @@ interface TaskJournalEvent {
 export interface TaskTransitionOptions {
   blocker?: TaskBlocker;
   clearBlocker?: boolean;
+  approval?: TaskApproval;
   expectedRevision?: number;
 }
 
@@ -163,6 +164,99 @@ export class TaskStore {
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
   }
 
+  async history(id: string): Promise<TaskHistoryEntry[]> {
+    const journal = await this.readJournalEvents(id);
+    const history: TaskHistoryEntry[] = [];
+    let previous: TaskSnapshot | undefined;
+    let sequence = 0;
+    const add = (
+      event: TaskJournalEvent,
+      suffix: string,
+      entry: Omit<TaskHistoryEntry, "id" | "taskId" | "revision" | "sequence" | "occurredAt">,
+      occurredAt = event.createdAt,
+    ) => {
+      history.push({
+        id: `${event.id}:${suffix}`,
+        taskId: id,
+        revision: event.revision,
+        sequence,
+        occurredAt,
+        ...entry,
+      });
+      sequence += 1;
+    };
+
+    for (const event of journal) {
+      const current = event.snapshot;
+      if (event.kind === "created") {
+        add(event, "created", { kind: "created", summary: "Task created" });
+      }
+      if (previous && previous.state !== current.state) {
+        add(event, "transition", {
+          kind: "transition",
+          summary: `Task moved from ${previous.state} to ${current.state}`,
+          fromState: previous.state,
+          toState: current.state,
+        });
+      }
+
+      const approval = current.approval;
+      const previousApproval = previous?.approval;
+      if (
+        approval
+        && (
+          previousApproval?.callId !== approval.callId
+          || previousApproval.status !== approval.status
+          || previousApproval.respondedAt !== approval.respondedAt
+        )
+      ) {
+        add(event, `approval:${approval.callId}:${approval.status}`, {
+          kind: "approval",
+          summary: `${approval.toolName} approval ${approval.status}`,
+          turnId: approval.turnId,
+          callId: approval.callId,
+          toolName: approval.toolName,
+          approvalStatus: approval.status,
+          ...(approval.risk ? { risk: approval.risk } : {}),
+        }, approval.respondedAt ?? approval.requestedAt);
+      }
+
+      const previousAttempts = new Map(previous?.attempts.map((attempt) => [attempt.id, attempt]) ?? []);
+      for (const attempt of current.attempts) {
+        const prior = previousAttempts.get(attempt.id);
+        if (!prior) {
+          add(event, `attempt:${attempt.id}:started`, {
+            kind: "attempt",
+            summary: "Attempt started",
+            attemptId: attempt.id,
+          }, attempt.startedAt);
+        } else if (prior.outcome !== attempt.outcome && attempt.outcome) {
+          add(event, `attempt:${attempt.id}:${attempt.outcome}`, {
+            kind: "attempt",
+            summary: `Attempt ${attempt.outcome}`,
+            attemptId: attempt.id,
+            attemptOutcome: attempt.outcome,
+          }, attempt.completedAt ?? event.createdAt);
+        }
+      }
+
+      const previousEvidence = new Set(previous?.evidence.map((evidence) => evidence.id) ?? []);
+      for (const evidence of current.evidence) {
+        if (previousEvidence.has(evidence.id)) continue;
+        add(event, `evidence:${evidence.id}`, {
+          kind: "evidence",
+          summary: `${evidence.kind} evidence ${evidence.passed ? "passed" : "failed"}`,
+          criterionId: evidence.criterionId,
+          evidenceKind: evidence.kind,
+          passed: evidence.passed,
+          ...(evidence.attemptId ? { attemptId: evidence.attemptId } : {}),
+        }, evidence.capturedAt);
+      }
+      previous = current;
+    }
+    return history;
+  }
+
   async update(
     id: string,
     updateSnapshot: (current: TaskSnapshot) => TaskSnapshot,
@@ -201,6 +295,7 @@ export class TaskStore {
       };
       if (options.blocker) next.blocker = clone(options.blocker);
       if (options.clearBlocker) delete next.blocker;
+      if (options.approval) next.approval = clone(options.approval);
       await this.persist(next, "transitioned", current.state);
       return clone(next);
     });
@@ -254,6 +349,26 @@ export class TaskStore {
       return null;
     }
     return null;
+  }
+
+  private async readJournalEvents(id: string): Promise<TaskJournalEvent[]> {
+    try {
+      const events: TaskJournalEvent[] = [];
+      const lines = (await readFile(this.journalFile(id), "utf8")).split("\n");
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const parsed: unknown = JSON.parse(line);
+          if (isTaskJournalEvent(parsed) && parsed.taskId === id && parsed.snapshot.id === id) events.push(parsed);
+        } catch {
+          // Ignore incomplete or malformed records; valid prior entries remain useful.
+        }
+      }
+      return events;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+      throw error;
+    }
   }
 
   private async persist(snapshot: TaskSnapshot, kind: TaskJournalEvent["kind"], fromState?: TaskState): Promise<void> {

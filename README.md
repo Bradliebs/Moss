@@ -2,7 +2,7 @@
 title: Moss
 description: A local-first agentic desktop harness for completing and verifying work across files, commands, browsers, and desktop applications
 author: Moss contributors
-ms.date: 2026-07-13
+ms.date: 2026-08-08
 ms.topic: overview
 keywords:
   - ai agent
@@ -121,6 +121,40 @@ When a turn changes files, Moss creates a checkpoint. The response footer shows
 the changed-file count and provides a revert action while the checkpoint remains
 available.
 
+### Durable approvals and task history
+
+Approval requests for durable tasks are persisted before Moss waits for a
+decision. The record correlates the task, turn, and tool call, and the renderer
+can attach an optional reason to an approval or denial. Moss persists the
+decision before releasing the waiting runner, so a displayed task state does not
+claim that approval is pending after execution has begun.
+
+An unresolved approval cannot be bypassed through the generic Resume action. If
+the application or renderer stops while a decision is pending, Moss records the
+approval as interrupted and pauses the task. Resuming creates a new model
+attempt; Moss never replays the interrupted tool call automatically.
+
+Each task also exposes an ordered, read-only timeline derived from its append-only
+journal. The renderer receives concise transitions, attempts, approval outcomes,
+and evidence results. Raw snapshots, tool arguments, approval comments, model
+output, and evidence summaries are excluded from this history projection.
+
+### Agent execution design
+
+Moss applies selected ideas from [12-Factor Agents](https://github.com/humanlayer/12-factor-agents),
+[Agent Control Plane](https://github.com/humanlayer/agentcontrolplane), and
+[HumanLayer](https://github.com/humanlayer/humanlayer) without adding those
+runtimes as dependencies. The shared principles include explicit control-flow
+ownership, structured tool calls, compacted context, persisted approval state,
+human feedback, restart reconciliation, and an observable event timeline.
+
+Moss remains a local, single-process desktop application. Per-task serialization,
+revision checks, atomic snapshots, and the append-only journal provide the
+coordination required in that environment. The project does not adopt Kubernetes
+controllers, custom resources, distributed leases, remote approval channels,
+webhook triggers, or a separate agent daemon. Those mechanisms become relevant
+only if multiple processes or machines can advance the same task.
+
 ## Tools and integrations
 
 ### Workspace tools
@@ -206,6 +240,7 @@ remain compact bubbles while assistant responses use a wider document layout.
 | `npm run start` | Launch Electron from existing build output |
 | `npm run typecheck` | Type-check the renderer and Electron projects |
 | `npm test` | Run the Vitest test suite once |
+| `npm run eval -- dry-run scripts/eval-pilots.cjs` | Validate the evaluation matrix without invoking a model |
 | `npm run build` | Build the Electron main process and Vite renderer |
 | `npm run pack` | Create an unpacked application directory |
 | `npm run dist` | Build a Windows NSIS installer |

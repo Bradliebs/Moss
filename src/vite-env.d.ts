@@ -18,6 +18,7 @@ import type {
   SkillCreateRequest,
   SkillUpdateRequest,
   SkillRenameRequest,
+  TaskHistoryEntry,
   TaskSnapshot,
   TaskSpec,
   ToolApprovalDecision,
@@ -49,6 +50,7 @@ declare global {
         create: (spec: TaskSpec, id?: string) => Promise<TaskSnapshot>;
         list: () => Promise<TaskSnapshot[]>;
         get: (id: string) => Promise<TaskSnapshot | null>;
+        history: (id: string) => Promise<TaskHistoryEntry[]>;
         start: (id: string) => Promise<TaskSnapshot>;
         pause: (id: string, summary: string) => Promise<TaskSnapshot>;
         resume: (id: string) => Promise<TaskSnapshot>;

@@ -68,6 +68,9 @@ describe("preload bridge", () => {
     api.provider.listModels(config);
     expect(invoke).toHaveBeenCalledWith(IPC.providerListModels, config);
 
+    api.task.history("task-1");
+    expect(invoke).toHaveBeenCalledWith(IPC.taskHistory, "task-1");
+
     api.memory.add("fact", "context");
     expect(invoke).toHaveBeenCalledWith(IPC.memoryAdd, "fact", "context");
 

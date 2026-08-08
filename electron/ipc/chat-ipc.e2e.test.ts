@@ -11,6 +11,8 @@
 // Here we verify provider wiring, event fan-out tagged with the turn id, the
 // approval-broker <-> toolApprove bridge, and turn-error propagation.
 
+import { EventEmitter } from "node:events";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { IPC } from "../../common/ipc-contract";
@@ -45,6 +47,7 @@ vi.mock("../backend/moss/mcp/mcp-manager", () => ({
 }));
 
 import { registerChatIpc } from "./chat-ipc";
+import { taskStore } from "../backend/moss/task/task-store";
 
 function scriptedProvider(rounds: ProviderStreamEvent[][]): ChatProvider {
   let round = 0;
@@ -77,14 +80,34 @@ function throwingProvider(message: string): ChatProvider {
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 function fakeEvent(sent: ChatEventPayload[]): Electron.IpcMainEvent {
+  const sender = new EventEmitter() as EventEmitter & {
+    isDestroyed: () => boolean;
+    send: (channel: string, payload: ChatEventPayload) => void;
+  };
+  sender.isDestroyed = () => false;
+  sender.send = (channel, payload) => {
+    if (channel === IPC.chatEvent) sent.push(payload);
+  };
+  return { sender } as unknown as Electron.IpcMainEvent;
+}
+
+function lifecycleEvent(sent: ChatEventPayload[]): { event: Electron.IpcMainEvent; destroy: () => void } {
+  let destroyed = false;
+  const sender = new EventEmitter() as EventEmitter & {
+    isDestroyed: () => boolean;
+    send: (channel: string, payload: ChatEventPayload) => void;
+  };
+  sender.isDestroyed = () => destroyed;
+  sender.send = (channel, payload) => {
+    if (channel === IPC.chatEvent) sent.push(payload);
+  };
   return {
-    sender: {
-      isDestroyed: () => false,
-      send: (channel: string, payload: ChatEventPayload) => {
-        if (channel === IPC.chatEvent) sent.push(payload);
-      },
+    event: { sender } as unknown as Electron.IpcMainEvent,
+    destroy: () => {
+      destroyed = true;
+      sender.emit("destroyed");
     },
-  } as unknown as Electron.IpcMainEvent;
+  };
 }
 
 function request(overrides: Partial<ChatStartRequest> = {}): ChatStartRequest {
@@ -149,6 +172,115 @@ describe("chat IPC turn (e2e)", () => {
     // The turn still completes after the denied tool round.
     expect(sent.at(-1)!.event.type).toBe("turn-complete");
   });
+
+  it("persists a durable task decision before releasing the gated tool", async () => {
+    const taskId = `approval-${crypto.randomUUID()}`;
+    mockProviderRef.current = scriptedProvider([
+      [{ type: "tool-call", toolCall: { id: "c1", name: "write_file", arguments: "{}" } }],
+      [{ type: "text-delta", text: "ok" }],
+    ]);
+    const sent: ChatEventPayload[] = [];
+
+    try {
+      recorded.on.get(IPC.chatStart)!(fakeEvent(sent), request({
+        enableTools: true,
+        maxToolRounds: 2,
+        taskId,
+        taskSpec: {
+          objective: "Exercise durable approval",
+          acceptanceCriteria: [{ id: "done", description: "The decision is recorded", mandatory: true }],
+          constraints: [],
+          assumptions: [],
+        },
+      }));
+
+      await vi.waitFor(() => {
+        expect(sent.some((payload) =>
+          payload.event.type === "task-state"
+          && payload.event.task.approval?.status === "pending"
+        )).toBe(true);
+      });
+      expect(sent.find((payload) => payload.event.type === "tool-result")).toBeUndefined();
+      expect((await taskStore.get(taskId))?.approval).toMatchObject({
+        turnId: "t1",
+        callId: "c1",
+        toolName: "write_file",
+        status: "pending",
+      });
+
+      recorded.on.get(IPC.toolApprove)!(null, {
+        turnId: "t1",
+        callId: "c1",
+        approved: false,
+        comment: "Not for this task",
+      });
+
+      await vi.waitFor(() => {
+        expect(sent.some((payload) => payload.event.type === "tool-result")).toBe(true);
+      });
+      const pendingIndex = sent.findIndex((payload) =>
+        payload.event.type === "task-state" && payload.event.task.approval?.status === "pending"
+      );
+      const deniedIndex = sent.findIndex((payload) =>
+        payload.event.type === "task-state" && payload.event.task.approval?.status === "denied"
+      );
+      const resultIndex = sent.findIndex((payload) => payload.event.type === "tool-result");
+      expect(pendingIndex).toBeGreaterThanOrEqual(0);
+      expect(deniedIndex).toBeGreaterThan(pendingIndex);
+      expect(resultIndex).toBeGreaterThan(deniedIndex);
+      expect((sent[resultIndex].event as { content: string }).content).toContain("Not for this task");
+      expect((await taskStore.get(taskId))?.approval).toMatchObject({
+        callId: "c1",
+        status: "denied",
+        comment: "Not for this task",
+      });
+    } finally {
+      recorded.on.get(IPC.chatAbort)!(null, "t1");
+      await vi.waitFor(() => {
+        expect(sent.some((payload) =>
+          payload.event.type === "turn-aborted" || payload.event.type === "turn-error"
+        )).toBe(true);
+      });
+      await taskStore.delete(taskId);
+    }
+  });
+
+  it("interrupts a pending durable approval when the renderer disappears", async () => {
+    const taskId = `renderer-loss-${crypto.randomUUID()}`;
+    mockProviderRef.current = scriptedProvider([
+      [{ type: "tool-call", toolCall: { id: "c1", name: "write_file", arguments: "{}" } }],
+    ]);
+    const sent: ChatEventPayload[] = [];
+    const lifecycle = lifecycleEvent(sent);
+
+    try {
+      recorded.on.get(IPC.chatStart)!(lifecycle.event, request({
+        enableTools: true,
+        taskId,
+        taskSpec: {
+          objective: "Survive renderer loss",
+          acceptanceCriteria: [{ id: "done", description: "The call is not replayed", mandatory: true }],
+          constraints: [],
+          assumptions: [],
+        },
+      }));
+      await vi.waitFor(async () => {
+        expect((await taskStore.get(taskId))?.approval?.status).toBe("pending");
+      });
+
+      lifecycle.destroy();
+
+      await vi.waitFor(async () => {
+        expect(await taskStore.get(taskId)).toMatchObject({
+          state: "paused",
+          approval: { callId: "c1", status: "interrupted" },
+        });
+      }, { timeout: 10_000 });
+    } finally {
+      recorded.on.get(IPC.chatAbort)!(null, "t1");
+      await taskStore.delete(taskId);
+    }
+  }, 15_000);
 
   it("forwards auto-approved provenance on the tool-result event", async () => {
     mockProviderRef.current = scriptedProvider([

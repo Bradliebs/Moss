@@ -72,7 +72,7 @@ async function runWith(tools: Tool[], rounds: ProviderStreamEvent[][]) {
     onEvent: (e) => events.push(e),
     requestApproval: async (id) => {
       approvals.push(id);
-      return true;
+      return { approved: true };
     },
   });
 

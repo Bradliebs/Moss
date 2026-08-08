@@ -11,25 +11,25 @@ describe("ApprovalBroker", () => {
   it("resolves a pending request with approval", async () => {
     const broker = new ApprovalBroker();
     const pending = broker.request("call-1");
-    broker.resolve("call-1", true);
-    await expect(pending).resolves.toBe(true);
+    broker.resolve("call-1", { approved: true, comment: "Reviewed" });
+    await expect(pending).resolves.toEqual({ approved: true, comment: "Reviewed" });
   });
 
   it("resolves a pending request with denial", async () => {
     const broker = new ApprovalBroker();
     const pending = broker.request("call-1");
-    broker.resolve("call-1", false);
-    await expect(pending).resolves.toBe(false);
+    broker.resolve("call-1", { approved: false, comment: "Wrong target" });
+    await expect(pending).resolves.toEqual({ approved: false, comment: "Wrong target" });
   });
 
   it("routes decisions to the matching call id independently", async () => {
     const broker = new ApprovalBroker();
     const a = broker.request("a");
     const b = broker.request("b");
-    broker.resolve("b", true);
-    broker.resolve("a", false);
-    await expect(a).resolves.toBe(false);
-    await expect(b).resolves.toBe(true);
+    broker.resolve("b", { approved: true });
+    broker.resolve("a", { approved: false });
+    await expect(a).resolves.toEqual({ approved: false });
+    await expect(b).resolves.toEqual({ approved: true });
   });
 
   it("denies everything still pending on denyAll", async () => {
@@ -37,32 +37,32 @@ describe("ApprovalBroker", () => {
     const a = broker.request("a");
     const b = broker.request("b");
     broker.denyAll();
-    await expect(a).resolves.toBe(false);
-    await expect(b).resolves.toBe(false);
+    await expect(a).resolves.toEqual({ approved: false });
+    await expect(b).resolves.toEqual({ approved: false });
   });
 
   it("ignores resolve for an unknown call id", async () => {
     const broker = new ApprovalBroker();
-    expect(() => broker.resolve("missing", true)).not.toThrow();
+    expect(() => broker.resolve("missing", { approved: true })).not.toThrow();
     // A real pending request still works afterward.
     const pending = broker.request("real");
-    broker.resolve("real", true);
-    await expect(pending).resolves.toBe(true);
+    broker.resolve("real", { approved: true });
+    await expect(pending).resolves.toEqual({ approved: true });
   });
 
   it("treats a second resolve for the same call id as a no-op", async () => {
     const broker = new ApprovalBroker();
     const pending = broker.request("a");
-    broker.resolve("a", true);
-    expect(() => broker.resolve("a", false)).not.toThrow();
-    await expect(pending).resolves.toBe(true);
+    broker.resolve("a", { approved: true });
+    expect(() => broker.resolve("a", { approved: false })).not.toThrow();
+    await expect(pending).resolves.toEqual({ approved: true });
   });
 
   it("treats resolve after denyAll as a no-op", async () => {
     const broker = new ApprovalBroker();
     const pending = broker.request("a");
     broker.denyAll();
-    expect(() => broker.resolve("a", true)).not.toThrow();
-    await expect(pending).resolves.toBe(false);
+    expect(() => broker.resolve("a", { approved: true })).not.toThrow();
+    await expect(pending).resolves.toEqual({ approved: false });
   });
 });
