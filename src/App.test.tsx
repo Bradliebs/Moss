@@ -17,13 +17,19 @@ vi.mock("./components/Sidebar", () => ({
     busy,
     onOpenSettings,
     onOpenLibrary,
+    open,
+    onClose,
   }: {
     busy: boolean;
     onOpenSettings: () => void;
     onOpenLibrary: () => void;
+    open: boolean;
+    onClose: () => void;
   }) => (
     <div>
       <span>sidebar-busy:{String(busy)}</span>
+      <span>sidebar-open:{String(open)}</span>
+      <button onClick={onClose}>sb-close</button>
       <button onClick={onOpenSettings}>sb-open-settings</button>
       <button onClick={onOpenLibrary}>sb-open-library</button>
     </div>
@@ -31,10 +37,11 @@ vi.mock("./components/Sidebar", () => ({
 }));
 
 vi.mock("./components/ChatPanel", () => ({
-  ChatPanel: ({ busy, setBusy }: { busy: boolean; setBusy: (b: boolean) => void }) => (
+  ChatPanel: ({ busy, setBusy, onOpenChats }: { busy: boolean; setBusy: (b: boolean) => void; onOpenChats: () => void }) => (
     <div>
       <span>chat-busy:{String(busy)}</span>
       <button onClick={() => setBusy(true)}>cp-set-busy</button>
+      <button onClick={onOpenChats}>cp-open-chats</button>
     </div>
   ),
 }));
@@ -93,6 +100,15 @@ describe("App", () => {
     expect(screen.getByText("sidebar-busy:false")).toBeDefined();
     fireEvent.click(screen.getByText("cp-set-busy"));
     expect(screen.getByText("sidebar-busy:true")).toBeDefined();
+  });
+
+  it("opens and closes the compact conversation navigator", () => {
+    render(<App />);
+    expect(screen.getByText("sidebar-open:false")).toBeDefined();
+    fireEvent.click(screen.getByText("cp-open-chats"));
+    expect(screen.getByText("sidebar-open:true")).toBeDefined();
+    fireEvent.click(screen.getByText("sb-close"));
+    expect(screen.getByText("sidebar-open:false")).toBeDefined();
   });
 });
 

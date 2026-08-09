@@ -5,7 +5,7 @@
 // flight so transient turn state never lands in the wrong conversation.
 
 import { useState } from "react";
-import { Copy, Download, Pencil, Trash2 } from "lucide-react";
+import { Copy, Download, Pencil, Trash2, X } from "lucide-react";
 
 import {
   createSession,
@@ -21,6 +21,8 @@ import { MossFace } from "./MossFace";
 
 interface SidebarProps {
   busy: boolean;
+  open?: boolean;
+  onClose?: () => void;
   onOpenSettings: () => void;
   onOpenLibrary: () => void;
 }
@@ -50,7 +52,7 @@ function copyToClipboard(text: string): void {
   void navigator.clipboard.writeText(text);
 }
 
-export function Sidebar({ busy, onOpenSettings, onOpenLibrary }: SidebarProps): React.ReactElement {
+export function Sidebar({ busy, open = false, onClose, onOpenSettings, onOpenLibrary }: SidebarProps): React.ReactElement {
   const { sessions, currentId } = useSessions();
   const settings = useSettings();
   const [query, setQuery] = useState("");
@@ -78,16 +80,47 @@ export function Sidebar({ busy, onOpenSettings, onOpenLibrary }: SidebarProps): 
     setDraft("");
   }
 
+  function createAndClose(): void {
+    createSession();
+    onClose?.();
+  }
+
+  function selectAndClose(id: string): void {
+    selectSession(id);
+    onClose?.();
+  }
+
   return (
-    <aside className="hidden h-screen w-60 shrink-0 flex-col border-r border-neutral-200 dark:border-neutral-800 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-sm md:flex">
+    <>
+      {open ? (
+        <button
+          type="button"
+          className="fixed inset-0 z-30 bg-black/35 md:hidden"
+          onClick={onClose}
+          aria-label="Close conversations"
+        />
+      ) : null}
+      <aside
+        className={`${open ? "flex" : "hidden"} fixed inset-y-0 left-0 z-40 h-screen w-72 max-w-[85vw] shrink-0 flex-col border-r border-neutral-200 bg-white/95 shadow-xl backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-900/95 md:static md:z-auto md:flex md:w-60 md:bg-white/70 md:shadow-none dark:md:bg-neutral-900/70`}
+        aria-label="Conversations"
+      >
       <div className="flex items-center gap-2 px-3 py-3">
         <MossFace className="h-7 w-7" label="Moss portrait" />
         <span className="text-sm font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">Moss</span>
+        <button
+          type="button"
+          className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-md text-neutral-500 transition hover:bg-neutral-200 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white md:hidden"
+          onClick={onClose}
+          title="Close conversations"
+          aria-label="Close conversations"
+        >
+          <X size={18} aria-hidden="true" />
+        </button>
       </div>
       <div className="border-b border-neutral-200 dark:border-neutral-800 p-2">
         <button
           className="w-full rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white shadow transition hover:bg-emerald-500 disabled:opacity-50"
-          onClick={() => createSession()}
+          onClick={createAndClose}
           disabled={busy}
         >
           + New chat
@@ -137,7 +170,7 @@ export function Sidebar({ busy, onOpenSettings, onOpenLibrary }: SidebarProps): 
                   <>
                     <button
                       className="min-w-0 flex-1 truncate text-left group-hover:pr-24 group-focus-within:pr-24 disabled:cursor-not-allowed"
-                      onClick={() => selectSession(s.id)}
+                      onClick={() => selectAndClose(s.id)}
                       onDoubleClick={() => beginRename(s)}
                       disabled={busy}
                       title={s.title}
@@ -202,6 +235,7 @@ export function Sidebar({ busy, onOpenSettings, onOpenLibrary }: SidebarProps): 
           Settings
         </button>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

@@ -108,10 +108,11 @@ vi.mock("../lib/dictation", () => ({
 
 let eventHandler: ((payload: ChatEventPayload) => void) | null = null;
 const off = vi.fn();
+const openChats = vi.fn();
 
 function Harness(): React.ReactElement {
   const [busy, setBusy] = useState(false);
-  return <ChatPanel busy={busy} setBusy={setBusy} onOpenSettings={vi.fn()} />;
+  return <ChatPanel busy={busy} setBusy={setBusy} onOpenChats={openChats} onOpenSettings={vi.fn()} />;
 }
 
 function startTurn(): string {
@@ -155,6 +156,7 @@ function taskSnapshot(state: TaskState, blocker?: TaskSnapshot["blocker"]): Task
 
 beforeEach(() => {
   eventHandler = null;
+  openChats.mockReset();
   mockExtractPdfText.mockReset();
   mockContinueInNewSession.mockReset();
   mockSummarize.mockReset();
@@ -197,6 +199,12 @@ afterEach(() => {
 });
 
 describe("ChatPanel", () => {
+  it("opens the compact conversation navigator from the header", () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByLabelText("Open conversations"));
+    expect(openChats).toHaveBeenCalledTimes(1);
+  });
+
   it("subscribes to the event feed on mount", () => {
     render(<Harness />);
     expect(window.moss.chat.onEvent).toHaveBeenCalledTimes(1);

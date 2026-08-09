@@ -58,9 +58,11 @@ describe("Sidebar", () => {
   });
 
   it("creates a new conversation on the New chat button", () => {
-    render(<Sidebar busy={false} onOpenSettings={noop} onOpenLibrary={noop} />);
+    const onClose = vi.fn();
+    render(<Sidebar busy={false} open onClose={onClose} onOpenSettings={noop} onOpenLibrary={noop} />);
     fireEvent.click(screen.getByText("+ New chat"));
     expect(sessions.createSession).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it("selects a conversation when its title is clicked", () => {
@@ -68,9 +70,18 @@ describe("Sidebar", () => {
       sessions: [{ id: "a", title: "First chat", messages: [], createdAt: 0, updatedAt: 0 }],
       currentId: "a",
     });
-    render(<Sidebar busy={false} onOpenSettings={noop} onOpenLibrary={noop} />);
+    const onClose = vi.fn();
+    render(<Sidebar busy={false} open onClose={onClose} onOpenSettings={noop} onOpenLibrary={noop} />);
     fireEvent.click(screen.getByText("First chat"));
     expect(sessions.selectSession).toHaveBeenCalledWith("a");
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes the compact conversation navigator", () => {
+    const onClose = vi.fn();
+    render(<Sidebar busy={false} open onClose={onClose} onOpenSettings={noop} onOpenLibrary={noop} />);
+    fireEvent.click(screen.getAllByLabelText("Close conversations")[1]);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it("deletes a conversation when its delete button is clicked", () => {

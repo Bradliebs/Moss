@@ -1,7 +1,7 @@
 // src/components/ChatPanel.tsx
 
 import { useEffect, useRef, useState } from "react";
-import { Check, Copy, FileText, RefreshCw, X } from "lucide-react";
+import { Check, Copy, FileText, Menu, RefreshCw, X } from "lucide-react";
 
 import type { AgentMessage, ChatEventPayload, ConfidenceMode, DocumentAttachment, Skill, TaskHistoryEntry, TaskSnapshot, TokenUsage } from "@common/types";
 import { PERSONALITY_PRESETS } from "@common/personalities";
@@ -406,10 +406,11 @@ function messagesToItems(messages: AgentMessage[]): ViewItem[] {
 interface ChatPanelProps {
   busy: boolean;
   setBusy: (busy: boolean) => void;
+  onOpenChats: () => void;
   onOpenSettings: () => void;
 }
 
-export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): React.ReactElement {
+export function ChatPanel({ busy, setBusy, onOpenChats, onOpenSettings }: ChatPanelProps): React.ReactElement {
   const settings = useSettings();
   const sessions = useSessions();
   const models = modelsStore.use();
@@ -883,6 +884,15 @@ export function ChatPanel({ busy, setBusy, onOpenSettings }: ChatPanelProps): Re
   return (
     <div className="flex h-screen min-w-0 flex-1 flex-col bg-transparent text-neutral-900 dark:text-neutral-100">
       <header className="flex flex-wrap items-center gap-2 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-950/60 px-4 py-2 text-sm backdrop-blur-sm">
+        <button
+          type="button"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-neutral-600 transition hover:bg-neutral-200 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white md:hidden"
+          onClick={onOpenChats}
+          title="Open conversations"
+          aria-label="Open conversations"
+        >
+          <Menu size={18} aria-hidden="true" />
+        </button>
         <MossFace className="h-8 w-8" label="Moss portrait" />
         <span className="font-semibold tracking-tight text-neutral-800 dark:text-neutral-200">Moss</span>
         {models.length > 0 ? (

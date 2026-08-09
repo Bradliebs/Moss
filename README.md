@@ -2,7 +2,7 @@
 title: Moss
 description: A local-first agentic desktop harness for completing and verifying work across files, commands, browsers, and desktop applications
 author: Moss contributors
-ms.date: 2026-08-08
+ms.date: 2026-08-09
 ms.topic: overview
 keywords:
   - ai agent
@@ -47,6 +47,7 @@ substantially in tool use, instruction following, and context capacity.
 * Supports image and text attachments, dictation, and optional email delivery
 * Streams safe GitHub-flavored Markdown with highlighted, copyable code
 * Tracks token usage, context consumption, estimated cost, and tool history
+* Persists multiple independent conversations with search and management controls
 * Supports conversation-specific personalities and memory-informed adaptive tone
 
 ## Requirements
@@ -84,6 +85,21 @@ After the application opens:
 5. Choose a workspace before enabling file or command tools.
 6. Configure optional verification commands for coding tasks.
 7. Start a conversation and describe the outcome you want.
+
+## Conversation management
+
+Each conversation keeps its own message history and personality override. Moss
+persists conversations locally, restores the selected conversation after a
+reload, and derives a title from the first user message.
+
+Use the left sidebar to create, search, select, rename, export, copy, or delete
+conversations. In a compact window, open the same conversation list from the
+menu button in the chat header. Creating or selecting a conversation closes the
+compact list and displays that conversation's history.
+
+The **Clear** action removes messages from the selected conversation while
+keeping its entry. **Continue in new chat** creates a separate conversation with
+a bounded summary of the current context and leaves the original unchanged.
 
 ## Provider configuration
 

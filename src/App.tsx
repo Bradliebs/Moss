@@ -12,6 +12,7 @@ type Overlay = "none" | "settings" | "library";
 
 export default function App(): React.JSX.Element {
   const [overlay, setOverlay] = useState<Overlay>("none");
+  const [chatsOpen, setChatsOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const theme = settingsStore.use().theme;
 
@@ -31,10 +32,17 @@ export default function App(): React.JSX.Element {
     <div className="flex h-screen bg-transparent text-neutral-900 dark:text-neutral-100">
       <Sidebar
         busy={busy}
+        open={chatsOpen}
+        onClose={() => setChatsOpen(false)}
         onOpenSettings={() => setOverlay("settings")}
         onOpenLibrary={() => setOverlay("library")}
       />
-      <ChatPanel busy={busy} setBusy={setBusy} onOpenSettings={() => setOverlay("settings")} />
+      <ChatPanel
+        busy={busy}
+        setBusy={setBusy}
+        onOpenChats={() => setChatsOpen(true)}
+        onOpenSettings={() => setOverlay("settings")}
+      />
       {overlay === "settings" ? <SettingsPanel onClose={() => setOverlay("none")} /> : null}
       {overlay === "library" ? <LibraryPanel onClose={() => setOverlay("none")} /> : null}
     </div>
