@@ -92,6 +92,7 @@ describe("EvalRunner", () => {
     expect(report.generatedAt).toBe("2026-07-13T12:00:00.000Z");
     expect(report.overall).toMatchObject({ runs: 3, successes: 3, successRate: 1, averageTokens: 100 });
     expect(report.overall.admissions).toMatchObject({ attempted: 3, verified: 3, blocked: 0 });
+    expect(report.overall.failures).toMatchObject({ "agent-behavior": 0, "provider-model": 0, unknown: 0 });
     expect(report.byProfile.coding).toMatchObject({ runs: 2, successes: 2 });
     expect(report.byProfile.personal).toMatchObject({ runs: 1, successes: 1 });
   });
@@ -242,5 +243,99 @@ describe("EvalRunner", () => {
     expect(report.results[0].success).toBe(false);
     expect(report.results[0].criteria[0]).toMatchObject({ passed: false });
     expect(report.results[0].observation.admissions).not.toContain("verified");
+    expect(report.results[0].failureAttribution).toMatchObject({
+      category: "agent-behavior",
+      reasonCode: "mandatory-criterion-failed",
+      diagnostic: true,
+    });
+    expect(report.overall.failures["agent-behavior"]).toBe(1);
+  });
+
+  it("attributes a thrown verifier to the grader rather than the model", async () => {
+    const registry = new VerificationRegistry(false);
+    registry.register("custom", async () => { throw new Error("grader implementation failed"); });
+    const testCase: EvalCase = {
+      ...CASES[1],
+      checks: [{ id: "custom-check", criterionId: "state", kind: "custom" }],
+    };
+
+    const report = await new EvalRunner(execution, { registry }).run([testCase]);
+
+    expect(report.results[0].failureAttribution).toMatchObject({ category: "grader", diagnostic: true });
+    expect(report.results[0].criteria[0].checks[0]).toMatchObject({ failureKind: "grader" });
+    expect(JSON.stringify(report)).not.toContain("grader implementation failed");
+  });
+
+  it("preserves explicit executor provenance in the scored result", async () => {
+    const testCase = CASES[1];
+    const execute = async (): Promise<EvalExecutionResult> => {
+      const base = execution(testCase, 0);
+      return {
+        ...base,
+        failureSource: "provider-model",
+        observation: { ...base.observation, outcome: "failed", failureReason: "provider unavailable" },
+      };
+    };
+
+    const report = await new EvalRunner(execute).run([testCase]);
+
+    expect(report.results[0].failureAttribution).toMatchObject({
+      category: "provider-model",
+      reasonCode: "executor-provider-model",
+      diagnostic: true,
+    });
+    expect(report.overall.failures["provider-model"]).toBe(1);
+  });
+
+  it("keeps rubric judgments diagnostic and raw response text out of reports", async () => {
+    const secretResponse = "private response with token-do-not-persist";
+    const testCase = CASES[1];
+    const baseExecution = execution(testCase, 0);
+    const report = await new EvalRunner(async () => ({
+      ...baseExecution,
+      rubricInput: { responseText: secretResponse },
+    }), {
+      rubricGrader: {
+        dimensions: [
+          { id: "instruction-following", description: "Follows the request" },
+          { id: "communication", description: "Communicates clearly" },
+        ],
+        provenance: { provider: "fixture", model: "grader-v1", promptHash: "a".repeat(64) },
+        grade: async (input) => {
+          expect(input.responseText).toBe(secretResponse);
+          return input.dimension.id === "instruction-following"
+            ? { dimensionId: input.dimension.id, label: "fail", reasonCode: "missed-requirement" }
+            : { dimensionId: input.dimension.id, label: "pass" };
+        },
+      },
+    }).run([testCase]);
+
+    expect(report.results[0].success).toBe(true);
+    expect(report.results[0].rubricAssessment).toMatchObject({
+      diagnostic: true,
+      judgments: [
+        { dimensionId: "instruction-following", label: "fail" },
+        { dimensionId: "communication", label: "pass" },
+      ],
+    });
+    expect(JSON.stringify(report)).not.toContain(secretResponse);
+  });
+
+  it("records rubric grader failures as unknown without changing run success", async () => {
+    const report = await new EvalRunner(execution, {
+      rubricGrader: {
+        dimensions: [{ id: "communication", description: "Communicates clearly" }],
+        provenance: { provider: "fixture", model: "grader-v1", promptHash: "b".repeat(64) },
+        grade: async () => { throw new Error("provider unavailable"); },
+      },
+    }).run([CASES[1]]);
+
+    expect(report.results[0].success).toBe(true);
+    expect(report.results[0].failureAttribution).toBeUndefined();
+    expect(report.results[0].rubricAssessment?.judgments).toEqual([{
+      dimensionId: "communication",
+      label: "unknown",
+      reasonCode: "rubric-grader-error",
+    }]);
   });
 });

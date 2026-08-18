@@ -161,6 +161,7 @@ export interface TaskBlocker {
 export interface TaskAttempt {
   id: string;
   stepId?: string;
+  turnId?: string;
   startedAt: string;
   completedAt?: string;
   outcome?: "succeeded" | "failed" | "interrupted";
@@ -352,15 +353,25 @@ export interface ToolDefinition {
 export type MossEvent =
   | { type: "text-delta"; text: string }
   | { type: "token-usage"; usage: TokenUsage }
+  | { type: "round-start"; round: number; toolsEnabled: boolean }
+  | { type: "round-end"; round: number; toolCallCount: number; finish: "tools" | "complete" | "rejected" | "error" }
   | { type: "tool-call"; callId: string; name: string; arguments: string }
   | { type: "tool-approval-request"; callId: string; name: string; arguments: string; risk?: ToolRisk }
   | { type: "tool-result"; callId: string; name: string; ok: boolean; content: string; autoApproved: boolean; risk?: ToolRisk; durationMs?: number }
   | { type: "notice"; level: "info" | "warn"; message: string }
+  | { type: "context-compaction"; reason: "proactive" | "overflow"; droppedCount: number }
+  | { type: "verification"; ok: boolean; checkCount: number; failedCheckHash?: string }
+  | { type: "recovery"; action: string; attempt: number; classification?: string; outcome?: "attempted" | "succeeded" | "terminal"; sourceCallId?: string }
   | { type: "task-state"; task: TaskSnapshot }
   | { type: "confidence"; mode: ConfidenceMode; note: string }
   | { type: "turn-complete"; messages: AgentMessage[] }
   | { type: "turn-aborted"; messages: AgentMessage[] }
-  | { type: "turn-error"; message: string; messages: AgentMessage[] };
+  | {
+    type: "turn-error";
+    message: string;
+    messages: AgentMessage[];
+    source: "provider-model" | "tool" | "harness-orchestration";
+  };
 
 export interface ChatStartRequest {
   turnId: string;

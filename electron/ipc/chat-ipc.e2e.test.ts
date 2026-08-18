@@ -144,7 +144,9 @@ describe("chat IPC turn (e2e)", () => {
     recorded.on.get(IPC.chatStart)!(fakeEvent(sent), request());
     await tick();
 
-    expect(sent.map((p) => p.event.type)).toEqual(["text-delta", "text-delta", "turn-complete"]);
+    expect(sent
+      .filter((payload) => payload.event.type !== "round-start" && payload.event.type !== "round-end")
+      .map((payload) => payload.event.type)).toEqual(["text-delta", "text-delta", "turn-complete"]);
     expect(sent.every((p) => p.turnId === "t1")).toBe(true);
   });
 

@@ -4,6 +4,8 @@
 // permission-gate + execute them, feed results back, and repeat until the model
 // stops calling tools (or a round cap is hit).
 
+import { createHash } from "node:crypto";
+
 import type { AgentMessage, EmailConfig, EmbedConfig, MossEvent, SttConfig, TokenUsage, ToolApprovalResponse, ToolCall, ToolDefinition, VerifyConfig } from "../../../common/types";
 import type { CheckpointRecorder } from "./checkpoint/checkpoint-store";
 import { compactForOverflow, compactIfNeeded, isContextOverflowError } from "./context/compaction";
@@ -33,13 +35,16 @@ const MUTATING_FS_TOOLS = new Set(["write_file", "edit_file", "move_file"]);
 /** Retries for a transient provider stream failure, attempted only before any
  *  output has been emitted for the round (so a retry cannot duplicate it). */
 const MAX_STREAM_RETRIES = 2;
+
+function hashTraceValue(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}
 const STREAM_RETRY_BASE_MS = 500;
 /** Per-tool-result cap (characters) applied to the model-facing history only;
  *  the renderer and persisted history keep the full content. */
 const MAX_TOOL_RESULT_CHARS = 8000;
 /** Per-tool execution timeout backstop for a hung or non-cooperative tool. */
 const TOOL_TIMEOUT_MS = 180_000;
-const recoveryPolicy = new RecoveryPolicy();
 
 export interface RunTurnOptions {
   provider: ChatProvider;
@@ -95,6 +100,10 @@ export interface RunTurnOptions {
    *  fresh per-turn store; a caller that wants a plan to survive across turns
    *  supplies its own session-scoped store here. */
   plan?: PlanStore;
+  /** Experimental planning policy. Incremental mode requires one active plan step at a time. */
+  planningPolicy?: "free-form" | "incremental";
+  /** Experimental recovery policy. Signature-aware mode blocks repeated equivalent failures. */
+  recoveryMode?: "standard" | "signature-aware";
   /** How many delegate hops deep this turn already is. The top-level turn is 0;
    *  a subagent runs at 1 and is denied the delegate tool, so recursion cannot
    *  run away. Callers should not set this. */
@@ -122,7 +131,13 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
   // Seed the model-facing history from the caller, capping each prior tool
   // result so a large earlier-turn output cannot reaccumulate in the context
   // window across turns. newMessages and the renderer keep the full content.
-  const seeded = withRuntimeContext(opts.messages.map((m) =>
+  const policyMessages = opts.planningPolicy === "incremental"
+    ? [{
+      role: "system" as const,
+      content: "Incremental execution policy: select one dependency-ready step, establish a baseline before mutation, and verify that step before advancing.",
+    }, ...opts.messages]
+    : opts.messages;
+  const seeded = withRuntimeContext(policyMessages.map((m) =>
     m.role === "tool" ? { ...m, content: compactForModel(m.content) } : m,
   ), opts.now);
   // Drop the oldest messages when the history outgrows the configured context
@@ -132,6 +147,7 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
   const compaction = compactIfNeeded(seeded, { contextLimit: opts.contextLimit ?? 0 });
   let conversation = compaction.messages;
   if (compaction.compacted) {
+    onEvent({ type: "context-compaction", reason: "proactive", droppedCount: compaction.droppedCount });
     onEvent({
       type: "notice",
       level: "info",
@@ -163,6 +179,7 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
   // Falls back to a turn-scoped checklist when the caller supplies no store.
   const plan = opts.plan ?? new PlanStore();
   const delegate = makeDelegate(opts);
+  let failureSource: Extract<MossEvent, { type: "turn-error" }>["source"] = "harness-orchestration";
 
   try {
     // maxRounds limits tool-execution rounds. One additional tool-disabled
@@ -175,6 +192,7 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
       }
 
       pendingText = "";
+      onEvent({ type: "round-start", round, toolsEnabled: round < maxRounds });
       let roundUsage: TokenUsage | undefined;
       let calls: ToolCall[] = [];
       // Whether this round successfully mutated files, and the model-facing copy
@@ -187,6 +205,7 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
       let transientAttempts = 0;
       let overflowRecoveryAttempted = false;
       for (;;) {
+        failureSource = "provider-model";
         pendingText = "";
         calls = [];
         let usageIn = 0;
@@ -209,6 +228,7 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
             }
           }
           roundUsage = sawUsage ? { inputTokens: usageIn, outputTokens: usageOut } : undefined;
+          failureSource = "harness-orchestration";
           break;
         } catch (err) {
           if (signal.aborted) throw err;
@@ -218,6 +238,7 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
             const overflowCompaction = compactForOverflow(conversation);
             if (overflowCompaction.compacted) {
               conversation = overflowCompaction.messages;
+              onEvent({ type: "context-compaction", reason: "overflow", droppedCount: overflowCompaction.droppedCount });
               onEvent({
                 type: "notice",
                 level: "info",
@@ -269,6 +290,7 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
               decision.feedback?.trim() ||
               "Completion was not accepted. Continue working, resolve remaining failures, and provide verification evidence.";
             conversation.push({ role: "user", content: feedback });
+            onEvent({ type: "round-end", round, toolCallCount: 0, finish: "rejected" });
             onEvent({ type: "notice", level: "warn", message: "Completion rejected; continuing task" });
             continue;
           }
@@ -281,21 +303,27 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
           });
           onEvent({ type: "confidence", mode, note: describeConfidence(mode) });
         }
+        onEvent({ type: "round-end", round, toolCallCount: 0, finish: "complete" });
         onEvent({ type: "turn-complete", messages: newMessages });
         return;
       }
 
       if (round === maxRounds) {
-        onEvent({ type: "turn-error", message: `Stopped after ${maxRounds} tool rounds`, messages: newMessages });
+        onEvent({ type: "round-end", round, toolCallCount: calls.length, finish: "error" });
+        onEvent({ type: "turn-error", message: `Stopped after ${maxRounds} tool rounds`, messages: newMessages, source: "harness-orchestration" });
         return;
       }
+
+      onEvent({ type: "round-end", round, toolCallCount: calls.length, finish: "tools" });
 
       for (const call of calls) {
         if (signal.aborted) break;
         usedToolNames.add(call.name);
         onEvent({ type: "tool-call", callId: call.id, name: call.name, arguments: call.arguments });
         const startedAt = Date.now();
+        failureSource = "tool";
         const { result, autoApproved, risk } = await executeCallWithRecovery(call, opts, failedActionSignatures, plan, delegate);
+        failureSource = "harness-orchestration";
         const durationMs = Date.now() - startedAt;
         const toolMsg: AgentMessage = {
           role: "tool",
@@ -359,6 +387,14 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
         if (report) {
           lastConvToolMsg.content = `${lastConvToolMsg.content}\n\n${report}`;
           onEvent({
+            type: "verification",
+            ok: verifyResult.ok,
+            checkCount: verifyResult.results.length,
+            ...(!verifyResult.ok
+              ? { failedCheckHash: hashTraceValue(verifyResult.results.find((result) => !result.ok)?.command ?? "unknown") }
+              : {}),
+          });
+          onEvent({
             type: "notice",
             level: verifyResult.ok ? "info" : "warn",
             message: verifyResult.ok
@@ -369,7 +405,7 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
       }
     }
 
-    onEvent({ type: "turn-error", message: `Stopped after ${maxRounds} tool rounds`, messages: newMessages });
+    onEvent({ type: "turn-error", message: `Stopped after ${maxRounds} tool rounds`, messages: newMessages, source: "harness-orchestration" });
   } catch (err) {
     if (signal.aborted) {
       onEvent({ type: "turn-aborted", messages: newMessages });
@@ -380,7 +416,12 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
     if (pendingText) {
       newMessages.push({ role: "assistant", content: pendingText });
     }
-    onEvent({ type: "turn-error", message: err instanceof Error ? err.message : String(err), messages: newMessages });
+    onEvent({
+      type: "turn-error",
+      message: err instanceof Error ? err.message : String(err),
+      messages: newMessages,
+      source: failureSource,
+    });
   }
 }
 
@@ -450,10 +491,24 @@ async function executeCallWithRecovery(
   delegate?: DelegateFn,
 ): Promise<ExecOutcome> {
   const signature = `${call.name}:${call.arguments}`;
+  const recoveryPolicy = new RecoveryPolicy({
+    enforceActionSignatures: opts.recoveryMode !== "standard",
+  });
   let retryCount = 0;
   for (;;) {
     const outcome = await executeCall(call, opts, plan, delegate);
-    if (outcome.result.ok) return outcome;
+    if (outcome.result.ok) {
+      if (retryCount > 0) {
+        opts.onEvent({
+          type: "recovery",
+          action: "retry-with-backoff",
+          attempt: retryCount,
+          outcome: "succeeded",
+          sourceCallId: call.id,
+        });
+      }
+      return outcome;
+    }
     const decision = recoveryPolicy.decide(outcome.result.content, {
       retryCount,
       actionSignature: signature,
@@ -462,6 +517,14 @@ async function executeCallWithRecovery(
     const canSafelyRetry = decision.action === "retry-with-backoff" && classifyTool(call.name) === "allow";
     if (canSafelyRetry) {
       retryCount++;
+      opts.onEvent({
+        type: "recovery",
+        action: decision.action,
+        attempt: retryCount,
+        classification: decision.classification,
+        outcome: "attempted",
+        sourceCallId: call.id,
+      });
       opts.onEvent({
         type: "notice",
         level: "warn",
@@ -474,6 +537,14 @@ async function executeCallWithRecovery(
     failedActionSignatures.push(signature);
     const safeAction = decision.action === "retry-with-backoff" ? "replan" : decision.action;
     if (safeAction === "fail") return outcome;
+    opts.onEvent({
+      type: "recovery",
+      action: safeAction,
+      attempt: retryCount,
+      classification: decision.classification,
+      outcome: "terminal",
+      sourceCallId: call.id,
+    });
     return {
       ...outcome,
       result: {

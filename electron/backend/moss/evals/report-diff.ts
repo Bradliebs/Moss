@@ -2,9 +2,11 @@ import type {
   HarnessCellDiff,
   HarnessMatrixCellResult,
   HarnessMatrixReport,
+  HarnessPairedRateDelta,
   HarnessCriterionDiff,
   HarnessReportDiff,
 } from "../../../../common/evals";
+import type { EvalSuitePurpose } from "../../../../common/evals";
 
 export interface HarnessRegressionThresholds {
   maxTokenIncrease?: number;
@@ -12,6 +14,18 @@ export interface HarnessRegressionThresholds {
   maxDurationIncreaseMs?: number;
   maxActionIncrease?: number;
   minProcessDelta?: number;
+  minimumRepetitions?: number;
+  minimumPairedCells?: number;
+  confidenceLevel?: 0.95;
+  minimumDetectableRegression?: number;
+  suites?: Partial<Record<EvalSuitePurpose, HarnessSuiteReleasePolicy>>;
+}
+
+export interface HarnessSuiteReleasePolicy {
+  minimumRepetitions?: number;
+  minimumPairedCells?: number;
+  confidenceLevel?: 0.95;
+  minimumDetectableRegression?: number;
 }
 
 /** Compare only like-for-like reports and gate each observable signal separately. */
@@ -40,7 +54,14 @@ export function diffHarnessReports(
   if (candidateCells.size !== baseline.cells.length) {
     throw new Error("Candidate report contains matrix cells absent from the baseline");
   }
-  gateAggregateRegressions(baseline.cells, candidate.cells, thresholds, regressions);
+  assertPolicySampleSupport(baseline, candidate, thresholds);
+  const hasSuitePolicy = thresholds.suites !== undefined && Object.keys(thresholds.suites).length > 0;
+  const hasCompletionPolicy = hasSuitePolicy || thresholds.minimumDetectableRegression !== undefined;
+  gateAggregateRegressions(baseline.cells, candidate.cells, thresholds, regressions, !hasCompletionPolicy);
+  if (hasSuitePolicy) gateSuiteRegressions(baseline, candidate, thresholds, regressions);
+  else if (thresholds.minimumDetectableRegression !== undefined) {
+    gateCompletionRegression("overall", baseline.cells, candidate.cells, thresholds.minimumDetectableRegression, regressions);
+  }
   for (const criterion of criteria) {
     if (criterion.delta < 0) regressions.push(`${criterion.criterion}: criterion pass rate regressed by ${criterion.delta}`);
   }
@@ -49,6 +70,7 @@ export function diffHarnessReports(
     baselineGeneratedAt: baseline.generatedAt,
     candidateGeneratedAt: candidate.generatedAt,
     passed: regressions.length === 0,
+    pairedCompletion: pairedCompletionDelta(baseline.cells, candidateCells),
     cells,
     criteria,
     regressions,
@@ -135,6 +157,7 @@ function gateAggregateRegressions(
   candidateCells: readonly HarnessMatrixCellResult[],
   thresholds: HarnessRegressionThresholds,
   regressions: string[],
+  gateCompletion: boolean,
 ): void {
   const baselineGroups = groupComparisonCells(baselineCells);
   const candidateGroups = groupComparisonCells(candidateCells);
@@ -145,7 +168,9 @@ function gateAggregateRegressions(
   for (const [label, baselineGroup] of baselineGroups) {
     const baseline = aggregateComparison(baselineGroup);
     const candidate = aggregateComparison(candidateGroups.get(label)!);
-    if (candidate.completionRate < baseline.completionRate) regressions.push(`${label}: completion rate regressed`);
+    if (gateCompletion && candidate.completionRate < baseline.completionRate) {
+      regressions.push(`${label}: completion rate regressed`);
+    }
     if (candidate.securityPassRate < baseline.securityPassRate) regressions.push(`${label}: security pass rate regressed`);
     const minProcessDelta = thresholds.minProcessDelta ?? 0;
     gateMinimumDelta(label, "robustness", candidate.robustness - baseline.robustness, minProcessDelta, regressions);
@@ -205,4 +230,126 @@ function median(values: readonly number[]): number {
   const sorted = [...values].sort((left, right) => left - right);
   const middle = Math.floor(sorted.length / 2);
   return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
+}
+
+function pairedCompletionDelta(
+  baselineCells: readonly HarnessMatrixCellResult[],
+  candidateCells: ReadonlyMap<string, HarnessMatrixCellResult>,
+): HarnessPairedRateDelta {
+  let baselinePasses = 0;
+  let candidatePasses = 0;
+  let improved = 0;
+  let regressed = 0;
+  let unchanged = 0;
+  for (const baseline of baselineCells) {
+    const candidate = candidateCells.get(cellKey(baseline))!;
+    if (baseline.result.success) baselinePasses++;
+    if (candidate.result.success) candidatePasses++;
+    if (!baseline.result.success && candidate.result.success) improved++;
+    else if (baseline.result.success && !candidate.result.success) regressed++;
+    else unchanged++;
+  }
+  const pairs = baselineCells.length;
+  const baselinePassRate = pairs === 0 ? 0 : baselinePasses / pairs;
+  const candidatePassRate = pairs === 0 ? 0 : candidatePasses / pairs;
+  return {
+    pairs,
+    baselinePassRate,
+    candidatePassRate,
+    delta: candidatePassRate - baselinePassRate,
+    improved,
+    regressed,
+    unchanged,
+  };
+}
+
+function assertPolicySampleSupport(
+  baseline: HarnessMatrixReport,
+  candidate: HarnessMatrixReport,
+  policy: HarnessRegressionThresholds,
+): void {
+  const suitePolicies = policy.suites ?? {};
+  if (Object.keys(suitePolicies).length > 0 && (!baseline.manifest.caseSuites || !candidate.manifest.caseSuites)) {
+    throw new Error("Suite-specific release policy requires case suite metadata");
+  }
+  assertConfidenceSupport("overall", baseline, candidate, policy.confidenceLevel);
+  assertGroupSupport("overall", baseline.cells, candidate.cells, policy);
+  for (const [suite, suitePolicy] of Object.entries(suitePolicies) as Array<[EvalSuitePurpose, HarnessSuiteReleasePolicy]>) {
+    const caseIds = new Set(Object.entries(baseline.manifest.caseSuites ?? {})
+      .filter(([, value]) => value === suite)
+      .map(([caseId]) => caseId));
+    const baselineCells = baseline.cells.filter((cell) => caseIds.has(cell.caseId));
+    const candidateCells = candidate.cells.filter((cell) => caseIds.has(cell.caseId));
+    if (baselineCells.length === 0) throw new Error(`Release policy suite '${suite}' has no report cells`);
+    assertConfidenceSupport(suite, baseline, candidate, suitePolicy.confidenceLevel ?? policy.confidenceLevel);
+    assertGroupSupport(suite, baselineCells, candidateCells, { ...policy, ...suitePolicy, suites: undefined });
+  }
+}
+
+function assertConfidenceSupport(
+  label: string,
+  baseline: HarnessMatrixReport,
+  candidate: HarnessMatrixReport,
+  confidenceLevel?: 0.95,
+): void {
+  if (confidenceLevel === undefined) return;
+  const supported = baseline.summary.reliability?.completionWilsonInterval.confidence;
+  const candidateSupported = candidate.summary.reliability?.completionWilsonInterval.confidence;
+  if (supported !== confidenceLevel || candidateSupported !== confidenceLevel) {
+    throw new Error(`${label}: reports do not provide the required ${confidenceLevel} confidence level`);
+  }
+}
+
+function assertGroupSupport(
+  label: string,
+  baselineCells: readonly HarnessMatrixCellResult[],
+  candidateCells: readonly HarnessMatrixCellResult[],
+  policy: HarnessRegressionThresholds,
+): void {
+  const minimumRepetitions = policy.minimumRepetitions;
+  if (minimumRepetitions !== undefined) {
+    for (const [group, cells] of groupComparisonCells(baselineCells)) {
+      if (cells.length < minimumRepetitions) {
+        throw new Error(`${label}: '${group}' has ${cells.length} repetitions; policy requires ${minimumRepetitions}`);
+      }
+    }
+  }
+  const minimumPairedCells = policy.minimumPairedCells;
+  if (minimumPairedCells !== undefined && baselineCells.length < minimumPairedCells) {
+    throw new Error(`${label}: ${baselineCells.length} paired cells cannot support policy minimum ${minimumPairedCells}`);
+  }
+  if (candidateCells.length !== baselineCells.length) throw new Error(`${label}: incompatible paired cell count`);
+}
+
+function gateSuiteRegressions(
+  baseline: HarnessMatrixReport,
+  candidate: HarnessMatrixReport,
+  policy: HarnessRegressionThresholds,
+  regressions: string[],
+): void {
+  for (const [suite, suitePolicy] of Object.entries(policy.suites ?? {}) as Array<[EvalSuitePurpose, HarnessSuiteReleasePolicy]>) {
+    const caseIds = new Set(Object.entries(baseline.manifest.caseSuites ?? {})
+      .filter(([, value]) => value === suite)
+      .map(([caseId]) => caseId));
+    const baselineCells = baseline.cells.filter((cell) => caseIds.has(cell.caseId));
+    const candidateCells = candidate.cells.filter((cell) => caseIds.has(cell.caseId));
+    const toleratedRegression = suitePolicy.minimumDetectableRegression
+      ?? policy.minimumDetectableRegression
+      ?? 0;
+    gateCompletionRegression(suite, baselineCells, candidateCells, toleratedRegression, regressions);
+  }
+}
+
+function gateCompletionRegression(
+  label: string,
+  baselineCells: readonly HarnessMatrixCellResult[],
+  candidateCells: readonly HarnessMatrixCellResult[],
+  toleratedRegression: number,
+  regressions: string[],
+): void {
+  const delta = rate(candidateCells.map((cell) => cell.result.success))
+    - rate(baselineCells.map((cell) => cell.result.success));
+  if (delta < -toleratedRegression) {
+    regressions.push(`${label}: completion rate regressed by ${delta}; policy allows ${toleratedRegression}`);
+  }
 }

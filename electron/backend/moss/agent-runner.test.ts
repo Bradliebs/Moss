@@ -131,7 +131,14 @@ async function run(
   return { events, approvals };
 }
 
-const types = (h: Harness) => h.events.map((e) => e.type);
+const TRACE_EVENT_TYPES = new Set<MossEvent["type"]>([
+  "round-start",
+  "round-end",
+  "context-compaction",
+  "verification",
+  "recovery",
+]);
+const types = (h: Harness) => h.events.filter((event) => !TRACE_EVENT_TYPES.has(event.type)).map((event) => event.type);
 
 describe("runTurn", () => {
   it("adds fresh runtime context and replaces a stale supplied date", async () => {
@@ -346,6 +353,7 @@ describe("runTurn", () => {
 
     const err = h.events.find((e) => e.type === "turn-error") as Extract<MossEvent, { type: "turn-error" }>;
     expect(err.message).toBe("provider down");
+    expect(err.source).toBe("provider-model");
   });
 
   it("allows a final response after the maximum tool rounds", async () => {
@@ -369,6 +377,7 @@ describe("runTurn", () => {
 
     const err = h.events.find((e) => e.type === "turn-error") as Extract<MossEvent, { type: "turn-error" }>;
     expect(err.message).toContain("tool rounds");
+    expect(err.source).toBe("harness-orchestration");
     // The finalization call cannot execute a ninth tool.
     expect(h.events.filter((e) => e.type === "tool-result")).toHaveLength(8);
   });
@@ -399,8 +408,8 @@ describe("runTurn", () => {
       requestApproval: async () => ({ approved: true }),
     });
 
-    expect(events.map((e) => e.type)).toEqual(["text-delta", "turn-aborted"]);
-    const delta = events[0] as Extract<MossEvent, { type: "text-delta" }>;
+    expect(events.filter((event) => !TRACE_EVENT_TYPES.has(event.type)).map((event) => event.type)).toEqual(["text-delta", "turn-aborted"]);
+    const delta = events.find((event): event is Extract<MossEvent, { type: "text-delta" }> => event.type === "text-delta")!;
     expect(delta.text).toBe("one");
   });
 

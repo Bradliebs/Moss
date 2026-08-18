@@ -41,6 +41,8 @@ function report(overrides: Partial<HarnessMatrixReport> = {}): HarnessMatrixRepo
         durationMs: 1_000,
       },
       trace: {
+        schemaVersion: 1,
+        events: [],
         toolCalls: [{ callId: "call-1", name: "read_file", approvalRequested: false, ok: true }],
         usage: { inputTokens: 8, outputTokens: 2 },
         terminalState: "completed",
@@ -126,6 +128,15 @@ describe("diffHarnessReports", () => {
     const diff = diffHarnessReports(report(), candidate);
 
     expect(diff.passed).toBe(false);
+    expect(diff.pairedCompletion).toMatchObject({
+      pairs: 1,
+      baselinePassRate: 1,
+      candidatePassRate: 0,
+      delta: -1,
+      improved: 0,
+      regressed: 1,
+      unchanged: 0,
+    });
     expect(diff.regressions).toEqual(expect.arrayContaining([
       expect.stringContaining("completion"),
       expect.stringContaining("security"),
@@ -184,7 +195,64 @@ describe("diffHarnessReports", () => {
     const diff = diffHarnessReports(repeated([true, false, true]), repeated([false, true, true]));
 
     expect(diff.passed).toBe(true);
+    expect(diff.pairedCompletion).toMatchObject({
+      pairs: 3,
+      baselinePassRate: 2 / 3,
+      candidatePassRate: 2 / 3,
+      delta: 0,
+      improved: 1,
+      regressed: 1,
+      unchanged: 1,
+    });
     expect(diff.cells.some((cell) => cell.completionChanged)).toBe(true);
     expect(diff.regressions).toEqual([]);
+  });
+
+  it("refuses a release decision without the configured repetition support", () => {
+    expect(() => diffHarnessReports(report(), report(), {
+      minimumRepetitions: 2,
+    })).toThrow("policy requires 2");
+  });
+
+  it("refuses suite policy for reports without suite metadata", () => {
+    expect(() => diffHarnessReports(report(), report(), {
+      suites: { regression: { minimumPairedCells: 1 } },
+    })).toThrow("requires case suite metadata");
+  });
+
+  it("refuses confidence policy for reports without matching interval provenance", () => {
+    expect(() => diffHarnessReports(report(), report(), {
+      confidenceLevel: 0.95,
+    })).toThrow("required 0.95 confidence level");
+  });
+
+  it("applies distinct suite completion thresholds while retaining hard gates", () => {
+    const baseline = report({
+      manifest: { ...report().manifest, caseSuites: { "case-a": "capability" } },
+    });
+    const candidate = structuredClone(baseline);
+    candidate.cells[0].result.success = false;
+
+    const tolerated = diffHarnessReports(baseline, candidate, {
+      minimumPairedCells: 1,
+      suites: { capability: { minimumDetectableRegression: 1 } },
+    });
+    expect(tolerated.passed).toBe(true);
+
+    candidate.cells[0].harnessScore = { ...candidate.cells[0].harnessScore!, securityPassed: false };
+    const securityFailure = diffHarnessReports(baseline, candidate, {
+      suites: { capability: { minimumDetectableRegression: 1 } },
+    });
+    expect(securityFailure.passed).toBe(false);
+    expect(securityFailure.regressions).toContainEqual(expect.stringContaining("security"));
+  });
+
+  it("applies a global detectable completion regression when suites are not configured", () => {
+    const baseline = report();
+    const candidate = report();
+    candidate.cells[0].result.success = false;
+
+    expect(diffHarnessReports(baseline, candidate, { minimumDetectableRegression: 1 }).passed).toBe(true);
+    expect(diffHarnessReports(baseline, candidate, { minimumDetectableRegression: 0.5 }).passed).toBe(false);
   });
 });

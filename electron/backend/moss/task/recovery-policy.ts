@@ -42,6 +42,7 @@ export interface RecoveryPolicyOptions {
   maxArgumentRepairs?: number;
   baseBackoffMs?: number;
   maxBackoffMs?: number;
+  enforceActionSignatures?: boolean;
 }
 
 const TRANSIENT_CODES = new Set(["ECONNRESET", "ECONNREFUSED", "EAI_AGAIN", "ENETDOWN", "ENETUNREACH", "ETIMEDOUT"]);
@@ -52,12 +53,14 @@ export class RecoveryPolicy {
   private readonly maxArgumentRepairs: number;
   private readonly baseBackoffMs: number;
   private readonly maxBackoffMs: number;
+  private readonly enforceActionSignatures: boolean;
 
   constructor(options: RecoveryPolicyOptions = {}) {
     this.maxTransientRetries = nonNegativeInteger(options.maxTransientRetries ?? 2, "maxTransientRetries");
     this.maxArgumentRepairs = nonNegativeInteger(options.maxArgumentRepairs ?? 1, "maxArgumentRepairs");
     this.baseBackoffMs = nonNegativeNumber(options.baseBackoffMs ?? 250, "baseBackoffMs");
     this.maxBackoffMs = nonNegativeNumber(options.maxBackoffMs ?? 5_000, "maxBackoffMs");
+    this.enforceActionSignatures = options.enforceActionSignatures ?? true;
     if (this.maxBackoffMs < this.baseBackoffMs) {
       throw new Error("maxBackoffMs must be greater than or equal to baseBackoffMs");
     }
@@ -97,7 +100,7 @@ export class RecoveryPolicy {
   decide(error: unknown, context: RecoveryContext = {}): RecoveryDecision {
     const classification = this.classify(error);
     const signature = context.actionSignature?.trim();
-    if (signature && context.previousActionSignatures?.includes(signature)) {
+    if (this.enforceActionSignatures && signature && context.previousActionSignatures?.includes(signature)) {
       return {
         classification,
         action: "replan",

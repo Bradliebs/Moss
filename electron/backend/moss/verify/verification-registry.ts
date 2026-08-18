@@ -31,6 +31,7 @@ export interface VerificationHandlerResult {
   ok: boolean;
   summary: string;
   details?: string;
+  failureKind?: "assertion" | "grader" | "environment" | "orchestration";
 }
 
 export interface VerificationHandlerContext {
@@ -96,6 +97,7 @@ export class VerificationRegistry {
         evidence.push(this.toEvidence(check, timestamp, {
           ok: false,
           summary: `Unknown verification kind: ${check.kind}`,
+          failureKind: "grader",
         }));
         continue;
       }
@@ -108,6 +110,7 @@ export class VerificationRegistry {
           ok: false,
           summary: "Verification check failed",
           details: errorMessage(error),
+          failureKind: "grader",
         }));
       }
     }
@@ -126,6 +129,7 @@ export class VerificationRegistry {
       kind: check.kind,
       timestamp,
       ...result,
+      ...(!result.ok ? { failureKind: result.failureKind ?? "assertion" } : {}),
     };
   }
 
@@ -236,10 +240,27 @@ async function runFileContainsCheck(
   context: VerificationHandlerContext,
 ): Promise<VerificationHandlerResult> {
   const fileCheck = check as FileContainsVerificationCheck;
-  const target = await resolveExistingWorkspacePath(context.workspaceRoot, fileCheck.path);
-  const content = await readFile(target, "utf8");
-  const ok = content.includes(fileCheck.substring);
-  return { ok, summary: `${fileCheck.path} ${ok ? "contains" : "does not contain"} the expected text` };
+  const normalizedPath = fileCheck.path.replace(/\\/g, "/");
+  const relativePath = isAbsolute(fileCheck.path) ? relative(context.workspaceRoot, fileCheck.path) : fileCheck.path;
+  if (relativePath.startsWith("..") || isAbsolute(relativePath) || normalizedPath.split("/").includes("..")) {
+    await resolveExistingWorkspacePath(context.workspaceRoot, fileCheck.path);
+  }
+  try {
+    const target = await resolveExistingWorkspacePath(context.workspaceRoot, fileCheck.path);
+    const content = await readFile(target, "utf8");
+    const ok = content.includes(fileCheck.substring);
+    return { ok, summary: `${fileCheck.path} ${ok ? "contains" : "does not contain"} the expected text` };
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ENOENT") {
+      return { ok: false, summary: `Expected path does not exist: ${fileCheck.path}`, failureKind: "assertion" };
+    }
+    return {
+      ok: false,
+      summary: `Expected path could not be inspected: ${fileCheck.path}`,
+      details: errorMessage(error),
+      failureKind: "environment",
+    };
+  }
 }
 
 async function runProcessRunningCheck(check: VerificationCheck): Promise<VerificationHandlerResult> {
@@ -285,6 +306,13 @@ async function runHttpCheck(
         : !bodyOk
           ? `Response body did not include: ${httpCheck.bodyIncludes}`
           : undefined,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      summary: context.signal.aborted ? "Verification aborted" : "HTTP verification could not reach the target",
+      details: errorMessage(error),
+      failureKind: context.signal.aborted ? "orchestration" : "environment",
     };
   } finally {
     clearTimeout(timeout);

@@ -1,0 +1,1 @@
+{"request":"lookup","failedServer":"archive","servers":[{"id":"archive","available":false,"tools":["lookup"]},{"id":"docs","available":true,"tools":["search"]}]}

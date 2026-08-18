@@ -57,6 +57,7 @@ import { skillsStore } from "../backend/moss/skills/skills-store";
 import { transcribeAudio } from "../backend/moss/stt";
 import { buildSystemMessage } from "../backend/moss/system-prompt";
 import { taskEngine } from "../backend/moss/task/task-engine";
+import { buildTaskProgressPacket, renderTaskProgressPacket, selectDependencyReadyStep } from "../backend/moss/task/progress-packet";
 
 const DEFAULT_TOOL_ROUNDS = 8;
 const MAX_TOOL_ROUNDS = 64;
@@ -69,6 +70,7 @@ export function resolveMaxToolRounds(requested: number | undefined, verifyEnable
 import { taskStore } from "../backend/moss/task/task-store";
 import { TOOL_DEFINITIONS, TOOL_REGISTRY } from "../backend/moss/tools";
 import { detectWorkspaceVerificationChecks, VerificationRegistry } from "../backend/moss/verify/verification-registry";
+import { runVerify } from "../backend/moss/verify/verifier";
 
 interface Inflight {
   controller: AbortController;
@@ -333,11 +335,32 @@ async function startTurn(event: Electron.IpcMainEvent, req: ChatStartRequest): P
     const maxRounds = resolveMaxToolRounds(req.maxToolRounds, verifyEnabled);
     let attemptId: string | undefined;
     let acceptedCompletion: CompletionContext | undefined;
-    const task = req.taskSpec ? await ensureTurnTask(durableTaskId!, req.taskSpec, send) : undefined;
+    let task = req.taskSpec ? await ensureTurnTask(durableTaskId!, req.taskSpec, send) : undefined;
     if (task) {
-      const attempt = await taskEngine.beginAttempt(task.id, "execute-request");
+      const baselineCommands = verifyEnabled ? (req.verify?.commands ?? []).slice(0, 1) : [];
+      const baseline = baselineCommands.length > 0 && workspaceRoot
+        ? await runVerify(baselineCommands, workspaceRoot, controller.signal)
+        : undefined;
+      const readyStep = selectDependencyReadyStep(task);
+      if (!readyStep) throw new Error(`Task '${task.id}' has no dependency-ready step`);
+      const priorCheckpoint = [...task.attempts].reverse().find((attempt) =>
+        attempt.outcome === "succeeded" && attempt.turnId,
+      )?.turnId;
+      const attempt = await taskEngine.beginAttempt(task.id, readyStep.id, req.turnId);
       attemptId = attempt.attempt.id;
-      send({ type: "task-state", task: attempt.task });
+      task = attempt.task;
+      send({ type: "task-state", task });
+      const packet = buildTaskProgressPacket(task, {
+        changedFiles: priorCheckpoint
+          ? (await checkpointStore.list(priorCheckpoint)).map((file) => file.path)
+          : [],
+        ...(baseline ? { baseline: { passed: baseline.ok, checks: baseline.results.length } } : {}),
+      });
+      const userIndex = messages.map((message) => message.role).lastIndexOf("user");
+      messages.splice(userIndex < 0 ? messages.length : userIndex, 0, {
+        role: "system",
+        content: renderTaskProgressPacket(packet),
+      });
     }
     await runTurn({
       provider,
@@ -379,6 +402,7 @@ async function startTurn(event: Electron.IpcMainEvent, req: ChatStartRequest): P
       turnId: req.turnId,
       checkpoint,
       verify: req.verify,
+      ...(task ? { planningPolicy: "incremental" as const, recoveryMode: "signature-aware" as const } : {}),
       ...(task
         ? {
             completionGuard: (context: CompletionContext) => {
@@ -416,7 +440,12 @@ async function startTurn(event: Electron.IpcMainEvent, req: ChatStartRequest): P
       );
     }
   } catch (err) {
-    send({ type: "turn-error", message: err instanceof Error ? err.message : String(err), messages: [] });
+    send({
+      type: "turn-error",
+      message: err instanceof Error ? err.message : String(err),
+      messages: [],
+      source: "harness-orchestration",
+    });
   } finally {
     event.sender.removeListener("destroyed", handleRendererDestroyed);
     inflight.delete(req.turnId);
@@ -595,7 +624,7 @@ async function recordTaskLearning(
     outcome,
     durationMs: Math.max(0, new Date(task.updatedAt).getTime() - new Date(task.createdAt).getTime()),
     costUsd: task.attempts.reduce((total, attempt) => total + attempt.estimatedCostUsd, 0),
-    userOverrides: [],
+    userSignals: [],
   });
   await lessonStore.merge(createRetrospective(record));
   await refreshCapabilityHistory();

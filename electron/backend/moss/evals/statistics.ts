@@ -1,0 +1,140 @@
+import type {
+  HarnessBootstrapInterval,
+  HarnessMatrixCellResult,
+  HarnessRateInterval,
+  HarnessReliabilityMetrics,
+} from "../../../../common/evals";
+
+const Z_95 = 1.959963984540054;
+
+/** Wilson score interval for a binomial rate. */
+export function wilsonInterval(successes: number, trials: number): HarnessRateInterval {
+  if (!Number.isInteger(successes) || !Number.isInteger(trials) || successes < 0 || trials < 1 || successes > trials) {
+    throw new Error("Wilson interval requires 0 <= successes <= trials and at least one trial");
+  }
+  const confidence = 0.95;
+  const rate = successes / trials;
+  const zSquared = Z_95 ** 2;
+  const denominator = 1 + zSquared / trials;
+  const center = (rate + zSquared / (2 * trials)) / denominator;
+  const margin = Z_95 * Math.sqrt((rate * (1 - rate) + zSquared / (4 * trials)) / trials) / denominator;
+  return {
+    confidence,
+    lower: Math.max(0, center - margin),
+    upper: Math.min(1, center + margin),
+  };
+}
+
+/** Task-averaged pass@k and pass^k estimators over repeated matrix cells. */
+export function summarizeReliability(
+  cells: readonly HarnessMatrixCellResult[],
+  familyByCase: ReadonlyMap<string, string> = new Map(),
+): HarnessReliabilityMetrics | undefined {
+  if (cells.length === 0) return undefined;
+  const groups = new Map<string, HarnessMatrixCellResult[]>();
+  for (const cell of cells) {
+    const key = `${cell.targetId}\u0000${cell.variantId}\u0000${cell.caseId}`;
+    const group = groups.get(key) ?? [];
+    group.push(cell);
+    groups.set(key, group);
+  }
+  const samples = [...groups.values()].map((group) => ({
+    trials: group.length,
+    successes: group.filter((cell) => cell.result.success).length,
+  }));
+  const k = Math.min(...samples.map((sample) => sample.trials));
+  const average = (values: readonly number[]): number => values.reduce((sum, value) => sum + value, 0) / values.length;
+  const successes = samples.reduce((sum, sample) => sum + sample.successes, 0);
+
+  return {
+    taskGroups: samples.length,
+    trials: cells.length,
+    k,
+    passAt1: average(samples.map((sample) => sample.successes / sample.trials)),
+    passAtK: average(samples.map((sample) => 1 - combinations(sample.trials - sample.successes, k) / combinations(sample.trials, k))),
+    passPowerK: average(samples.map((sample) => combinations(sample.successes, k) / combinations(sample.trials, k))),
+    completionWilsonInterval: wilsonInterval(successes, cells.length),
+    passAt1Bootstrap: bootstrapPassAt1(cells, familyByCase),
+  };
+}
+
+function bootstrapPassAt1(
+  cells: readonly HarnessMatrixCellResult[],
+  familyByCase: ReadonlyMap<string, string>,
+): HarnessBootstrapInterval {
+  const taskGroups = new Map<string, { family: string; outcomes: boolean[] }>();
+  for (const cell of cells) {
+    const key = `${cell.targetId}\u0000${cell.variantId}\u0000${cell.caseId}`;
+    const task = taskGroups.get(key) ?? {
+      family: familyByCase.get(cell.caseId) ?? cell.caseId,
+      outcomes: [],
+    };
+    task.outcomes.push(cell.result.success);
+    taskGroups.set(key, task);
+  }
+  const families = new Map<string, Array<{ outcomes: boolean[] }>>();
+  for (const task of taskGroups.values()) {
+    const tasks = families.get(task.family) ?? [];
+    tasks.push(task);
+    families.set(task.family, tasks);
+  }
+
+  const familySamples = [...families.values()];
+  const resamples = 2_000;
+  const values: number[] = [];
+  const random = seededRandom(0x4d4f5353);
+  for (let iteration = 0; iteration < resamples; iteration++) {
+    const familyRates: number[] = [];
+    for (let familyIndex = 0; familyIndex < familySamples.length; familyIndex++) {
+      const tasks = familySamples[Math.floor(random() * familySamples.length)];
+      const taskRates: number[] = [];
+      for (let taskIndex = 0; taskIndex < tasks.length; taskIndex++) {
+        const outcomes = tasks[Math.floor(random() * tasks.length)].outcomes;
+        let successes = 0;
+        for (let trial = 0; trial < outcomes.length; trial++) {
+          if (outcomes[Math.floor(random() * outcomes.length)]) successes++;
+        }
+        taskRates.push(successes / outcomes.length);
+      }
+      familyRates.push(mean(taskRates));
+    }
+    values.push(mean(familyRates));
+  }
+  values.sort((left, right) => left - right);
+  return {
+    confidence: 0.95,
+    lower: percentile(values, 0.025),
+    upper: percentile(values, 0.975),
+    resamples,
+    unit: families.size > 1 ? "family-task-trial" : "task-trial",
+  };
+}
+
+function seededRandom(seed: number): () => number {
+  let state = seed >>> 0;
+  return () => {
+    state ^= state << 13;
+    state ^= state >>> 17;
+    state ^= state << 5;
+    return (state >>> 0) / 0x1_0000_0000;
+  };
+}
+
+function mean(values: readonly number[]): number {
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function percentile(sorted: readonly number[], probability: number): number {
+  const position = (sorted.length - 1) * probability;
+  const lower = Math.floor(position);
+  const fraction = position - lower;
+  return sorted[lower] + (sorted[Math.min(lower + 1, sorted.length - 1)] - sorted[lower]) * fraction;
+}
+
+function combinations(total: number, selected: number): number {
+  if (selected < 0 || selected > total) return 0;
+  const count = Math.min(selected, total - selected);
+  let result = 1;
+  for (let index = 1; index <= count; index++) result = result * (total - count + index) / index;
+  return result;
+}

@@ -26,6 +26,13 @@ describe("offline pilot cases", () => {
     for (const testCase of cases) {
       expect(() => validateCase(testCase)).not.toThrow();
       expect(testCase.checks).toEqual([expect.objectContaining({ kind: "command" })]);
+      expect(testCase).toMatchObject({
+        suite: "regression",
+        split: "development",
+        provenance: { source: "manual", referenceSolutionVerified: true, owner: "moss" },
+      });
+      expect(testCase.family).toMatch(/^[a-z0-9-]+$/);
+      expect(testCase.fixture?.referenceSolution).toContain("references");
     }
   });
 

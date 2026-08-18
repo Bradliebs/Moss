@@ -91,4 +91,62 @@ describe("HarnessTraceCollector", () => {
       terminalState: "completed",
     });
   });
+
+  it("emits an ordered versioned envelope without retaining sensitive content", () => {
+    let tick = 0;
+    const collector = new HarnessTraceCollector(() => new Date(`2026-01-01T00:00:0${tick++}.000Z`));
+    collector.onEvent({ type: "round-start", round: 0, toolsEnabled: true });
+    collector.onEvent({
+      type: "tool-call",
+      callId: "call-secret",
+      name: "write_file",
+      arguments: JSON.stringify({ token: "raw-secret" }),
+    });
+    collector.onEvent({
+      type: "tool-approval-request",
+      callId: "call-secret",
+      name: "write_file",
+      arguments: "approval-secret",
+      risk: "mutating",
+    });
+    collector.onEvent({
+      type: "tool-result",
+      callId: "call-secret",
+      name: "write_file",
+      ok: true,
+      content: "model-output-secret",
+      autoApproved: false,
+      risk: "mutating",
+      durationMs: 8,
+    });
+    collector.onEvent({ type: "verification", ok: false, checkCount: 2, failedCheckHash: "a".repeat(64) });
+    collector.onEvent({ type: "context-compaction", reason: "overflow", droppedCount: 3 });
+    collector.onEvent({ type: "round-end", round: 0, toolCallCount: 1, finish: "tools" });
+    collector.onEvent({ type: "turn-complete", messages: [{ role: "assistant", content: "assistant-secret" }] });
+
+    const trace = collector.snapshot();
+
+    expect(trace.schemaVersion).toBe(1);
+    expect(trace.events.map(({ sequence, type }) => ({ sequence, type }))).toEqual([
+      { sequence: 1, type: "round-start" },
+      { sequence: 2, type: "tool-call" },
+      { sequence: 3, type: "approval-requested" },
+      { sequence: 4, type: "tool-result" },
+      { sequence: 5, type: "verification" },
+      { sequence: 6, type: "context-compaction" },
+      { sequence: 7, type: "round-end" },
+      { sequence: 8, type: "terminal" },
+    ]);
+    expect(trace.events[0].timestamp).toBe("2026-01-01T00:00:00.000Z");
+    expect(trace.events[1]).toMatchObject({
+      type: "tool-call",
+      callId: "call-secret",
+      argumentHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+    });
+    const serialized = JSON.stringify(trace);
+    expect(serialized).not.toContain("raw-secret");
+    expect(serialized).not.toContain("approval-secret");
+    expect(serialized).not.toContain("model-output-secret");
+    expect(serialized).not.toContain("assistant-secret");
+  });
 });

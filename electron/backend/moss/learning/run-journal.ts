@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
@@ -26,7 +26,35 @@ export interface RunAttemptSummary {
 export interface RunFailureSummary {
   capabilityId?: string;
   category: string;
+  reasonCode?: string;
   summary: string;
+}
+
+export interface SignedRunFailureSummary extends RunFailureSummary {
+  signature: string;
+}
+
+export interface RunUserSignal {
+  kind: "correction" | "override";
+  source: "approval" | "revert" | "retry" | "user-message";
+  signalCode: string;
+}
+
+export interface RunTraceReference {
+  traceId: string;
+  schemaVersion: number;
+  sha256: string;
+}
+
+export interface RunVerificationOutcome {
+  criterionId: string;
+  passed: boolean;
+  signature: string;
+}
+
+export interface RunTaskFamilyCandidate {
+  id: string;
+  source: "objective-class";
 }
 
 export interface CriterionSummary {
@@ -36,34 +64,69 @@ export interface CriterionSummary {
 }
 
 export interface TerminalRunRecord {
-  schemaVersion: 1;
+  schemaVersion: 2;
   taskId: string;
   recordedAt: string;
   objectiveClass: string;
   capabilityIds: string[];
   attempts: RunAttemptSummary[];
-  failures: RunFailureSummary[];
+  failures: SignedRunFailureSummary[];
+  failureSignatures: string[];
+  taskFamilyCandidate: RunTaskFamilyCandidate;
   recoveryChoices: string[];
   criteria: CriterionSummary[];
   outcome: TerminalRunOutcome;
   durationMs: number;
   costUsd: number;
-  userOverrides: unknown[];
+  userSignals: RunUserSignal[];
+  verificationOutcomes: RunVerificationOutcome[];
+  traceRef?: RunTraceReference;
+  retention: "sanitized" | "rich-local-opt-in";
+  richArtifacts?: unknown;
 }
 
-export type TerminalRunRecordInput = Omit<TerminalRunRecord, "schemaVersion" | "recordedAt">;
+export type TerminalRunRecordInput = Omit<
+  TerminalRunRecord,
+  | "schemaVersion"
+  | "recordedAt"
+  | "failures"
+  | "failureSignatures"
+  | "taskFamilyCandidate"
+  | "verificationOutcomes"
+  | "retention"
+> & { failures: RunFailureSummary[] };
+
+export interface RunJournalAppendOptions {
+  retainRichArtifacts?: boolean;
+}
 
 export class RunJournal {
   private readonly queues = new Map<string, Promise<void>>();
 
   constructor(private readonly baseDir?: string) {}
 
-  async append(input: TerminalRunRecordInput): Promise<TerminalRunRecord> {
+  async append(input: TerminalRunRecordInput, options: RunJournalAppendOptions = {}): Promise<TerminalRunRecord> {
     validateInput(input);
+    if (input.richArtifacts !== undefined && !options.retainRichArtifacts) {
+      throw new Error("richArtifacts require explicit local retention opt-in");
+    }
+    const failures = input.failures.map((failure) => ({
+      ...failure,
+      signature: deriveFailureSignature(failure),
+    }));
     const record = sanitizeValue({
       ...structuredClone(input),
-      schemaVersion: 1,
+      schemaVersion: 2,
       recordedAt: new Date().toISOString(),
+      failures,
+      failureSignatures: [...new Set(failures.map((failure) => failure.signature))].sort(),
+      taskFamilyCandidate: { id: deriveTaskFamilyCandidate(input.objectiveClass), source: "objective-class" },
+      verificationOutcomes: input.criteria.map((criterion) => ({
+        criterionId: criterion.criterionId,
+        passed: criterion.passed,
+        signature: stableHash(`${criterion.criterionId}:${criterion.passed ? "pass" : "fail"}`),
+      })),
+      retention: options.retainRichArtifacts ? "rich-local-opt-in" : "sanitized",
     }) as unknown as TerminalRunRecord;
     return this.serialize(input.taskId, async () => {
       const existing = await this.read(input.taskId);
@@ -120,6 +183,34 @@ export function sanitizeForJournal(value: unknown): unknown {
   return sanitizeValue(structuredClone(value));
 }
 
+export function deriveFailureSignature(failure: RunFailureSummary): string {
+  const mechanism = failure.reasonCode?.trim().toLowerCase() || normalizeMechanism(failure.summary);
+  return stableHash([
+    failure.category.trim().toLowerCase(),
+    failure.capabilityId?.trim().toLowerCase() ?? "none",
+    mechanism,
+  ].join(":"));
+}
+
+export function deriveTaskFamilyCandidate(objectiveClass: string): string {
+  const slug = objectiveClass.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48) || "task";
+  return `${slug}-${stableHash(objectiveClass.toLowerCase()).slice(0, 8)}`;
+}
+
+function normalizeMechanism(summary: string): string {
+  return summary
+    .toLowerCase()
+    .replace(/[a-z]:\\[^\s]+|\/(?:[^\s/]+\/)+[^\s]+/g, "[path]")
+    .replace(/\b\d+(?:\.\d+)?\b/g, "[number]")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 200);
+}
+
+function stableHash(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}
+
 function sanitizeValue(value: unknown, seen = new WeakSet<object>()): unknown {
   if (typeof value === "string") {
     return SENSITIVE_VALUE_PATTERNS.reduce((sanitized, pattern) => sanitized.replace(pattern, "[REDACTED]"), value);
@@ -144,8 +235,8 @@ function validateInput(input: TerminalRunRecordInput): void {
   if (!Array.isArray(input.attempts) || !Array.isArray(input.failures) || !Array.isArray(input.recoveryChoices)) {
     throw new Error("attempts, failures, and recoveryChoices must be arrays");
   }
-  if (!Array.isArray(input.criteria) || !Array.isArray(input.userOverrides)) {
-    throw new Error("criteria and userOverrides must be arrays");
+  if (!Array.isArray(input.criteria) || !Array.isArray(input.userSignals)) {
+    throw new Error("criteria and userSignals must be arrays");
   }
   if (!["completed", "failed", "blocked", "cancelled"].includes(input.outcome)) {
     throw new Error("outcome must be terminal");

@@ -65,4 +65,5 @@ export interface VerificationEvidence {
   timestamp: string;
   summary: string;
   details?: string;
+  failureKind?: "assertion" | "grader" | "environment" | "orchestration";
 }

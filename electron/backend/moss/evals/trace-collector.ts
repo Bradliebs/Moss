@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import type { HarnessExecutionTrace, HarnessTraceToolCall } from "../../../../common/evals";
+import type { HarnessExecutionTrace, HarnessTraceEvent, HarnessTraceToolCall } from "../../../../common/evals";
 import type { MossEvent } from "../../../../common/types";
 
 /** Collects process metadata without retaining model text, tool arguments, or tool output. */
@@ -8,11 +8,19 @@ export class HarnessTraceCollector {
   private readonly calls = new Map<string, HarnessTraceToolCall>();
   private readonly callOrder: string[] = [];
   private readonly failedActions = new Map<string, string>();
+  private readonly events: HarnessExecutionTrace["events"] = [];
   private inputTokens = 0;
   private outputTokens = 0;
   private terminalState: HarnessExecutionTrace["terminalState"];
 
+  constructor(private readonly now: () => Date = () => new Date()) {}
+
   onEvent(event: MossEvent): void {
+    if (event.type === "round-start" || event.type === "round-end") {
+      this.record({ ...event });
+      return;
+    }
+
     if (event.type === "tool-call") {
       const call: HarnessTraceToolCall = {
         callId: event.callId,
@@ -22,6 +30,12 @@ export class HarnessTraceCollector {
       };
       if (!this.calls.has(event.callId)) this.callOrder.push(event.callId);
       this.calls.set(event.callId, call);
+      this.record({
+        type: "tool-call",
+        callId: event.callId,
+        name: event.name,
+        argumentHash: call.argumentHash!,
+      });
       return;
     }
 
@@ -29,6 +43,7 @@ export class HarnessTraceCollector {
       const call = this.getOrCreateCall(event.callId, event.name);
       call.approvalRequested = true;
       call.risk = event.risk;
+      this.record({ type: "approval-requested", callId: event.callId, name: event.name, risk: event.risk });
       return;
     }
 
@@ -46,6 +61,20 @@ export class HarnessTraceCollector {
       } else {
         this.failedActions.set(actionKey, call.callId);
       }
+      this.record({
+        type: "tool-result",
+        callId: event.callId,
+        name: event.name,
+        ok: event.ok,
+        autoApproved: event.autoApproved,
+        risk: event.risk,
+        durationMs: event.durationMs,
+      });
+      return;
+    }
+
+    if (event.type === "verification" || event.type === "context-compaction" || event.type === "recovery") {
+      this.record({ ...event });
       return;
     }
 
@@ -55,13 +84,15 @@ export class HarnessTraceCollector {
       return;
     }
 
-    if (event.type === "turn-complete") this.terminalState = "completed";
-    else if (event.type === "turn-aborted") this.terminalState = "aborted";
-    else if (event.type === "turn-error") this.terminalState = "error";
+    if (event.type === "turn-complete") this.setTerminalState("completed");
+    else if (event.type === "turn-aborted") this.setTerminalState("aborted");
+    else if (event.type === "turn-error") this.setTerminalState("error");
   }
 
   snapshot(): HarnessExecutionTrace {
     return {
+      schemaVersion: 1,
+      events: structuredClone(this.events),
       toolCalls: this.callOrder.map((callId) => structuredClone(this.calls.get(callId)!)),
       usage: {
         ...(this.inputTokens > 0 ? { inputTokens: this.inputTokens } : {}),
@@ -71,6 +102,10 @@ export class HarnessTraceCollector {
     };
   }
 
+  markBudgetExhausted(): void {
+    this.setTerminalState("budget-exhausted");
+  }
+
   private getOrCreateCall(callId: string, name: string): HarnessTraceToolCall {
     const existing = this.calls.get(callId);
     if (existing) return existing;
@@ -78,6 +113,22 @@ export class HarnessTraceCollector {
     this.calls.set(callId, call);
     this.callOrder.push(callId);
     return call;
+  }
+
+  private record(event: HarnessTraceEvent): void {
+    this.events.push({ ...event, sequence: this.events.length + 1, timestamp: this.now().toISOString() });
+  }
+
+  private setTerminalState(state: NonNullable<HarnessExecutionTrace["terminalState"]>): void {
+    this.terminalState = state;
+    for (let index = this.events.length - 1; index >= 0; index--) {
+      const event = this.events[index];
+      if (event.type === "terminal") {
+        event.state = state;
+        return;
+      }
+    }
+    this.record({ type: "terminal", state });
   }
 }
 

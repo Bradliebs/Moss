@@ -1,0 +1,46 @@
+name: Provider eval smoke
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      MOSS_EVAL_BASE_URL: ${{ vars.MOSS_EVAL_BASE_URL }}
+      MOSS_EVAL_MODEL: ${{ vars.MOSS_EVAL_MODEL }}
+      MOSS_EVAL_API_KEY: ${{ secrets.MOSS_EVAL_API_KEY }}
+      MOSS_EVAL_REPETITIONS: "1"
+      MOSS_EVAL_CORPUS: pilot
+      MOSS_EVAL_EXPERIMENT: phase5-runtime
+      MOSS_EVAL_CONCURRENCY: "2"
+      MOSS_EVAL_PROVIDER_CONCURRENCY: "2"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Require provider configuration
+        shell: pwsh
+        run: |
+          if (-not $env:MOSS_EVAL_BASE_URL -or -not $env:MOSS_EVAL_MODEL) {
+            throw "Set repository variables MOSS_EVAL_BASE_URL and MOSS_EVAL_MODEL"
+          }
+      - name: Run resumable provider smoke matrix
+        run: npm run eval -- run scripts/eval-pilots.cjs reports/provider-smoke.json --resume reports/provider-smoke.progress.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: provider-smoke-report
+          path: |
+            reports/provider-smoke.json
+            reports/provider-smoke.progress.json
+          if-no-files-found: ignore

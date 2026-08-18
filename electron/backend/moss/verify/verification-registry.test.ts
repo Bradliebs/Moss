@@ -69,7 +69,7 @@ describe("VerificationRegistry", () => {
         workspaceRoot,
         live(),
       );
-      expect(evidence[0]).toMatchObject({ ok: false, summary: "Verification check failed" });
+      expect(evidence[0]).toMatchObject({ ok: false, summary: "Verification check failed", failureKind: "grader" });
       expect(evidence[0].details).toContain("escapes the workspace sandbox");
     } finally {
       rmSync(outside, { force: true });
@@ -144,7 +144,11 @@ describe("VerificationRegistry", () => {
       live(),
     );
 
-    expect(evidence[0]).toMatchObject({ ok: false, summary: "Verification check failed" });
+    expect(evidence[0]).toMatchObject({
+      ok: false,
+      summary: "HTTP verification could not reach the target",
+      failureKind: "environment",
+    });
   });
 
   it("aborts an in-flight HTTP check with the parent signal", async () => {
@@ -160,7 +164,7 @@ describe("VerificationRegistry", () => {
       controller.signal,
     );
 
-    expect(evidence[0]).toMatchObject({ ok: false, summary: "Verification check failed" });
+    expect(evidence[0]).toMatchObject({ ok: false, summary: "Verification aborted", failureKind: "orchestration" });
   });
 
   it("records manual or external receipt assertions", async () => {

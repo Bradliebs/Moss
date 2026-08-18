@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 
-import type { EvalAdmission, EvalCase, EvalExecutionObservation, HarnessVariant } from "../../../../common/evals";
+import type { EvalAdmission, EvalCase, EvalExecutionObservation, HarnessDiagnosticReview, HarnessVariant } from "../../../../common/evals";
 import type { AgentMessage, MossEvent, TokenUsage, ToolApprovalResponse } from "../../../../common/types";
 import { runTurn } from "../agent-runner";
 import type { ChatProvider } from "../providers/types";
@@ -21,6 +21,7 @@ export interface TurnEvalExecutorOptions {
   now?: () => Date;
   promptNow?: () => Date;
   variant?: HarnessVariant;
+  signal?: AbortSignal;
 }
 
 const DEFAULT_PROMPT_PROFILE = "deterministic-production-v1";
@@ -56,10 +57,15 @@ export function createTurnEvalExecutor(options: TurnEvalExecutorOptions): EvalEx
     const failedTools = new Set<string>();
     const traceCollector = new HarnessTraceCollector();
     const controller = new AbortController();
+    const cancelFromParent = (): void => controller.abort();
+    if (options.signal?.aborted) controller.abort();
+    else options.signal?.addEventListener("abort", cancelFromParent, { once: true });
     const budget = options.variant?.budget ?? testCase.benchmark?.budget ?? testCase.task.budget;
     let budgetReason: string | undefined;
     let failureReason: string | undefined;
+    let failureSource: EvalExecutionResult["failureSource"];
     let actionCount = 0;
+    let responseText = "";
     let outcome: EvalExecutionObservation["outcome"] = "failed";
     const startedAt = startedAtDate.toISOString();
 
@@ -72,7 +78,9 @@ export function createTurnEvalExecutor(options: TurnEvalExecutorOptions): EvalEx
 
     const onEvent = (event: MossEvent): void => {
       traceCollector.onEvent(event);
-      if (event.type === "token-usage") {
+      if (event.type === "text-delta") {
+        responseText += event.text;
+      } else if (event.type === "token-usage") {
         usage.inputTokens = (usage.inputTokens ?? 0) + (event.usage.inputTokens ?? 0);
         usage.outputTokens = (usage.outputTokens ?? 0) + (event.usage.outputTokens ?? 0);
         const tokens = (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0);
@@ -106,6 +114,7 @@ export function createTurnEvalExecutor(options: TurnEvalExecutorOptions): EvalEx
         outcome = budgetReason ? "budget-exhausted" : "cancelled";
       } else if (event.type === "turn-error") {
         failureReason = event.message;
+        failureSource = event.source;
       }
     };
 
@@ -125,24 +134,35 @@ export function createTurnEvalExecutor(options: TurnEvalExecutorOptions): EvalEx
         requestApproval: options.requestApproval ?? (async () => ({ approved: false })),
         autoApprove: options.variant?.autoApprove ?? options.autoApprove,
         injectionMode: options.variant?.injectionMode,
-        contextLimit: options.variant?.contextLimit,
+        contextLimit: options.variant?.runtime?.contextStrategy === "full" ? 0 : options.variant?.contextLimit,
         maxRounds: options.variant?.maxRounds,
         toolTimeoutMs: options.variant?.toolTimeoutMs,
-        verify: options.variant?.verify,
+        verify: options.variant?.runtime?.verificationCadence === "terminal"
+          ? { enabled: false, commands: [] }
+          : options.variant?.verify,
+        planningPolicy: options.variant?.runtime?.planningPolicy,
+        recoveryMode: options.variant?.runtime?.recoveryPolicy,
         now: () => promptDate,
       });
     } finally {
       if (durationTimer) clearTimeout(durationTimer);
+      options.signal?.removeEventListener("abort", cancelFromParent);
     }
 
     if (budgetReason) outcome = "budget-exhausted";
+    if (budgetReason) traceCollector.markBudgetExhausted();
     const trace = traceCollector.snapshot();
-    if (budgetReason) trace.terminalState = "budget-exhausted";
+    const diagnosticReview = options.variant?.runtime?.reviewerPass === "diagnostic"
+      ? await runDiagnosticReview(options, testCase, responseText, controller.signal)
+      : undefined;
 
     return {
       workspaceRoot,
       trace,
+      ...(diagnosticReview ? { diagnosticReview } : {}),
       promptProvenance,
+      rubricInput: { responseText },
+      ...(failureSource ? { failureSource } : {}),
       observation: {
         caseId: testCase.id,
         runId: `${testCase.id}-${repetition}-${randomUUID()}`,
@@ -158,4 +178,63 @@ export function createTurnEvalExecutor(options: TurnEvalExecutorOptions): EvalEx
       },
     };
   };
+}
+
+async function runDiagnosticReview(
+  options: TurnEvalExecutorOptions,
+  testCase: EvalCase,
+  responseText: string,
+  signal: AbortSignal,
+): Promise<HarnessDiagnosticReview> {
+  const startedAt = Date.now();
+  const usage: TokenUsage = {};
+  let text = "";
+  try {
+    const stream = options.provider.streamChat({
+      model: options.model,
+      messages: [
+        {
+          role: "system",
+          content: "You are a diagnostic reviewer. Do not propose actions. Return only JSON: {\"label\":\"pass|fail|unknown\",\"reasonCode\":\"kebab-case\"}.",
+        },
+        {
+          role: "user",
+          content: JSON.stringify({
+            objective: testCase.task.objective,
+            acceptanceCriteria: testCase.task.acceptanceCriteria.map(({ id, description }) => ({ id, description })),
+            assistantResponse: responseText,
+          }),
+        },
+      ],
+      tools: [],
+    }, signal);
+    for await (const event of stream) {
+      if (event.type === "text-delta") text += event.text;
+      else if (event.type === "usage") Object.assign(usage, event.usage);
+    }
+    const parsed = JSON.parse(text) as { label?: unknown; reasonCode?: unknown };
+    const label = parsed.label === "pass" || parsed.label === "fail" || parsed.label === "unknown"
+      ? parsed.label
+      : "unknown";
+    const reasonCode = typeof parsed.reasonCode === "string" && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(parsed.reasonCode)
+      ? parsed.reasonCode.slice(0, 80)
+      : "invalid-review-output";
+    return {
+      diagnostic: true,
+      label,
+      reasonCode,
+      usage,
+      estimatedCostUsd: options.estimateCostUsd?.(usage) ?? 0,
+      durationMs: Date.now() - startedAt,
+    };
+  } catch {
+    return {
+      diagnostic: true,
+      label: "unknown",
+      reasonCode: "reviewer-error",
+      usage,
+      estimatedCostUsd: options.estimateCostUsd?.(usage) ?? 0,
+      durationMs: Date.now() - startedAt,
+    };
+  }
 }

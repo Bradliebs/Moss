@@ -1,0 +1,53 @@
+name: Release eval comparison
+
+on:
+  workflow_dispatch:
+    inputs:
+      baseline:
+        description: Repository-relative compatible baseline report
+        required: true
+        default: reports/pilot-baseline.json
+      repetitions:
+        description: Repetitions per representative case
+        required: true
+        default: "3"
+
+permissions:
+  contents: read
+
+jobs:
+  release-eval:
+    runs-on: windows-latest
+    timeout-minutes: 180
+    env:
+      MOSS_EVAL_BASE_URL: ${{ vars.MOSS_EVAL_BASE_URL }}
+      MOSS_EVAL_MODEL: ${{ vars.MOSS_EVAL_MODEL }}
+      MOSS_EVAL_API_KEY: ${{ secrets.MOSS_EVAL_API_KEY }}
+      MOSS_EVAL_REPETITIONS: ${{ inputs.repetitions }}
+      MOSS_EVAL_CORPUS: representative
+      MOSS_EVAL_EXPERIMENT: phase5-runtime
+      MOSS_EVAL_CONCURRENCY: "2"
+      MOSS_EVAL_PROVIDER_CONCURRENCY: "2"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Validate corpus before model execution
+        run: npm run eval:health
+      - name: Run resumable release matrix
+        run: npm run eval -- run scripts/eval-pilots.cjs reports/release-candidate.json --resume reports/release-candidate.progress.json
+      - name: Compare compatible reports
+        shell: pwsh
+        run: npm run eval -- diff "${{ inputs.baseline }}" reports/release-candidate.json reports/release-diff.json --policy reports/pilot-thresholds.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-eval-reports
+          path: |
+            reports/release-candidate.json
+            reports/release-candidate.progress.json
+            reports/release-diff.json
+          if-no-files-found: ignore

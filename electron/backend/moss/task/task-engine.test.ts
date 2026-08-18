@@ -131,6 +131,31 @@ describe("TaskEngine", () => {
     ).rejects.toThrow("unknown dependency");
   });
 
+  it("rejects an attempt whose step dependencies are incomplete", async () => {
+    await engine.create(SPEC, "task-1");
+    await engine.setPlan("task-1", [
+      ...PLAN,
+      {
+        id: "verify",
+        description: "Verify the change",
+        state: "pending",
+        dependsOn: ["implement"],
+        requiredCapabilities: [],
+      },
+    ]);
+
+    await expect(engine.beginAttempt("task-1", "verify")).rejects.toThrow("incomplete dependencies");
+  });
+
+  it("rejects restarting a completed step", async () => {
+    await engine.create(SPEC, "task-1");
+    await engine.setPlan("task-1", PLAN);
+    const { attempt } = await engine.beginAttempt("task-1", "implement");
+    await engine.finishAttempt("task-1", attempt.id, "succeeded");
+
+    await expect(engine.beginAttempt("task-1", "implement")).rejects.toThrow("not eligible");
+  });
+
   it("recovers active tasks as paused without replaying work", async () => {
     await engine.create(SPEC, "task-1");
     await engine.setPlan("task-1", PLAN);

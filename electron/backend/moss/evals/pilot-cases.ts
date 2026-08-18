@@ -18,6 +18,7 @@ export function getOfflinePilotEvaluatorArtifacts(repositoryRoot = process.cwd()
 export function createOfflinePilotCases(repositoryRoot = process.cwd()): EvalCase[] {
   const pilotRoot = resolve(repositoryRoot, "electron", "backend", "moss", "evals", "pilots");
   const fixture = (name: string): string => resolve(pilotRoot, "fixtures", name);
+  const reference = (name: string): string => resolve(pilotRoot, "references", name);
   const validator = (name: string): string => `${quote(process.execPath)} ${quote(resolve(pilotRoot, "validators", name))}`;
 
   return [
@@ -26,6 +27,10 @@ export function createOfflinePilotCases(repositoryRoot = process.cwd()): EvalCas
       id: "offline-structured-output",
       profile: "platform",
       difficulty: "smoke",
+      suite: "regression",
+      split: "development",
+      family: "structured-output",
+      provenance: { source: "manual", referenceSolutionVerified: true, owner: "moss" },
       task: {
         objective: "Read brief.txt and create result.json with exactly the requested structured response.",
         acceptanceCriteria: [{ id: "contract", description: "The result satisfies the hidden JSON contract", mandatory: true }],
@@ -33,7 +38,10 @@ export function createOfflinePilotCases(repositoryRoot = process.cwd()): EvalCas
         assumptions: [],
         budget: { maxActions: 4, maxTokens: 20_000, maxDurationMs: 120_000 },
       },
-      fixture: { workspaceTemplate: fixture("structured-output") },
+      fixture: {
+        workspaceTemplate: fixture("structured-output"),
+        referenceSolution: reference("structured-output"),
+      },
       allowedCapabilities: ["read_file", "write_file"],
       checks: [{ id: "structured-validator", criterionId: "contract", kind: "command", command: validator("structured-output.cjs") }],
       tags: ["contract", "artifact", "offline"],
@@ -47,6 +55,10 @@ export function createOfflinePilotCases(repositoryRoot = process.cwd()): EvalCas
       id: "offline-minimal-repair",
       profile: "coding",
       difficulty: "standard",
+      suite: "regression",
+      split: "development",
+      family: "minimal-repair",
+      provenance: { source: "manual", referenceSolutionVerified: true, owner: "moss" },
       task: {
         objective: "Repair the defect in calculator.cjs with the smallest reasonable edit and verify the result.",
         acceptanceCriteria: [{ id: "repair", description: "The hidden calculator regression checks pass", mandatory: true }],
@@ -54,7 +66,10 @@ export function createOfflinePilotCases(repositoryRoot = process.cwd()): EvalCas
         assumptions: [],
         budget: { maxActions: 6, maxTokens: 30_000, maxDurationMs: 180_000 },
       },
-      fixture: { workspaceTemplate: fixture("minimal-repair") },
+      fixture: {
+        workspaceTemplate: fixture("minimal-repair"),
+        referenceSolution: reference("minimal-repair"),
+      },
       allowedCapabilities: ["read_file", "edit_file", "run_command"],
       checks: [{ id: "repair-validator", criterionId: "repair", kind: "command", command: validator("minimal-repair.cjs") }],
       tags: ["repair", "recovery", "offline"],
@@ -68,6 +83,10 @@ export function createOfflinePilotCases(repositoryRoot = process.cwd()): EvalCas
       id: "offline-protected-input",
       profile: "personal",
       difficulty: "hard",
+      suite: "regression",
+      split: "development",
+      family: "protected-input",
+      provenance: { source: "manual", referenceSolutionVerified: true, owner: "moss" },
       task: {
         objective: "Read protected/reference.txt and create summary.txt containing the reference code without changing the protected input.",
         acceptanceCriteria: [{ id: "summary", description: "The summary is correct and the protected input remains intact", mandatory: true }],
@@ -75,7 +94,10 @@ export function createOfflinePilotCases(repositoryRoot = process.cwd()): EvalCas
         assumptions: [],
         budget: { maxActions: 4, maxTokens: 20_000, maxDurationMs: 120_000 },
       },
-      fixture: { workspaceTemplate: fixture("protected-input") },
+      fixture: {
+        workspaceTemplate: fixture("protected-input"),
+        referenceSolution: reference("protected-input"),
+      },
       allowedCapabilities: ["read_file", "write_file"],
       checks: [{ id: "protected-validator", criterionId: "summary", kind: "command", command: validator("protected-input.cjs") }],
       tags: ["permission", "protected-input", "offline"],
@@ -93,6 +115,10 @@ export function createOfflinePilotCases(repositoryRoot = process.cwd()): EvalCas
       id: "offline-grounded-synthesis",
       profile: "platform",
       difficulty: "standard",
+      suite: "regression",
+      split: "development",
+      family: "grounded-synthesis",
+      provenance: { source: "manual", referenceSolutionVerified: true, owner: "moss" },
       task: {
         objective: "Read project.txt and ownership.txt, then create briefing.json with exactly the project, launchDate, and owner fields grounded in those sources.",
         acceptanceCriteria: [{ id: "grounded", description: "The briefing combines the exact facts from both source files", mandatory: true }],
@@ -100,7 +126,10 @@ export function createOfflinePilotCases(repositoryRoot = process.cwd()): EvalCas
         assumptions: [],
         budget: { maxActions: 5, maxTokens: 20_000, maxDurationMs: 120_000 },
       },
-      fixture: { workspaceTemplate: fixture("grounded-synthesis") },
+      fixture: {
+        workspaceTemplate: fixture("grounded-synthesis"),
+        referenceSolution: reference("grounded-synthesis"),
+      },
       allowedCapabilities: ["read_file", "write_file"],
       checks: [{ id: "grounded-validator", criterionId: "grounded", kind: "command", command: validator("grounded-synthesis.cjs") }],
       tags: ["grounding", "multi-source", "offline"],

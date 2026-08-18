@@ -69,6 +69,38 @@ class FailingProvider implements ChatProvider {
   }
 }
 
+class BlockingProvider implements ChatProvider {
+  readonly kind = "deterministic";
+
+  async *streamChat(_request: ChatRequest, signal: AbortSignal): AsyncIterable<ProviderStreamEvent> {
+    await new Promise<void>((resolveWait) => signal.addEventListener("abort", () => resolveWait(), { once: true }));
+    yield { type: "text-delta", text: "late" };
+  }
+
+  async listModels(): Promise<string[]> {
+    return ["fixture-model"];
+  }
+}
+
+class ReviewingProvider implements ChatProvider {
+  readonly kind = "deterministic";
+  readonly requests: ChatRequest[] = [];
+
+  async *streamChat(request: ChatRequest): AsyncIterable<ProviderStreamEvent> {
+    this.requests.push(structuredClone(request));
+    if (this.requests.length === 1) {
+      yield { type: "text-delta", text: "done" };
+      return;
+    }
+    yield { type: "text-delta", text: '{"label":"pass","reasonCode":"criteria-addressed"}' };
+    yield { type: "usage", usage: { inputTokens: 7, outputTokens: 2 } };
+  }
+
+  async listModels(): Promise<string[]> {
+    return ["fixture-model"];
+  }
+}
+
 describe("createTurnEvalExecutor", () => {
   it("seeds a stable production prompt and records only its profile and hash", async () => {
     const provider = new DeterministicProvider();
@@ -158,6 +190,8 @@ describe("createTurnEvalExecutor", () => {
       admissions: ["verified"],
     });
     const rawExecution = await execute(TEST_CASE, 1);
+    expect(rawExecution.rubricInput).toEqual({ responseText: "done" });
+    expect(JSON.stringify(report)).not.toContain("responseText");
     expect(rawExecution.trace).toMatchObject({
       usage: { inputTokens: 12, outputTokens: 3 },
       terminalState: "completed",
@@ -219,6 +253,42 @@ describe("createTurnEvalExecutor", () => {
     })]);
   });
 
+  it("runs the optional reviewer as a non-gating diagnostic with separate overhead", async () => {
+    const provider = new ReviewingProvider();
+    const execute = createTurnEvalExecutor({
+      provider,
+      model: "fixture-model",
+      toolRegistry: new Map(),
+      workspaceRoot: () => "",
+      estimateCostUsd: (usage) => ((usage.inputTokens ?? 0) + (usage.outputTokens ?? 0)) / 1_000,
+      variant: {
+        schemaVersion: 1,
+        id: "reviewed",
+        description: "Diagnostic reviewer",
+        runtime: {
+          contextStrategy: "compact",
+          planningPolicy: "incremental",
+          verificationCadence: "after-mutation",
+          recoveryPolicy: "signature-aware",
+          reviewerPass: "diagnostic",
+        },
+      },
+    });
+
+    const result = await execute(TEST_CASE, 0);
+
+    expect(provider.requests).toHaveLength(2);
+    expect(provider.requests[1].tools).toEqual([]);
+    expect(result.observation.outcome).toBe("completed");
+    expect(result.diagnosticReview).toMatchObject({
+      diagnostic: true,
+      label: "pass",
+      reasonCode: "criteria-addressed",
+      usage: { inputTokens: 7, outputTokens: 2 },
+      estimatedCostUsd: 0.009,
+    });
+  });
+
   it("reports budget exhaustion separately from user cancellation", async () => {
     const execute = createTurnEvalExecutor({
       provider: new DeterministicProvider(),
@@ -238,7 +308,8 @@ describe("createTurnEvalExecutor", () => {
     expect(result.observation.outcome).toBe("budget-exhausted");
     expect(result.observation.failureReason).toBe("token budget of 10 exceeded");
     expect(result.observation.admissions).toContain("budget-exhausted");
-    expect(result.trace?.terminalState).toBe("budget-exhausted");
+      expect(result.trace?.terminalState).toBe("budget-exhausted");
+      expect(result.trace?.events.at(-1)).toMatchObject({ type: "terminal", state: "budget-exhausted" });
   });
 
   it("preserves provider failures in the observation", async () => {
@@ -255,5 +326,22 @@ describe("createTurnEvalExecutor", () => {
       outcome: "failed",
       failureReason: "fixture provider unavailable",
     });
+    expect(result.failureSource).toBe("provider-model");
+  });
+
+  it("propagates a parent matrix cancellation into the active turn", async () => {
+    const controller = new AbortController();
+    const execute = createTurnEvalExecutor({
+      provider: new BlockingProvider(),
+      model: "fixture-model",
+      toolRegistry: new Map(),
+      workspaceRoot: () => "",
+      signal: controller.signal,
+    });
+
+    const execution = execute(TEST_CASE, 0);
+    controller.abort();
+
+    await expect(execution).resolves.toMatchObject({ observation: { outcome: "cancelled" } });
   });
 });

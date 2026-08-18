@@ -5,19 +5,23 @@ import type { TerminalRunRecord } from "./run-journal";
 
 function run(outcome: TerminalRunRecord["outcome"]): TerminalRunRecord {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     taskId: `task-${outcome}`,
     recordedAt: "2026-07-12T00:00:00.000Z",
     objectiveClass: "code-repair",
     capabilityIds: ["shell", "shell"],
     attempts: [{ capabilityId: "shell", attempt: 1, result: "failed", summary: "command failed" }],
-    failures: [{ category: "verification", summary: "tests failed" }],
+    failures: [{ category: "verification", summary: "tests failed", signature: "failure-signature" }],
+    failureSignatures: ["failure-signature"],
+    taskFamilyCandidate: { id: "code-repair-family", source: "objective-class" },
     recoveryChoices: ["changed the implementation"],
     criteria: [{ criterionId: "tests", passed: outcome === "completed", summary: "focused tests pass" }],
     outcome,
     durationMs: 100,
     costUsd: 0,
-    userOverrides: [{ note: "never copied into lessons", rawToolOutput: "untrusted page content" }],
+    userSignals: [{ kind: "override", source: "user-message", signalCode: "change-direction" }],
+    verificationOutcomes: [{ criterionId: "tests", passed: outcome === "completed", signature: "verification-signature" }],
+    retention: "sanitized",
   };
 }
 

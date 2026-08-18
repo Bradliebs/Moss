@@ -78,19 +78,33 @@ export class TaskEngine {
     throw new Error(`Cannot start a task while it is ${task.state}`);
   }
 
-  async beginAttempt(id: string, stepId?: string): Promise<{ task: TaskSnapshot; attempt: TaskAttempt }> {
+  async beginAttempt(id: string, stepId?: string, turnId?: string): Promise<{ task: TaskSnapshot; attempt: TaskAttempt }> {
     let task = await this.start(id);
     const budgetBlocker = budgetExceeded(task, this.now());
     if (budgetBlocker) {
       task = await this.store.transition(id, "paused", { blocker: budgetBlocker });
       throw new Error(budgetBlocker.summary);
     }
-    if (stepId && !task.steps.some((step) => step.id === stepId)) {
-      throw new Error(`Unknown task step '${stepId}'`);
+    if (stepId) {
+      const step = task.steps.find((candidate) => candidate.id === stepId);
+      if (!step) throw new Error(`Unknown task step '${stepId}'`);
+      if (step.state !== "pending" && step.state !== "failed" && step.state !== "running") {
+        throw new Error(`Task step '${stepId}' is not eligible for an attempt`);
+      }
+      const completed = new Set(task.steps.filter((candidate) =>
+        candidate.state === "completed" || candidate.state === "skipped",
+      ).map((candidate) => candidate.id));
+      if (!step.dependsOn.every((dependency) => completed.has(dependency))) {
+        throw new Error(`Task step '${stepId}' has incomplete dependencies`);
+      }
+      if (task.steps.some((candidate) => candidate.id !== stepId && candidate.state === "running")) {
+        throw new Error("Only one task step may run at a time");
+      }
     }
     const attempt: TaskAttempt = {
       id: randomUUID(),
       ...(stepId ? { stepId } : {}),
+      ...(turnId ? { turnId } : {}),
       startedAt: this.now().toISOString(),
       actionCount: 0,
       usage: {},

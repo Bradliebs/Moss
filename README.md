@@ -2,7 +2,7 @@
 title: Moss
 description: A local-first agentic desktop harness for completing and verifying work across files, commands, browsers, and desktop applications
 author: Moss contributors
-ms.date: 2026-08-09
+ms.date: 2026-08-18
 ms.topic: overview
 keywords:
   - ai agent
@@ -49,6 +49,7 @@ substantially in tool use, instruction following, and context capacity.
 * Tracks token usage, context consumption, estimated cost, and tool history
 * Persists multiple independent conversations with search and management controls
 * Supports conversation-specific personalities and memory-informed adaptive tone
+* Evaluates runtime and prompt variants through isolated, resumable task matrices
 
 ## Requirements
 
@@ -256,7 +257,9 @@ remain compact bubbles while assistant responses use a wider document layout.
 | `npm run start` | Launch Electron from existing build output |
 | `npm run typecheck` | Type-check the renderer and Electron projects |
 | `npm test` | Run the Vitest test suite once |
+| `npm run test:deterministic` | Run the deterministic CI test tier |
 | `npm run eval -- dry-run scripts/eval-pilots.cjs` | Validate the evaluation matrix without invoking a model |
+| `npm run eval:health` | Validate corpus, reference solution, and grader publication health |
 | `npm run build` | Build the Electron main process and Vite renderer |
 | `npm run pack` | Create an unpacked application directory |
 | `npm run dist` | Build a Windows NSIS installer |
@@ -297,7 +300,15 @@ npm run build
 
 Tests cover renderer behavior, IPC, providers, tool execution, permissions,
 approvals, checkpoints, capability acquisition, browser and desktop boundaries,
-task recovery, verification, memory, skills, and learning.
+task recovery, verification, memory, skills, learning, and the evaluation harness.
+
+The evaluation harness runs production-loop tasks in isolated workspaces and
+grades their end state with independent validators. It supports governed corpus
+splits, repeated baseline comparisons, confidence-aware release policy,
+sanitized traces, failure attribution, resumable concurrent matrices, portable
+dataset exchange, and opt-in container execution for external terminal tasks.
+See the [harness feedback loop guide](docs/harness-feedback-loop.md) for corpus
+selection, provider runs, report inspection, resume behavior, and CI tiers.
 
 ## Packaging
 
@@ -355,3 +366,4 @@ the Resume action. Moss does not convert failed verification into completion.
 * [Chat checkpoint design](docs/chat_checkpoint.md)
 * [Electron 42 GUI smoke checklist](docs/e42-gui-smoke-checklist.md)
 * [Electron Builder 26 upgrade notes](docs/electron-builder-26-upgrade.md)
+* [Harness feedback loop](docs/harness-feedback-loop.md)

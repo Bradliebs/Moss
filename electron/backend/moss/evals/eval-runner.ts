@@ -3,6 +3,7 @@ import type {
   EvalCase,
   EvalCriterionResult,
   EvalExecutionObservation,
+  EvalExecutionFailureSource,
   EvalMetrics,
   EvalPromptProvenance,
   EvalProfile,
@@ -10,10 +11,18 @@ import type {
   EvalRunResult,
   EvalVerifiedEvidence,
   HarnessExecutionTrace,
+  HarnessDiagnosticReview,
 } from "../../../../common/evals";
 import type { TaskBudget, TaskEvidence } from "../../../../common/types";
 import type { VerificationCheck } from "../../../../common/verification";
 import { VerificationRegistry } from "../verify/verification-registry";
+import { attributeEvalFailure, countFailureAttributions } from "./failure-attribution";
+import {
+  runRubricGrader,
+  unknownRubricAssessment,
+  validateRubricGrader,
+  type EvalRubricGrader,
+} from "./rubric-grading";
 
 const ADMISSIONS: EvalAdmission[] = [
   "attempted",
@@ -33,7 +42,11 @@ export interface EvalExecutionResult {
   };
   workspaceRoot: string;
   trace?: HarnessExecutionTrace;
+  diagnosticReview?: HarnessDiagnosticReview;
   promptProvenance?: EvalPromptProvenance;
+  failureSource?: EvalExecutionFailureSource;
+  /** Raw model text available only to an injected rubric grader; never copied into reports. */
+  rubricInput?: { responseText: string };
 }
 
 export type EvalExecutor = (testCase: EvalCase, repetition: number) => Promise<EvalExecutionResult>;
@@ -41,6 +54,7 @@ export type EvalExecutor = (testCase: EvalCase, repetition: number) => Promise<E
 export interface EvalRunnerOptions {
   now?: () => Date;
   registry?: VerificationRegistry;
+  rubricGrader?: EvalRubricGrader;
 }
 
 export interface EvalEvidenceOptions {
@@ -51,6 +65,7 @@ export interface EvalEvidenceOptions {
 export class EvalRunner {
   private readonly now: () => Date;
   private readonly registry: VerificationRegistry;
+  private readonly rubricGrader?: EvalRubricGrader;
 
   constructor(
     private readonly execute: EvalExecutor,
@@ -58,6 +73,8 @@ export class EvalRunner {
   ) {
     this.now = options.now ?? (() => new Date());
     this.registry = options.registry ?? new VerificationRegistry();
+    this.rubricGrader = options.rubricGrader;
+    if (this.rubricGrader) validateRubricGrader(this.rubricGrader);
   }
 
   async run(cases: readonly EvalCase[]): Promise<EvalReport> {
@@ -84,7 +101,24 @@ export class EvalRunner {
         const admissions: EvalAdmission[] = facts.admissions.filter((admission) => admission !== "verified");
         if (verified) admissions.push("verified");
         const observation: EvalExecutionObservation = { ...facts, admissions, evidence };
-        results.push(scoreRun(testCase, observation));
+        const result = scoreRun(testCase, observation);
+        if (this.rubricGrader) {
+          try {
+            result.rubricAssessment = await runRubricGrader(this.rubricGrader, {
+              caseId: testCase.id,
+              objective: testCase.task.objective,
+              responseText: execution.rubricInput?.responseText ?? "",
+            });
+          } catch {
+            result.rubricAssessment = unknownRubricAssessment(this.rubricGrader, "rubric-grader-error");
+          }
+        }
+        result.failureAttribution = attributeEvalFailure({
+          result,
+          trace: execution.trace,
+          executionFailureSource: execution.failureSource,
+        });
+        results.push(result);
       }
     }
 
@@ -110,6 +144,15 @@ export class EvalRunner {
 export function validateCase(testCase: EvalCase): void {
   if (testCase.schemaVersion !== 1) throw new Error(`Unsupported eval schema version '${testCase.schemaVersion}'`);
   if (!/^[a-zA-Z0-9._-]{1,128}$/.test(testCase.id)) throw new Error("Eval case id must be a safe identifier");
+  if (testCase.family !== undefined && !/^[a-zA-Z0-9._-]{1,128}$/.test(testCase.family)) {
+    throw new Error(`Eval case '${testCase.id}' family must be a safe identifier`);
+  }
+  if (testCase.provenance?.owner !== undefined && !testCase.provenance.owner.trim()) {
+    throw new Error(`Eval case '${testCase.id}' provenance owner must not be empty`);
+  }
+  if (testCase.provenance?.sourceId !== undefined && !testCase.provenance.sourceId.trim()) {
+    throw new Error(`Eval case '${testCase.id}' provenance sourceId must not be empty`);
+  }
   if (!testCase.task.objective.trim()) throw new Error(`Eval case '${testCase.id}' requires a task objective`);
   if (!testCase.task.acceptanceCriteria.some((criterion) => criterion.mandatory)) {
     throw new Error(`Eval case '${testCase.id}' requires a mandatory acceptance criterion`);
@@ -259,6 +302,7 @@ export function aggregateMetrics(results: readonly EvalRunResult[]): EvalMetrics
     averageTokens: runs === 0 ? 0 : total((result) =>
       (result.observation.usage.inputTokens ?? 0) + (result.observation.usage.outputTokens ?? 0)) / runs,
     admissions,
+    failures: countFailureAttributions(results),
   };
 }
 
@@ -287,6 +331,7 @@ export async function collectEvalEvidence(
       kind: item.kind,
       passed: item.ok,
       summary: safeCheckSummary(item.kind, item.ok, item.summary),
+      ...(!item.ok && item.failureKind ? { failureKind: item.failureKind } : {}),
     }));
     return {
       id: `eval-${safeEvidenceId(testCase.id)}-${safeEvidenceId(criterion.id)}`,
