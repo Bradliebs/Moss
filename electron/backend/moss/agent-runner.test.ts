@@ -81,6 +81,7 @@ async function run(
     workspaceRoot?: string;
     verify?: { enabled: boolean; commands: string[]; maxCycles?: number };
     maxRounds?: number;
+    contextLimit?: number;
     completionGuard?: (context: CompletionContext) => CompletionDecision;
     now?: () => Date;
     approvalComment?: string;
@@ -124,6 +125,7 @@ async function run(
     ...(opts?.checkpoint !== undefined ? { checkpoint: opts.checkpoint } : {}),
     ...(opts?.verify !== undefined ? { verify: opts.verify } : {}),
     ...(opts?.maxRounds !== undefined ? { maxRounds: opts.maxRounds } : {}),
+    ...(opts?.contextLimit !== undefined ? { contextLimit: opts.contextLimit } : {}),
     ...(opts?.completionGuard !== undefined ? { completionGuard: opts.completionGuard } : {}),
     ...(opts?.now !== undefined ? { now: opts.now } : {}),
   });
@@ -556,10 +558,11 @@ describe("runTurn", () => {
       ],
     });
 
-    expect(attempts).toBe(2);
-    expect(requests[1].messages.length).toBeLessThan(requests[0].messages.length);
-    expect(requests[1].messages.at(-1)?.content).toBe("latest");
-    expect(requests[1].messages[0].content).toContain("earlier messages were omitted");
+    expect(attempts).toBe(3);
+    expect(requests[1].maxTokens).toBe(512);
+    expect(requests[2].messages.at(-1)?.content).toBe("latest");
+    expect(requests[2].messages.some((message) => message.role === "assistant" && message.content === "recovered")).toBe(true);
+    expect(requests[2].messages[0].content).toContain("earlier messages were omitted");
     const notice = h.events.find((event) => event.type === "notice") as Extract<MossEvent, { type: "notice" }>;
     expect(notice.level).toBe("info");
     expect(notice.message).toContain("Provider context limit reached");
@@ -589,10 +592,79 @@ describe("runTurn", () => {
       ],
     });
 
-    expect(attempts).toBe(2);
+    expect(attempts).toBe(3);
     expect(types(h).filter((type) => type === "notice")).toHaveLength(1);
     const error = h.events.at(-1) as Extract<MossEvent, { type: "turn-error" }>;
     expect(error.message).toContain("context_length_exceeded");
+  });
+
+  it("falls back to omission-only overflow recovery when semantic summarization fails", async () => {
+    let attempts = 0;
+    const requests: ChatRequest[] = [];
+    const provider: ChatProvider = {
+      kind: "test",
+      async *streamChat(request): AsyncIterable<ProviderStreamEvent> {
+        attempts += 1;
+        requests.push({ ...request, messages: request.messages.map((message) => ({ ...message })) });
+        if (attempts === 1) throw new ProviderError("maximum context length exceeded", 400);
+        if (attempts === 2) throw new ProviderError("summary unavailable", 429);
+        yield { type: "text-delta", text: "recovered without summary" };
+      },
+      async listModels() {
+        return [];
+      },
+    };
+    const oldContent = "x".repeat(4000);
+
+    const h = await run(provider, [], {
+      messages: [
+        { role: "user", content: oldContent },
+        { role: "assistant", content: oldContent },
+        { role: "user", content: "latest" },
+      ],
+    });
+
+    expect(attempts).toBe(3);
+    expect(requests[2].messages.map((message) => message.role)).toEqual(["system", "user"]);
+    const notice = h.events.find((event) => event.type === "notice") as Extract<MossEvent, { type: "notice" }>;
+    expect(notice.message).toContain("trimmed 2 older messages");
+    expect(h.events.at(-1)?.type).toBe("turn-complete");
+  });
+
+  it("semantically summarizes a proactively compacted prefix and accounts for usage", async () => {
+    const requests: ChatRequest[] = [];
+    const provider: ChatProvider = {
+      kind: "test",
+      async *streamChat(request): AsyncIterable<ProviderStreamEvent> {
+        requests.push({ ...request, messages: request.messages.map((message) => ({ ...message })) });
+        if (request.maxTokens === 512) {
+          yield { type: "text-delta", text: "Decision ALPHA selected parser.ts." };
+          yield { type: "usage", usage: { inputTokens: 100, outputTokens: 10 } };
+          return;
+        }
+        yield { type: "text-delta", text: "continued" };
+      },
+      async listModels() {
+        return [];
+      },
+    };
+    const oldContent = `Decision ALPHA ${"x".repeat(16000)}`;
+
+    const h = await run(provider, [], {
+      contextLimit: 4000,
+      messages: [
+        { role: "user", content: oldContent },
+        { role: "assistant", content: "Use parser.ts because it owns tokenization." },
+        { role: "user", content: "Continue with the latest task." },
+      ],
+    });
+
+    expect(requests).toHaveLength(2);
+    expect(requests[0].maxTokens).toBe(512);
+    expect(requests[1].messages.some((message) => message.role === "assistant" && message.content.includes("Decision ALPHA"))).toBe(true);
+    expect(requests[1].messages.some((message) => message.content === oldContent)).toBe(false);
+    expect(h.events).toContainEqual({ type: "token-usage", usage: { inputTokens: 100, outputTokens: 10 } });
+    expect(h.events).toContainEqual({ type: "context-compaction", reason: "proactive", droppedCount: 2 });
   });
 
   it("does not compact or retry a context overflow after text was streamed", async () => {

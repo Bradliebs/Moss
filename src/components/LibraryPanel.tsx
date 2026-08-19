@@ -104,6 +104,7 @@ function SkillsSection(): React.ReactElement {
   const [editInstructions, setEditInstructions] = useState("");
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
+  const [importMessage, setImportMessage] = useState("");
 
   const refresh = useCallback(async () => {
     setSkills(await window.moss.skills.list());
@@ -180,6 +181,20 @@ function SkillsSection(): React.ReactElement {
     await refresh();
   }
 
+  async function importFolder(): Promise<void> {
+    try {
+      const result = await window.moss.skills.importFolder();
+      if (!result) return;
+      setImportMessage(
+        `Imported ${result.imported.length}; skipped ${result.skipped.length}; invalid ${result.invalid.length}. Imported skills are disabled until reviewed.`,
+      );
+      setError("");
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
   return (
     <section className="flex min-h-0 flex-1 flex-col">
       <h2 className="mb-2 text-sm font-semibold text-neutral-800 dark:text-neutral-200">Skills</h2>
@@ -204,9 +219,18 @@ function SkillsSection(): React.ReactElement {
           onChange={(e) => setInstructions(e.target.value)}
         />
         {error ? <p className="text-xs text-red-600 dark:text-red-400">{error}</p> : null}
-        <button className="rounded bg-blue-700 px-3 py-1 text-sm hover:bg-blue-600" onClick={() => void create()}>
-          Add skill
-        </button>
+        {importMessage ? <p className="text-xs text-neutral-600 dark:text-neutral-400">{importMessage}</p> : null}
+        <div className="flex gap-2">
+          <button className="rounded bg-blue-700 px-3 py-1 text-sm hover:bg-blue-600" onClick={() => void create()}>
+            Add skill
+          </button>
+          <button
+            className="rounded bg-neutral-200 dark:bg-neutral-800 px-3 py-1 text-sm hover:bg-neutral-300 dark:hover:bg-neutral-700"
+            onClick={() => void importFolder()}
+          >
+            Import folder
+          </button>
+        </div>
       </div>
       <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
         {skills.length === 0 ? (
@@ -237,6 +261,11 @@ function SkillsSection(): React.ReactElement {
                 {s.createdBy === "agent" ? (
                   <span className="rounded bg-amber-900/60 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-300">
                     agent
+                  </span>
+                ) : null}
+                {s.createdBy === "import" ? (
+                  <span className="rounded bg-cyan-900/60 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-cyan-300">
+                    imported
                   </span>
                 ) : null}
                 <button

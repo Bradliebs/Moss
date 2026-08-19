@@ -16,6 +16,7 @@ import type {
   ProviderConfig,
   Skill,
   SkillCreateRequest,
+  SkillImportResult,
   SkillUpdateRequest,
   SkillRenameRequest,
   TaskHistoryEntry,
@@ -78,6 +79,7 @@ declare global {
         toggle: (id: string, enabled: boolean) => Promise<void>;
         update: (request: SkillUpdateRequest) => Promise<Skill | null>;
         rename: (request: SkillRenameRequest) => Promise<Skill | null>;
+        importFolder: () => Promise<SkillImportResult | null>;
       };
       mcp: {
         status: () => Promise<McpServerStatus[]>;

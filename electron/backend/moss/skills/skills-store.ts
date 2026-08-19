@@ -5,16 +5,17 @@
 // best-effort: a missing directory or unparsable file yields no skill rather than
 // throwing.
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import type { Dirent } from "node:fs";
-import { basename, join } from "node:path";
+import { randomUUID } from "node:crypto";
+import { basename, join, relative, resolve, sep } from "node:path";
 
 import { app } from "electron";
 
 import { createLogger } from "../../../../common/logger";
-import type { Skill } from "../../../../common/types";
+import type { Skill, SkillImportResult } from "../../../../common/types";
 import { writeFileAtomicSync } from "../persistence/atomic-file";
-import { buildSkillMarkdown, parseSkillMarkdown, slugifySkillName } from "./skill-parse";
+import { buildSkillMarkdown, parseSkillMarkdown, setSkillCreatedBy, slugifySkillName } from "./skill-parse";
 
 const log = createLogger("Skills");
 
@@ -78,7 +79,8 @@ export class SkillsStore {
         instructions: parsed.instructions,
         enabled: !disabled.has(id),
         createdAt: "",
-        createdBy: parsed.createdBy === "agent" ? "agent" : "user",
+        createdBy: parsed.createdBy === "agent" || parsed.createdBy === "import" ? parsed.createdBy : "user",
+        modelInvocable: !parsed.disableModelInvocation,
       });
     }
     return skills.sort((a, b) => a.name.localeCompare(b.name));
@@ -88,7 +90,42 @@ export class SkillsStore {
     return this.list().find((s) => s.name === nameOrId || s.id === nameOrId) ?? null;
   }
 
-  create(name: string, description: string, instructions: string, createdBy?: "user" | "agent"): Skill {
+  listResources(nameOrId: string): string[] {
+    const skill = this.get(nameOrId);
+    if (!skill) return [];
+    const root = join(this.dir(), basename(skill.id));
+    const resources: string[] = [];
+    const pending = [root];
+    while (pending.length > 0) {
+      const current = pending.pop() as string;
+      for (const entry of readdirSync(current, { withFileTypes: true })) {
+        const path = join(current, entry.name);
+        if (entry.isSymbolicLink()) continue;
+        if (entry.isDirectory()) pending.push(path);
+        else if (entry.isFile() && entry.name !== "SKILL.md" && entry.name !== "LICENSE") {
+          resources.push(relative(root, path).split(sep).join("/"));
+        }
+      }
+    }
+    return resources.sort();
+  }
+
+  readResource(nameOrId: string, resourcePath: string): string | null {
+    const skill = this.get(nameOrId);
+    if (!skill) return null;
+    const root = join(this.dir(), basename(skill.id));
+    const target = resolve(root, resourcePath);
+    const rel = relative(root, target);
+    if (!rel || rel.startsWith(`..${sep}`) || rel === ".." || rel.includes(`..${sep}`)) return null;
+    try {
+      if (!statSync(target).isFile() || statSync(target).size > 256_000) return null;
+      return readFileSync(target, "utf8");
+    } catch {
+      return null;
+    }
+  }
+
+  create(name: string, description: string, instructions: string, createdBy?: "user" | "agent" | "import"): Skill {
     const slug = slugifySkillName(name) || "skill";
     const dir = join(this.dir(), basename(slug));
     mkdirSync(dir, { recursive: true });
@@ -96,6 +133,101 @@ export class SkillsStore {
     const created = this.get(slug);
     if (!created) throw new Error(`failed to create skill '${slug}'`);
     return created;
+  }
+
+  importFromDirectory(sourceRoot: string): SkillImportResult {
+    const result: SkillImportResult = { imported: [], skipped: [], invalid: [] };
+    const sourceDirs = this.findSkillDirectories(sourceRoot);
+    const targetRoot = this.dir();
+    mkdirSync(targetRoot, { recursive: true });
+    const license = this.findLicense(sourceRoot);
+    const disabled = this.loadDisabled();
+
+    for (const sourceDir of sourceDirs) {
+      let parsed: ReturnType<typeof parseSkillMarkdown>;
+      try {
+        parsed = parseSkillMarkdown(readFileSync(join(sourceDir, "SKILL.md"), "utf8"));
+      } catch {
+        parsed = null;
+      }
+      if (!parsed) {
+        result.invalid.push(sourceDir);
+        continue;
+      }
+
+      const id = slugifySkillName(parsed.name);
+      const targetDir = join(targetRoot, basename(id));
+      if (!id || existsSync(targetDir)) {
+        result.skipped.push(id || sourceDir);
+        continue;
+      }
+
+      const stagingDir = join(targetRoot, `.import-${id}-${randomUUID()}`);
+      try {
+        this.assertNoLinks(sourceDir);
+        cpSync(sourceDir, stagingDir, { recursive: true, errorOnExist: true, force: false });
+        writeFileSync(
+          join(stagingDir, "SKILL.md"),
+          setSkillCreatedBy(readFileSync(join(sourceDir, "SKILL.md"), "utf8"), "import"),
+          "utf8",
+        );
+        if (license && !existsSync(join(stagingDir, "LICENSE"))) {
+          cpSync(license, join(stagingDir, "LICENSE"), { errorOnExist: true, force: false });
+        }
+        renameSync(stagingDir, targetDir);
+        disabled.add(id);
+        result.imported.push(id);
+      } catch (error) {
+        rmSync(stagingDir, { recursive: true, force: true });
+        result.invalid.push(sourceDir);
+        log.error(`failed to import skill '${parsed.name}'`, error);
+      }
+    }
+
+    this.saveDisabled(disabled);
+    return result;
+  }
+
+  private findSkillDirectories(sourceRoot: string): string[] {
+    if (!existsSync(sourceRoot) || !lstatSync(sourceRoot).isDirectory()) return [];
+    const found: string[] = [];
+    const pending = [sourceRoot];
+    while (pending.length > 0) {
+      const current = pending.pop() as string;
+      const entries = readdirSync(current, { withFileTypes: true });
+      if (entries.some((entry) => entry.isFile() && entry.name === "SKILL.md")) {
+        found.push(current);
+        continue;
+      }
+      for (const entry of entries) {
+        if (entry.isDirectory() && !entry.isSymbolicLink() && !entry.name.startsWith(".")) {
+          pending.push(join(current, entry.name));
+        }
+      }
+    }
+    return found.sort();
+  }
+
+  private findLicense(sourceRoot: string): string | null {
+    for (const root of [sourceRoot, join(sourceRoot, "..")]) {
+      for (const name of ["LICENSE", "LICENSE.md", "LICENSE.txt"]) {
+        const candidate = join(root, name);
+        if (existsSync(candidate) && lstatSync(candidate).isFile()) return candidate;
+      }
+    }
+    return null;
+  }
+
+  private assertNoLinks(root: string): void {
+    const pending = [root];
+    while (pending.length > 0) {
+      const current = pending.pop() as string;
+      for (const entry of readdirSync(current, { withFileTypes: true })) {
+        const path = join(current, entry.name);
+        if (entry.isSymbolicLink()) throw new Error(`symbolic links are not supported: ${path}`);
+        if (entry.isDirectory()) pending.push(path);
+      }
+    }
   }
 
   /** Rewrite an existing skill's description and instructions in place. The id,
@@ -111,7 +243,10 @@ export class SkillsStore {
       return null;
     }
     if (!parsed) return null;
-    writeFileAtomicSync(file, buildSkillMarkdown(parsed.name, description, instructions, parsed.createdBy));
+    writeFileAtomicSync(
+      file,
+      buildSkillMarkdown(parsed.name, description, instructions, parsed.createdBy, parsed.disableModelInvocation),
+    );
     return this.get(id);
   }
 
@@ -138,7 +273,7 @@ export class SkillsStore {
     mkdirSync(newDir, { recursive: true });
     writeFileSync(
       join(newDir, "SKILL.md"),
-      buildSkillMarkdown(newId, parsed.description, parsed.instructions, parsed.createdBy),
+      buildSkillMarkdown(newId, parsed.description, parsed.instructions, parsed.createdBy, parsed.disableModelInvocation),
       "utf8",
     );
     rmSync(oldDir, { recursive: true, force: true });

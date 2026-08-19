@@ -9,6 +9,7 @@ import { createHash } from "node:crypto";
 import type { AgentMessage, EmailConfig, EmbedConfig, MossEvent, SttConfig, TokenUsage, ToolApprovalResponse, ToolCall, ToolDefinition, VerifyConfig } from "../../../common/types";
 import type { CheckpointRecorder } from "./checkpoint/checkpoint-store";
 import { compactForOverflow, compactIfNeeded, isContextOverflowError } from "./context/compaction";
+import { attachCompactionSummary, summarizeCompactedContext } from "./context/compaction-summary";
 import { compressToolOutput } from "./context/tool-output-compaction";
 import { classifyConfidenceMode, describeConfidence } from "./governed/confidence";
 import { resolvePermission } from "./permission";
@@ -144,14 +145,24 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
   // window, folding a note into the system message. No-op unless contextLimit is
   // set. Runs once at seed time; the current turn's own messages are the tail and
   // are never dropped.
-  const compaction = compactIfNeeded(seeded, { contextLimit: opts.contextLimit ?? 0 });
+  const compaction = compactIfNeeded(seeded, { contextLimit: opts.contextLimit ?? 0, reserveTokens: 640 });
   let conversation = compaction.messages;
   if (compaction.compacted) {
+    const summary = await summarizeCompactedContext(
+      provider,
+      model,
+      droppedMessages(seeded, compaction.droppedCount),
+      { signal, contextLimit: opts.contextLimit },
+    );
+    if (summary.usage) onEvent({ type: "token-usage", usage: summary.usage });
+    if (summary.ok) conversation = attachCompactionSummary(conversation, summary.summary);
     onEvent({ type: "context-compaction", reason: "proactive", droppedCount: compaction.droppedCount });
     onEvent({
       type: "notice",
       level: "info",
-      message: `Trimmed ${compaction.droppedCount} older message${compaction.droppedCount === 1 ? "" : "s"} to fit the context window.`,
+      message: summary.ok
+        ? `Summarized ${compaction.droppedCount} older message${compaction.droppedCount === 1 ? "" : "s"} to fit the context window.`
+        : `Trimmed ${compaction.droppedCount} older message${compaction.droppedCount === 1 ? "" : "s"} to fit the context window.`,
     });
   }
   const newMessages: AgentMessage[] = [];
@@ -237,12 +248,23 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
             overflowRecoveryAttempted = true;
             const overflowCompaction = compactForOverflow(conversation);
             if (overflowCompaction.compacted) {
-              conversation = overflowCompaction.messages;
+              const summary = await summarizeCompactedContext(
+                provider,
+                model,
+                droppedMessages(conversation, overflowCompaction.droppedCount),
+                { signal, contextLimit: opts.contextLimit },
+              );
+              if (summary.usage) onEvent({ type: "token-usage", usage: summary.usage });
+              conversation = summary.ok
+                ? attachCompactionSummary(overflowCompaction.messages, summary.summary)
+                : overflowCompaction.messages;
               onEvent({ type: "context-compaction", reason: "overflow", droppedCount: overflowCompaction.droppedCount });
               onEvent({
                 type: "notice",
                 level: "info",
-                message: `Provider context limit reached; trimmed ${overflowCompaction.droppedCount} older message${overflowCompaction.droppedCount === 1 ? "" : "s"} and retrying.`,
+                message: summary.ok
+                  ? `Provider context limit reached; summarized ${overflowCompaction.droppedCount} older message${overflowCompaction.droppedCount === 1 ? "" : "s"} and retrying.`
+                  : `Provider context limit reached; trimmed ${overflowCompaction.droppedCount} older message${overflowCompaction.droppedCount === 1 ? "" : "s"} and retrying.`,
               });
               continue;
             }
@@ -423,6 +445,11 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
       source: failureSource,
     });
   }
+}
+
+function droppedMessages(messages: readonly AgentMessage[], droppedCount: number): AgentMessage[] {
+  const bodyOffset = messages[0]?.role === "system" ? 1 : 0;
+  return messages.slice(bodyOffset, bodyOffset + droppedCount);
 }
 
 /** Runs a self-contained task in its own conversation and reports back. */

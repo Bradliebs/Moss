@@ -47,6 +47,7 @@ export const IPC = {
   skillToggle: "moss:skills:toggle",
   skillUpdate: "moss:skills:update",
   skillRename: "moss:skills:rename",
+  skillImport: "moss:skills:import",
 
   /** renderer -> main (invoke): connected/failed status of MCP servers */
   mcpStatus: "moss:mcp:status",

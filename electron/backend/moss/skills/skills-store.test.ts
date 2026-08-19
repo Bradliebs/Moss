@@ -4,7 +4,7 @@
 // for Electron userData, so `app` is never touched and no electron mock is
 // needed (mirrors memory-store.test.ts).
 
-import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -46,6 +46,34 @@ describe("SkillsStore", () => {
     store.create("Note Taker", "Takes notes", "Do the thing.");
     const reopened = new SkillsStore(dir);
     expect(reopened.list().map((s) => s.id)).toEqual(["note-taker"]);
+  });
+
+  it("imports nested skill directories with resources disabled and preserves existing skills", () => {
+    const source = join(dir, "source");
+    const importedSource = join(source, "engineering", "imported-skill");
+    mkdirSync(importedSource, { recursive: true });
+    writeFileSync(join(source, "LICENSE"), "sample license", "utf8");
+    writeFileSync(
+      join(importedSource, "SKILL.md"),
+      "---\nname: imported-skill\ndescription: Imported instructions\ndisable-model-invocation: true\n---\n\nRead REFERENCE.md.\n",
+      "utf8",
+    );
+    writeFileSync(join(importedSource, "REFERENCE.md"), "supporting detail", "utf8");
+    store.create("existing", "keep", "original");
+
+    const first = store.importFromDirectory(source);
+    const second = store.importFromDirectory(source);
+    const reopened = new SkillsStore(dir);
+
+    expect(first).toEqual({ imported: ["imported-skill"], skipped: [], invalid: [] });
+    expect(second).toEqual({ imported: [], skipped: ["imported-skill"], invalid: [] });
+    expect(reopened.get("imported-skill")).toMatchObject({ enabled: false, createdBy: "import", modelInvocable: false });
+    expect(reopened.get("existing")?.instructions).toBe("original");
+    expect(reopened.listResources("imported-skill")).toEqual(["REFERENCE.md"]);
+    expect(reopened.readResource("imported-skill", "REFERENCE.md")).toBe("supporting detail");
+    expect(reopened.readResource("imported-skill", "../existing/SKILL.md")).toBeNull();
+    expect(readFileSync(join(dir, "m-skills", "imported-skill", "REFERENCE.md"), "utf8")).toBe("supporting detail");
+    expect(readFileSync(join(dir, "m-skills", "imported-skill", "LICENSE"), "utf8")).toBe("sample license");
   });
 
   it("slugifies a messy name into a filesystem-safe id", () => {

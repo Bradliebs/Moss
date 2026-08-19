@@ -794,9 +794,10 @@ export function SettingsPanel({ onClose }: { onClose: () => void }): React.React
               />
             </label>
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
-              Set your model&apos;s context size to show a used/limit meter and trim old turns before the
-              limit is reached. Left at 0, proactive trimming and the meter stay off; if the provider
-              reports an overflow, Moss still trims the model-facing history and retries once.
+              Set your model&apos;s context size to show a used/limit meter and summarize old turns before
+              the limit is reached. Saved history stays unchanged. Left at 0, proactive compaction and
+              the meter stay off; if the provider reports an overflow, Moss still compacts the
+              model-facing history and retries once.
             </p>
           </section>
 

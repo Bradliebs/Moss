@@ -189,6 +189,11 @@ export function registerChatIpc(): void {
   ipcMain.handle(IPC.skillRename, (_event, req: SkillRenameRequest) =>
     skillsStore.rename(req.id, req.newName),
   );
+  ipcMain.handle(IPC.skillImport, async () => {
+    const result = await dialog.showOpenDialog({ properties: ["openDirectory"] });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return skillsStore.importFromDirectory(result.filePaths[0]);
+  });
 
   ipcMain.handle(IPC.mcpStatus, () => mcpManager.getStatus());
   ipcMain.handle(IPC.mcpSetEnabled, async (_event, id: string, enabled: boolean) => {

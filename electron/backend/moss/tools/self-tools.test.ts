@@ -24,6 +24,7 @@ import {
   createSkillTool,
   deleteSkillTool,
   forgetTool,
+  getSkillResourceTool,
   getSkillTool,
   listMemoriesTool,
   listSkillsTool,
@@ -102,6 +103,27 @@ describe("self-tools skills introspection", () => {
     const missing = await getSkillTool.execute({ name: "does-not-exist" }, ctx);
     expect(missing.ok).toBe(false);
     expect(missing.content).toContain("does-not-exist");
+  });
+
+  it("lists and reads supporting resources without escaping the skill directory", async () => {
+    const { mkdirSync, writeFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const source = join(tempDir, "resource-source", "resource-skill");
+    mkdirSync(source, { recursive: true });
+    writeFileSync(join(source, "SKILL.md"), "---\nname: resource-skill\ndescription: Uses a guide\n---\n\nRead GUIDE.md.\n");
+    writeFileSync(join(source, "GUIDE.md"), "guide content");
+    skillsStore.importFromDirectory(source);
+    skillsStore.setEnabled("resource-skill", true);
+
+    const loaded = await getSkillTool.execute({ name: "resource-skill" }, ctx);
+    const resource = await getSkillResourceTool.execute({ name: "resource-skill", path: "GUIDE.md" }, ctx);
+    const escaped = await getSkillResourceTool.execute({ name: "resource-skill", path: "../outside.txt" }, ctx);
+
+    expect(loaded.content).toContain("m_get_skill_resource");
+    expect(loaded.content).toContain("GUIDE.md");
+    expect(resource).toEqual({ ok: true, content: "guide content" });
+    expect(escaped.ok).toBe(false);
+    skillsStore.delete("resource-skill");
   });
 });
 

@@ -483,9 +483,17 @@ export interface Skill {
   instructions: string;
   enabled: boolean;
   createdAt: string;
-  /** "agent" when authored by the model via m_create_skill; "user" otherwise.
-   *  Agent-created skills start disabled until a human enables them. */
-  createdBy?: "user" | "agent";
+  /** Imported and agent-created skills start disabled until a human reviews
+   *  and enables them. */
+  createdBy?: "user" | "agent" | "import";
+  /** False when the skill may only be loaded explicitly by name. */
+  modelInvocable?: boolean;
+}
+
+export interface SkillImportResult {
+  imported: string[];
+  skipped: string[];
+  invalid: string[];
 }
 
 export interface SkillCreateRequest {

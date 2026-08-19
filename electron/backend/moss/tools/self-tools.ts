@@ -95,7 +95,7 @@ export const listSkillsTool: Tool = {
   description: "List the available skills and their descriptions.",
   parameters: { type: "object", properties: {} },
   async execute() {
-    const skills = skillsStore.list().filter((s) => s.enabled);
+    const skills = skillsStore.list().filter((s) => s.enabled && s.modelInvocable !== false);
     if (skills.length === 0) return { ok: true, content: "No skills available." };
     return { ok: true, content: skills.map((s) => `- ${s.name}: ${s.description}`).join("\n") };
   },
@@ -113,7 +113,33 @@ export const getSkillTool: Tool = {
     const requested = String(args.name ?? "");
     const skill = skillsStore.get(requested);
     if (!skill || !skill.enabled) return { ok: false, content: `No enabled skill named '${requested}'.` };
-    return { ok: true, content: skill.instructions || skill.description };
+    const resources = skillsStore.listResources(skill.id);
+    const resourceNote = resources.length > 0
+      ? `\n\nSupporting resources (load with m_get_skill_resource):\n${resources.map((path) => `- ${path}`).join("\n")}`
+      : "";
+    return { ok: true, content: `${skill.instructions || skill.description}${resourceNote}` };
+  },
+};
+
+export const getSkillResourceTool: Tool = {
+  name: "m_get_skill_resource",
+  description: "Read a supporting text resource from an enabled skill after loading its main instructions.",
+  parameters: {
+    type: "object",
+    properties: {
+      name: { type: "string", description: "Enabled skill name." },
+      path: { type: "string", description: "Resource path listed by m_get_skill." },
+    },
+    required: ["name", "path"],
+  },
+  async execute(args) {
+    const requested = String(args.name ?? "");
+    const skill = skillsStore.get(requested);
+    if (!skill || !skill.enabled) return { ok: false, content: `No enabled skill named '${requested}'.` };
+    const path = String(args.path ?? "");
+    const content = skillsStore.readResource(skill.id, path);
+    if (content === null) return { ok: false, content: `No readable resource '${path}' in skill '${requested}'.` };
+    return { ok: true, content };
   },
 };
 
@@ -206,6 +232,7 @@ export const SELF_TOOLS: Tool[] = [
   listMemoriesTool,
   listSkillsTool,
   getSkillTool,
+  getSkillResourceTool,
   createSkillTool,
   updateSkillTool,
   deleteSkillTool,

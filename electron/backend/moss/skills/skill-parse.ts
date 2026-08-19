@@ -11,6 +11,7 @@ export interface ParsedSkill {
   description: string;
   instructions: string;
   createdBy?: string;
+  disableModelInvocation: boolean;
 }
 
 function stripYamlQuotes(v: string): string {
@@ -31,12 +32,22 @@ export function parseSkillMarkdown(content: string): ParsedSkill | null {
   if (!nameMatch) return null;
   const descMatch = frontmatter.match(/^description:\s*(.+)$/m);
   const createdByMatch = frontmatter.match(/^createdBy:\s*(.+)$/m);
+  const disableModelInvocationMatch = frontmatter.match(/^disable-model-invocation:\s*(.+)$/m);
   return {
     name: stripYamlQuotes(nameMatch[1].trim()),
     description: descMatch ? stripYamlQuotes(descMatch[1].trim()) : "",
     instructions: body,
     ...(createdByMatch ? { createdBy: stripYamlQuotes(createdByMatch[1].trim()) } : {}),
+    disableModelInvocation: disableModelInvocationMatch?.[1].trim().toLowerCase() === "true",
   };
+}
+
+export function setSkillCreatedBy(content: string, createdBy: string): string {
+  const normalized = content.replace(/\r\n/g, "\n");
+  const match = normalized.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+  if (!match) return content;
+  const frontmatter = match[1].replace(/^createdBy:\s*.*\n?/m, "").trimEnd();
+  return `---\n${frontmatter}\ncreatedBy: "${createdBy}"\n---\n\n${match[2].trim()}\n`;
 }
 
 /** Render a SKILL.md document from its parts. */
@@ -45,12 +56,14 @@ export function buildSkillMarkdown(
   description: string,
   instructions: string,
   createdBy?: string,
+  disableModelInvocation = false,
 ): string {
   const esc = (s: string): string => `"${s.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
   const desc = (description.split("\n").find((l) => l.trim()) ?? "").trim().slice(0, 500);
   const body = instructions.trim() || description.trim();
   const createdByLine = createdBy ? `createdBy: ${esc(createdBy)}\n` : "";
-  return `---\nname: ${esc(name)}\ndescription: ${esc(desc)}\n${createdByLine}---\n\n${body}\n`;
+  const invocationLine = disableModelInvocation ? "disable-model-invocation: true\n" : "";
+  return `---\nname: ${esc(name)}\ndescription: ${esc(desc)}\n${createdByLine}${invocationLine}---\n\n${body}\n`;
 }
 
 /** Filesystem-safe directory/identifier derived from a user-supplied name. */
@@ -64,7 +77,7 @@ export function slugifySkillName(raw: string): string {
 
 /** Enumerate enabled skills as a system-prompt index. Returns "" when none. */
 export function formatSkillsForSystemPrompt(skills: readonly Skill[]): string {
-  const enabled = skills.filter((s) => s.enabled);
+  const enabled = skills.filter((s) => s.enabled && s.modelInvocable !== false);
   if (enabled.length === 0) return "";
   const lines = [
     "## Skills",

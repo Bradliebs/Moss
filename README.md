@@ -2,7 +2,7 @@
 title: Moss
 description: A local-first agentic desktop harness for completing and verifying work across files, commands, browsers, and desktop applications
 author: Moss contributors
-ms.date: 2026-08-18
+ms.date: 2026-08-19
 ms.topic: overview
 keywords:
   - ai agent
@@ -101,6 +101,13 @@ compact list and displays that conversation's history.
 The **Clear** action removes messages from the selected conversation while
 keeping its entry. **Continue in new chat** creates a separate conversation with
 a bounded summary of the current context and leaves the original unchanged.
+
+When a configured context window approaches its input budget, Moss summarizes
+the oldest model-facing turns into a bounded assistant-authored note. The
+summary call cannot use tools, excludes raw tool output and arguments, and is
+counted in token usage. If summarization fails, Moss falls back to deterministic
+trimming. Saved conversation history is never changed. Provider-reported
+context overflow uses the same compaction path for one retry.
 
 ## Provider configuration
 
@@ -215,6 +222,12 @@ with the same access as the account running Moss.
 Memory stores durable facts and preferences for later conversations. Skills store
 reusable instructions that the model can load when their descriptions match a
 task. Both can be reviewed and managed from the Library.
+
+Use **Import folder** in the Library to recursively install directories that
+contain `SKILL.md` files. Moss preserves supporting files and license documents,
+skips existing skill IDs, and leaves imported skills disabled until you review
+and enable them. Supporting text files are available to enabled skills through
+the skill-resource tool without granting access outside the skill directory.
 
 Adaptive tone uses remembered preferences to adjust wording, formality, and
 detail without replacing the selected personality or built-in safety guidance.

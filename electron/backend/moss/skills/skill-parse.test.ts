@@ -16,12 +16,13 @@ import { SkillsStore } from "./skills-store";
 
 describe("skill-parse", () => {
   it("parses frontmatter and body", () => {
-    const md = `---\nname: "demo"\ndescription: "a demo skill"\n---\n\nDo the thing.`;
+    const md = `---\nname: "demo"\ndescription: "a demo skill"\ndisable-model-invocation: true\n---\n\nDo the thing.`;
     const parsed = parseSkillMarkdown(md);
     expect(parsed).not.toBeNull();
     expect(parsed?.name).toBe("demo");
     expect(parsed?.description).toBe("a demo skill");
     expect(parsed?.instructions).toBe("Do the thing.");
+    expect(parsed?.disableModelInvocation).toBe(true);
   });
 
   it("returns null without frontmatter or name", () => {
@@ -46,9 +47,11 @@ describe("skill-parse", () => {
     const out = formatSkillsForSystemPrompt([
       { id: "a", name: "alpha", description: "first", instructions: "", enabled: true, createdAt: "" },
       { id: "b", name: "beta", description: "second", instructions: "", enabled: false, createdAt: "" },
+      { id: "c", name: "command", description: "explicit only", instructions: "", enabled: true, createdAt: "", modelInvocable: false },
     ]);
     expect(out).toContain("alpha");
     expect(out).not.toContain("beta");
+    expect(out).not.toContain("command");
   });
 });
 

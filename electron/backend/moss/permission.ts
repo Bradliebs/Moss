@@ -34,6 +34,7 @@ const AUTO_ALLOW = new Set<string>([
   "m_list_memories",
   "m_list_skills",
   "m_get_skill",
+  "m_get_skill_resource",
   "m_list_capabilities",
   "m_capability_status",
 ]);

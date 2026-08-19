@@ -149,14 +149,16 @@ describe("SettingsPanel", () => {
     expect(settings.updateSettings).toHaveBeenCalledWith({ maxToolRounds: 64 });
   });
 
-  it("updates the proactive context limit and explains overflow recovery", () => {
+  it("updates the proactive context limit and explains semantic compaction", () => {
     render(<SettingsPanel onClose={() => {}} />);
     const input = screen.getByLabelText("Token limit (optional)");
 
     fireEvent.change(input, { target: { value: "8192" } });
 
     expect(settings.updateSettings).toHaveBeenCalledWith({ contextLimit: 8192 });
-    expect(screen.getByText(/Moss still trims the model-facing history and retries once/)).toBeDefined();
+    expect(screen.getByText(/summarize old turns/)).toBeDefined();
+    expect(screen.getByText(/Saved history stays unchanged/)).toBeDefined();
+    expect(screen.getByText(/Moss still compacts the model-facing history and retries once/)).toBeDefined();
   });
 
   it("closes when the close button is clicked", async () => {

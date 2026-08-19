@@ -85,6 +85,9 @@ describe("preload bridge", () => {
     api.skills.rename(skillRename);
     expect(invoke).toHaveBeenCalledWith(IPC.skillRename, skillRename);
 
+    api.skills.importFolder();
+    expect(invoke).toHaveBeenCalledWith(IPC.skillImport);
+
     api.mcp.status();
     expect(invoke).toHaveBeenCalledWith(IPC.mcpStatus);
 

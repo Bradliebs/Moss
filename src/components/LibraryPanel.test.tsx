@@ -27,6 +27,7 @@ const skills = {
   toggle: vi.fn(),
   update: vi.fn(),
   rename: vi.fn(),
+  importFolder: vi.fn(),
 };
 
 function memoryEntry(over: Partial<MemoryEntry> = {}): MemoryEntry {
@@ -56,6 +57,7 @@ beforeEach(() => {
   skills.toggle.mockResolvedValue(undefined);
   skills.update.mockResolvedValue(skill());
   skills.rename.mockResolvedValue(skill());
+  skills.importFolder.mockResolvedValue(null);
   Object.assign(window, { moss: { memory, skills } });
 });
 
@@ -189,6 +191,23 @@ describe("LibraryPanel — Skills", () => {
     fireEvent.keyDown(editor, { key: "Enter" });
 
     await waitFor(() => expect(skills.rename).toHaveBeenCalledWith({ id: "s9", newName: "New Name" }));
+  });
+
+  it("imports a skill folder and reports review status", async () => {
+    skills.importFolder.mockResolvedValue({ imported: ["one", "two"], skipped: ["existing"], invalid: [] });
+    skills.list.mockResolvedValueOnce([]).mockResolvedValue([
+      skill({ id: "one", name: "One", createdBy: "import" }),
+      skill({ id: "two", name: "Two", createdBy: "import" }),
+    ]);
+    render(<LibraryPanel onClose={() => {}} />);
+    await waitFor(() => expect(screen.getByText("No skills yet.")).toBeDefined());
+
+    fireEvent.click(screen.getByText("Import folder"));
+
+    await waitFor(() => expect(skills.importFolder).toHaveBeenCalledTimes(1));
+    expect(screen.getByText(/Imported 2; skipped 1; invalid 0/)).toBeDefined();
+    expect(screen.getByText(/disabled until reviewed/)).toBeDefined();
+    expect(screen.getAllByText("imported")).toHaveLength(2);
   });
 });
 

@@ -95,13 +95,13 @@ export function compactForOverflow(messages: readonly AgentMessage[]): Compactio
  *  safe cut point exists. */
 export function compactIfNeeded(
   messages: readonly AgentMessage[],
-  opts: { contextLimit: number },
+  opts: { contextLimit: number; reserveTokens?: number },
 ): CompactionResult {
   const unchanged: CompactionResult = { messages: [...messages], compacted: false, droppedCount: 0 };
   const limit = opts.contextLimit;
   if (!(limit > 0)) return unchanged;
 
-  const inputBudget = Math.floor(limit * INPUT_BUDGET_FRACTION);
+  const inputBudget = Math.max(0, Math.floor(limit * INPUT_BUDGET_FRACTION) - (opts.reserveTokens ?? 0));
   if (estimateTokens(messages) <= inputBudget) return unchanged;
 
   const { system, body } = splitSystem(messages);
