@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AgentMessage, MossEvent, ToolDefinition } from "../../../common/types";
 import { runTurn } from "./agent-runner";
 import type { CompletionContext, CompletionDecision } from "./agent-runner";
+import { ToolOutputStore } from "./context/tool-output-store";
 import { ProviderError } from "./providers/types";
 import type { ChatProvider, ChatRequest, ProviderStreamEvent } from "./providers/types";
 import type { Tool, ToolResult } from "./tools";
@@ -49,11 +50,12 @@ function throwingProvider(message: string): ChatProvider {
   };
 }
 
-function tool(name: string, result: ToolResult | (() => Promise<ToolResult>)): Tool {
+function tool(name: string, result: ToolResult | (() => Promise<ToolResult>), timeoutMs?: number): Tool {
   return {
     name,
     description: "",
     parameters: { type: "object", properties: {} },
+    ...(timeoutMs === undefined ? {} : { timeoutMs }),
     execute: typeof result === "function" ? result : async () => result,
   };
 }
@@ -85,6 +87,7 @@ async function run(
     completionGuard?: (context: CompletionContext) => CompletionDecision;
     now?: () => Date;
     approvalComment?: string;
+    toolOutputStore?: ToolOutputStore;
   },
 ): Promise<Harness> {
   const events: MossEvent[] = [];
@@ -128,6 +131,7 @@ async function run(
     ...(opts?.contextLimit !== undefined ? { contextLimit: opts.contextLimit } : {}),
     ...(opts?.completionGuard !== undefined ? { completionGuard: opts.completionGuard } : {}),
     ...(opts?.now !== undefined ? { now: opts.now } : {}),
+    ...(opts?.toolOutputStore !== undefined ? { toolOutputStore: opts.toolOutputStore } : {}),
   });
 
   return { events, approvals };
@@ -807,16 +811,79 @@ describe("runTurn", () => {
     expect(toolMsg?.risk).toBeUndefined();
   });
 
-  it("fails a tool that exceeds the per-tool timeout and continues the turn", async () => {
+  it("stores a large result and gives the model an opaque retrieval id", async () => {
+    const root = mkdtempSync(join(tmpdir(), "moss-tool-output-runner-"));
+    const store = new ToolOutputStore(root);
+    const big = `start\n${"x".repeat(20000)}\nend`;
+    const requests: ChatRequest[] = [];
+    try {
+      const provider = scriptedProvider([[call("c1", "read_file")], [{ type: "text-delta", text: "done" }]], requests);
+      const h = await run(provider, [tool("read_file", { ok: true, content: big })], { toolOutputStore: store, turnId: "turn-1" });
+
+      const modelResult = requests[1].messages.find((message) => message.role === "tool");
+      const id = /artifact ([0-9a-f-]{36})/i.exec(modelResult?.content ?? "")?.[1];
+      expect(id).toBeDefined();
+      expect(Buffer.byteLength(modelResult?.content ?? "")).toBeLessThanOrEqual(8000);
+      expect((await store.get(id!))?.content).toBe(big);
+      const persisted = (h.events.at(-1) as Extract<MossEvent, { type: "turn-complete" }>).messages.find((message) => message.role === "tool");
+      expect(persisted?.content).toBe(big);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("waits for cooperative cleanup before reporting a tool timeout", async () => {
     const provider = scriptedProvider([[call("c1", "read_file")], [{ type: "text-delta", text: "after" }]]);
-    const hang = tool("read_file", () => new Promise<ToolResult>(() => {}));
-    const h = await run(provider, [hang], { toolTimeoutMs: 10 });
+    const order: string[] = [];
+    const cooperative = tool("read_file", () => Promise.reject(new Error("test tool requires a signal-aware execute override")), 1000);
+    cooperative.execute = async (_args, ctx) => new Promise<ToolResult>((resolve) => {
+      ctx.signal.addEventListener("abort", () => {
+        order.push("cleanup");
+        resolve({ ok: false, content: "cancelled" });
+      }, { once: true });
+    });
+    const h = await run(provider, [cooperative], { toolTimeoutMs: 10 });
+    order.push("reported");
 
     const res = h.events.find((e) => e.type === "tool-result") as Extract<MossEvent, { type: "tool-result" }>;
     expect(res.ok).toBe(false);
     expect(res.content).toContain("timed out");
+    expect(order.at(-1)).toBe("reported");
+    expect(order.slice(0, -1)).toEqual(["cleanup", "cleanup", "cleanup"]);
     // the loop recovered and ran the next round
     expect(types(h)).toContain("text-delta");
+  });
+
+  it("does not impose a deadline on a tool that does not declare one", async () => {
+    const provider = scriptedProvider([[call("c1", "read_file")], [{ type: "text-delta", text: "after" }]]);
+    const slow = tool("read_file", async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      return { ok: true, content: "finished" };
+    });
+    const h = await run(provider, [slow], { toolTimeoutMs: 5 });
+
+    const res = h.events.find((e) => e.type === "tool-result") as Extract<MossEvent, { type: "tool-result" }>;
+    expect(res).toMatchObject({ ok: true, content: "finished" });
+  });
+
+  it("advises the model after three identical successful calls without changing persisted results", async () => {
+    const requests: ChatRequest[] = [];
+    const provider = scriptedProvider([
+      [call("c1", "read_file", '{"path":"a"}')],
+      [call("c2", "read_file", '{"path":"a"}')],
+      [call("c3", "read_file", '{"path":"a"}')],
+      [{ type: "text-delta", text: "done" }],
+    ], requests);
+    const h = await run(provider, [tool("read_file", { ok: true, content: "body" })]);
+
+    const modelResults = requests[3].messages.filter((message) => message.role === "tool");
+    expect(modelResults[2].content).toContain("Moss noticed the same tool call three times");
+    const complete = h.events.at(-1) as Extract<MossEvent, { type: "turn-complete" }>;
+    expect(complete.messages.filter((message) => message.role === "tool").map((message) => message.content)).toEqual([
+      "body",
+      "body",
+      "body",
+    ]);
   });
 
   it("caps a large tool result carried in from a prior turn's history", async () => {

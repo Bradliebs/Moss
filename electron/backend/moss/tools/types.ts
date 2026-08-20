@@ -46,5 +46,8 @@ export interface Tool {
   description: string;
   /** JSON Schema for the arguments object */
   parameters: Record<string, unknown>;
+  /** Cooperative execution deadline. Declaring a deadline requires execute()
+   *  to observe ctx.signal and settle after cancellation. */
+  timeoutMs?: number;
   execute(args: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult>;
 }

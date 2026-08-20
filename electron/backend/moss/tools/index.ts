@@ -11,6 +11,7 @@ import { planTool } from "./plan-tool";
 import { SELF_TOOLS } from "./self-tools";
 import { runCommandTool } from "./shell-tool";
 import { transcribeAudioTool } from "./transcribe-tool";
+import { readToolOutputTool } from "./tool-output-tool";
 import type { Tool } from "./types";
 import { fetchUrlTool, webSearchTool } from "./web-tools";
 
@@ -21,6 +22,7 @@ export const TOOLS: Tool[] = [
   searchFilesTool,
   globFilesTool,
   searchCodebaseTool,
+  readToolOutputTool,
   writeFileTool,
   editFileTool,
   moveFileTool,

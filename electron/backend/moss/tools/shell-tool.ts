@@ -19,6 +19,7 @@ export const runCommandTool: Tool = {
     properties: { command: { type: "string" } },
     required: ["command"],
   },
+  timeoutMs: TIMEOUT_MS,
   execute(args: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> {
     const command = String(args.command ?? "").trim();
     if (!command) return Promise.resolve({ ok: false, content: "command is required" });
@@ -34,12 +35,10 @@ export const runCommandTool: Tool = {
 
       const onAbort = () => child.kill();
       ctx.signal.addEventListener("abort", onAbort, { once: true });
-      const timer = setTimeout(() => child.kill(), TIMEOUT_MS);
 
       const finish = (result: ToolResult) => {
         if (settled) return;
         settled = true;
-        clearTimeout(timer);
         ctx.signal.removeEventListener("abort", onAbort);
         resolvePromise(result);
       };

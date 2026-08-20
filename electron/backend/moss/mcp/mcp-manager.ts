@@ -156,6 +156,7 @@ class McpManager {
       name,
       description: info.description ?? `MCP tool "${info.name}" from server "${serverId}"`,
       parameters,
+      timeoutMs: 180_000,
       async execute(args: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> {
         try {
           const result = await client.callTool(

@@ -149,6 +149,7 @@ export const webSearchTool: Tool = {
     },
     required: ["query"],
   },
+  timeoutMs: FETCH_TIMEOUT_MS,
   async execute(args: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> {
     const query = String(args.query ?? "").trim();
     if (!query) return { ok: false, content: "query is required" };
@@ -204,6 +205,7 @@ export const fetchUrlTool: Tool = {
     properties: { url: { type: "string", description: "Absolute http(s) URL" } },
     required: ["url"],
   },
+  timeoutMs: FETCH_TIMEOUT_MS,
   async execute(args: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> {
     const raw = String(args.url ?? "").trim();
     if (!raw) return { ok: false, content: "url is required" };

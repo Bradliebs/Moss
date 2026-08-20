@@ -2,7 +2,7 @@
 title: Moss
 description: A local-first agentic desktop harness for completing and verifying work across files, commands, browsers, and desktop applications
 author: Moss contributors
-ms.date: 2026-08-19
+ms.date: 2026-08-20
 ms.topic: overview
 keywords:
   - ai agent
@@ -109,6 +109,14 @@ counted in token usage. If summarization fails, Moss falls back to deterministic
 trimming. Saved conversation history is never changed. Provider-reported
 context overflow uses the same compaction path for one retry.
 
+Large tool results remain complete in saved conversation history and the live
+tool card. To protect model context, Moss stores an oversized result as an
+opaque application artifact and sends the model a bounded head-and-tail preview
+with an artifact ID. The read-only `read_tool_output` tool can retrieve another
+range or search the stored text without exposing its host path. Artifacts are
+kept outside the selected workspace and are pruned after seven days or when the
+store exceeds 200 records.
+
 ## Provider configuration
 
 | Provider | Kind | Default base URL | API key |
@@ -187,6 +195,17 @@ Workspace tools can inspect directories, search source, read and write files,
 apply patches, and run commands. Path validation keeps file operations inside the
 selected workspace. Command operations are classified as read-only, mutating, or
 destructive before execution.
+
+Tools that explicitly support cooperative cancellation can declare an execution
+deadline. Moss aborts the tool at that deadline and waits for its cleanup to
+settle before reporting a timeout. Tools that do not declare this capability do
+not receive a generic deadline that could abandon work in the background.
+
+During one turn, Moss also tracks consecutive calls with the same tool name and
+canonical arguments. At increasing thresholds it adds an advisory to the
+model-facing result, prompting the model to inspect prior evidence or change its
+approach. The advisory does not block the call or alter the result retained in
+conversation history.
 
 ### Browser automation
 

@@ -35,6 +35,7 @@ import { BudgetEnforcingProvider } from "../backend/moss/budget/budget-provider"
 import { checkpointStore } from "../backend/moss/checkpoint/checkpoint-store";
 import { codebaseIndex } from "../backend/moss/codebase/codebase-index";
 import { summarizeForHandoff } from "../backend/moss/context/handoff";
+import { toolOutputStore } from "../backend/moss/context/tool-output-store";
 import { createDesktopTools } from "../backend/moss/desktop/desktop-tools";
 import { createWindowsUiaDriverFactory } from "../backend/moss/desktop/windows-uia-driver";
 import {
@@ -335,6 +336,7 @@ async function startTurn(event: Electron.IpcMainEvent, req: ChatStartRequest): P
     const workspaceRoot = req.workspaceRoot ?? "";
     const checkpoint = workspaceRoot ? checkpointStore.recorder(req.turnId) : undefined;
     if (workspaceRoot) checkpointStore.prune();
+    void toolOutputStore.prune().catch(() => undefined);
     // Give the fix/verify cycle extra rounds to converge when verification runs.
     const verifyEnabled = req.verify?.enabled === true && (req.verify.commands?.length ?? 0) > 0;
     const maxRounds = resolveMaxToolRounds(req.maxToolRounds, verifyEnabled);
@@ -406,6 +408,7 @@ async function startTurn(event: Electron.IpcMainEvent, req: ChatStartRequest): P
       embed: req.embed,
       turnId: req.turnId,
       checkpoint,
+      toolOutputStore,
       verify: req.verify,
       ...(task ? { planningPolicy: "incremental" as const, recoveryMode: "signature-aware" as const } : {}),
       ...(task
