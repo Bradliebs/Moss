@@ -443,6 +443,7 @@ export function ChatPanel({ busy, setBusy, onOpenChats, onOpenSettings }: ChatPa
   const [auditHideReadonly, setAuditHideReadonly] = useState(false);
   const [auditSortByRisk, setAuditSortByRisk] = useState(false);
   const [summarizing, setSummarizing] = useState(false);
+  const [interruptQueued, setInterruptQueued] = useState(false);
   const dictation = useDictation((text) =>
     setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text)),
   );
@@ -459,10 +460,19 @@ export function ChatPanel({ busy, setBusy, onOpenChats, onOpenSettings }: ChatPa
   const taskTurnIdRef = useRef<string | null>(null);
   const turnSessionRef = useRef<string | null>(null);
   const turnBaseRef = useRef<AgentMessage[]>([]);
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
   // The event feed is subscribed once, so its handler closes over first-render
   // state. Hold the pending user message in a ref (like the base) so the commit
   // paths read the current value instead of a stale null.
   const turnPendingUserRef = useRef<AgentMessage | null>(null);
+  const queuedInterruptionRef = useRef<{ sessionId: string; message: AgentMessage } | null>(null);
+  const runTurnRef = useRef<(
+    sessionId: string,
+    base: AgentMessage[],
+    userMsg: AgentMessage,
+    durableTask?: TaskSnapshot,
+  ) => void>(() => undefined);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Depth counter so the drop overlay does not flicker as the drag crosses
@@ -595,12 +605,13 @@ export function ChatPanel({ busy, setBusy, onOpenChats, onOpenSettings }: ChatPa
       setConfidence({ mode: ev.mode, note: ev.note });
     } else if (ev.type === "turn-complete" || ev.type === "turn-aborted" || ev.type === "turn-error") {
       const sessionId = turnSessionRef.current;
+      let committed: AgentMessage[] | null = null;
       if (sessionId) {
         const base = turnBaseRef.current;
         const user = turnPendingUserRef.current;
         const msgs =
           ev.type === "turn-error" ? markLastAssistantInterrupted(ev.messages) : ev.messages;
-        const committed = user ? [...base, user, ...msgs] : [...base, ...msgs];
+        committed = user ? [...base, user, ...msgs] : [...base, ...msgs];
         setSessionMessages(sessionId, committed);
       }
       turnPendingUserRef.current = null;
@@ -616,6 +627,13 @@ export function ChatPanel({ busy, setBusy, onOpenChats, onOpenSettings }: ChatPa
             ? `Error: ${ev.message}`
             : "",
       );
+
+      const queued = queuedInterruptionRef.current;
+      if (queued && committed && queued.sessionId === sessionId) {
+        queuedInterruptionRef.current = null;
+        setInterruptQueued(false);
+        runTurnRef.current(queued.sessionId, committed, queued.message);
+      }
     }
   }
 
@@ -628,6 +646,7 @@ export function ChatPanel({ busy, setBusy, onOpenChats, onOpenSettings }: ChatPa
     userMsg: AgentMessage,
     durableTask?: TaskSnapshot,
   ): void {
+    const activeSettings = settingsRef.current;
     const turnId = crypto.randomUUID();
     turnIdRef.current = turnId;
     taskTurnIdRef.current = turnId;
@@ -642,59 +661,73 @@ export function ChatPanel({ busy, setBusy, onOpenChats, onOpenSettings }: ChatPa
     window.moss.chat.send({
       turnId,
       ...(durableTask ? { taskId: durableTask.id } : {}),
-      config: toProviderConfig(settings),
+      config: toProviderConfig(activeSettings),
       messages: [...base, userMsg],
-      workspaceRoot: settings.workspaceRoot ?? undefined,
-      enableTools: settings.enableTools,
-      maxToolRounds: settings.maxToolRounds ?? 8,
-      autoApproveTools: settings.autoApproveTools,
+      workspaceRoot: activeSettings.workspaceRoot ?? undefined,
+      enableTools: activeSettings.enableTools,
+      maxToolRounds: activeSettings.maxToolRounds ?? 8,
+      autoApproveTools: activeSettings.autoApproveTools,
       automation: {
-        browserEnabled: settings.browserEnabled === true,
-        browserAllowedDomains: (settings.browserAllowedDomains ?? "").split(/[\n,]/).map((value) => value.trim()).filter(Boolean),
-        browserHeadless: settings.browserHeadless !== false,
-        desktopEnabled: settings.desktopEnabled === true,
-        desktopAllowedProcesses: (settings.desktopAllowedProcesses ?? "").split(/[\n,]/).map((value) => value.trim()).filter(Boolean),
-        desktopAllowedWindows: (settings.desktopAllowedWindows ?? "").split("\n").map((value) => value.trim()).filter(Boolean),
+        browserEnabled: activeSettings.browserEnabled === true,
+        browserAllowedDomains: (activeSettings.browserAllowedDomains ?? "").split(/[\n,]/).map((value) => value.trim()).filter(Boolean),
+        browserHeadless: activeSettings.browserHeadless !== false,
+        desktopEnabled: activeSettings.desktopEnabled === true,
+        desktopAllowedProcesses: (activeSettings.desktopAllowedProcesses ?? "").split(/[\n,]/).map((value) => value.trim()).filter(Boolean),
+        desktopAllowedWindows: (activeSettings.desktopAllowedWindows ?? "").split("\n").map((value) => value.trim()).filter(Boolean),
       },
-      customInstructions: settings.customInstructions,
-      personalityId: getSessionPersonality(sessionId) ?? settings.personalityId,
-      adaptiveTone: settings.adaptiveTone,
+      customInstructions: activeSettings.customInstructions,
+      personalityId: getSessionPersonality(sessionId) ?? activeSettings.personalityId,
+      adaptiveTone: activeSettings.adaptiveTone,
       stt: {
-        baseUrl: (settings.sttBaseUrl || settings.baseUrl || "").trim(),
-        apiKey: settings.apiKey || undefined,
-        model: settings.sttModel || "whisper-1",
+        baseUrl: (activeSettings.sttBaseUrl || activeSettings.baseUrl || "").trim(),
+        apiKey: activeSettings.apiKey || undefined,
+        model: activeSettings.sttModel || "whisper-1",
       },
-      email: { apiKey: settings.emailApiKey || "", from: settings.emailFrom || "" },
+      email: { apiKey: activeSettings.emailApiKey || "", from: activeSettings.emailFrom || "" },
       verify: {
-        enabled: settings.verifyEnabled,
-        commands: (settings.verifyCommands || "")
+        enabled: activeSettings.verifyEnabled,
+        commands: (activeSettings.verifyCommands || "")
           .split("\n")
           .map((c) => c.trim())
           .filter(Boolean),
       },
-      embed: toEmbedConfig(settings),
+      embed: toEmbedConfig(activeSettings),
       ...(durableTask ? { taskSpec: durableTask.spec } : {}),
-      dailyBudgetUsd: settings.dailyBudgetUsd || 0,
-      modelRates: settings.modelRates,
-      gatedMemory: settings.gatedMemory,
-      showConfidence: settings.showConfidence,
-      injectionMode: settings.injectionMode,
-      contextLimit: settings.contextLimit,
+      dailyBudgetUsd: activeSettings.dailyBudgetUsd || 0,
+      modelRates: activeSettings.modelRates,
+      gatedMemory: activeSettings.gatedMemory,
+      showConfidence: activeSettings.showConfidence,
+      injectionMode: activeSettings.injectionMode,
+      contextLimit: activeSettings.contextLimit,
     });
   }
 
+  runTurnRef.current = runTurn;
+
   function send(textArg?: string): void {
     const text = (textArg ?? input).trim();
-    if ((!text && attachments.length === 0 && documents.length === 0) || pendingAttachmentReads > 0 || busy || !settings.model) return;
-    const sessionId = ensureCurrentSession();
-    setSessionTitle(sessionId, text || documents[0]?.name || "");
-    const base = getSessionMessages(sessionId);
+    if ((!text && attachments.length === 0 && documents.length === 0) || pendingAttachmentReads > 0 || !settings.model) return;
+    if (busy && queuedInterruptionRef.current) return;
+
+    const sessionId = busy ? turnSessionRef.current : ensureCurrentSession();
+    if (!sessionId) return;
     const userMsg: AgentMessage = { role: "user", content: text };
     if (attachments.length > 0) userMsg.images = attachments;
     if (documents.length > 0) userMsg.documents = documents;
     setInput("");
     setAttachments([]);
     setDocuments([]);
+
+    if (busy) {
+      queuedInterruptionRef.current = { sessionId, message: userMsg };
+      setInterruptQueued(true);
+      setStatus("Interrupting current response…");
+      abort();
+      return;
+    }
+
+    setSessionTitle(sessionId, text || documents[0]?.name || "");
+    const base = getSessionMessages(sessionId);
     runTurn(sessionId, base, userMsg);
   }
 
@@ -1466,9 +1499,24 @@ export function ChatPanel({ busy, setBusy, onOpenChats, onOpenSettings }: ChatPa
                 : "Mic"}
           </button>
           {busy ? (
-            <button className="rounded-xl bg-red-700 px-4 py-2 font-medium text-white transition hover:bg-red-600" onClick={abort}>
-              Stop
-            </button>
+            <>
+              <button
+                className="rounded-xl bg-emerald-600 px-4 py-2 font-medium text-white shadow transition hover:bg-emerald-500 disabled:opacity-50"
+                onClick={() => send()}
+                disabled={
+                  interruptQueued ||
+                  !settings.model ||
+                  pendingAttachmentReads > 0 ||
+                  (!input.trim() && attachments.length === 0 && documents.length === 0)
+                }
+                title="Stop the current response and send this message"
+              >
+                {interruptQueued ? "Queued" : "Interrupt"}
+              </button>
+              <button className="rounded-xl bg-red-700 px-4 py-2 font-medium text-white transition hover:bg-red-600" onClick={abort}>
+                Stop
+              </button>
+            </>
           ) : (
             <button
               className="rounded-xl bg-emerald-600 px-4 py-2 font-medium text-white shadow transition hover:bg-emerald-500 disabled:opacity-50"

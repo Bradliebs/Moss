@@ -1203,6 +1203,30 @@ describe("ChatPanel", () => {
     expect(window.moss.chat.abort).toHaveBeenCalledWith(turnId);
   });
 
+  it("aborts the active turn and sends added context after the partial reply is committed", () => {
+    render(<Harness />);
+    const turnId = startTurn();
+    emit(turnId, { type: "text-delta", text: "partial" });
+
+    const composer = screen.getByPlaceholderText("Message…");
+    expect(screen.getByText("Interrupt")).toBeDefined();
+    fireEvent.change(composer, { target: { value: "Actually, focus on the parser" } });
+    fireEvent.keyDown(composer, { key: "Enter" });
+
+    expect(window.moss.chat.abort).toHaveBeenCalledWith(turnId);
+    expect(window.moss.chat.send).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Queued")).toBeDefined();
+
+    emit(turnId, { type: "turn-aborted", messages: [{ role: "assistant", content: "partial" }] });
+
+    expect(window.moss.chat.send).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(window.moss.chat.send).mock.calls[1][0].messages).toEqual([
+      { role: "user", content: "hi there" },
+      { role: "assistant", content: "partial" },
+      { role: "user", content: "Actually, focus on the parser" },
+    ]);
+  });
+
   it("unsubscribes from the event feed on unmount", () => {
     const { unmount } = render(<Harness />);
     unmount();
