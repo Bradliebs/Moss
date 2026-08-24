@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Copy, FileText, Menu, RefreshCw, X } from "lucide-react";
 
-import type { AgentMessage, ChatEventPayload, ConfidenceMode, DocumentAttachment, Skill, TaskHistoryEntry, TaskSnapshot, TokenUsage } from "@common/types";
+import type { AgentMessage, ChatEventPayload, ConfidenceMode, DocumentAttachment, MissionCapabilityDescriptor, MissionLaunchPolicy, Skill, TaskBudget, TaskHistoryEntry, TaskSnapshot, TaskSpec, TokenUsage } from "@common/types";
 import { PERSONALITY_PRESETS } from "@common/personalities";
 
 import { useDictation } from "../lib/dictation";
@@ -78,6 +78,24 @@ interface MessageView {
 }
 
 type ViewItem = MessageView | ToolView;
+
+interface MissionLaunch {
+  spec: TaskSpec;
+  policy: MissionLaunchPolicy;
+}
+
+function positiveNumber(value: string): number | null {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function formatDuration(milliseconds: number): string {
+  const minutes = Math.max(0, Math.ceil(milliseconds / 60_000));
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return remainder > 0 ? `${hours}h ${remainder}m` : `${hours}h`;
+}
 
 function ToolCard({ tool, onApprove }: { tool: ToolView; onApprove: (callId: string, approved: boolean, comment?: string) => void }): React.ReactElement {
   const detailsRef = useRef<HTMLDetailsElement>(null);
@@ -436,6 +454,12 @@ export function ChatPanel({ busy, setBusy, onOpenChats, onOpenSettings }: ChatPa
   const [status, setStatus] = useState("");
   const [task, setTask] = useState<TaskSnapshot | null>(null);
   const [taskHistory, setTaskHistory] = useState<TaskHistoryEntry[]>([]);
+  const [composerMode, setComposerMode] = useState<"chat" | "mission">("chat");
+  const [missionAuthority, setMissionAuthority] = useState<MissionLaunchPolicy["authority"]>("supervised");
+  const [missionCapabilities, setMissionCapabilities] = useState<MissionCapabilityDescriptor[]>([]);
+  const [selectedMissionCapabilities, setSelectedMissionCapabilities] = useState<string[]>([]);
+  const [missionCapabilitiesLoading, setMissionCapabilitiesLoading] = useState(false);
+  const [missionBudget, setMissionBudget] = useState({ minutes: "15", tokens: "50000", actions: "24", cost: "5" });
   const [confidence, setConfidence] = useState<{ mode: ConfidenceMode; note: string } | null>(null);
   const [mcpToolCount, setMcpToolCount] = useState(0);
   const [mcpDownCount, setMcpDownCount] = useState(0);
@@ -518,6 +542,47 @@ export function ChatPanel({ busy, setBusy, onOpenChats, onOpenSettings }: ChatPa
     return off;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (composerMode !== "mission" || !settings.enableTools || !window.moss.mission?.capabilities) return;
+    let cancelled = false;
+    setMissionCapabilitiesLoading(true);
+    const automation = {
+      browserEnabled: settings.browserEnabled === true,
+      browserAllowedDomains: (settings.browserAllowedDomains ?? "").split(/[\n,]/).map((value) => value.trim()).filter(Boolean),
+      browserHeadless: settings.browserHeadless !== false,
+      desktopEnabled: settings.desktopEnabled === true,
+      desktopAllowedProcesses: (settings.desktopAllowedProcesses ?? "").split(/[\n,]/).map((value) => value.trim()).filter(Boolean),
+      desktopAllowedWindows: (settings.desktopAllowedWindows ?? "").split("\n").map((value) => value.trim()).filter(Boolean),
+    };
+    void window.moss.mission.capabilities({
+      automation,
+      stt: {
+        baseUrl: (settings.sttBaseUrl || settings.baseUrl || "").trim(),
+        apiKey: settings.apiKey || undefined,
+        model: settings.sttModel || "whisper-1",
+      },
+      email: { apiKey: settings.emailApiKey || "", from: settings.emailFrom || "" },
+      embed: toEmbedConfig(settings),
+    }).then((capabilities) => {
+      if (cancelled) return;
+      setMissionCapabilities(capabilities);
+      setSelectedMissionCapabilities((selected) => {
+        const live = new Set(capabilities.map((capability) => capability.id));
+        const retained = selected.filter((id) => live.has(id));
+        return retained.length > 0
+          ? retained
+          : capabilities.filter((capability) => capability.risk === "readonly").map((capability) => capability.id);
+      });
+    }).catch(() => {
+      if (!cancelled) setMissionCapabilities([]);
+    }).finally(() => {
+      if (!cancelled) setMissionCapabilitiesLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [composerMode, settings.enableTools]);
 
   useEffect(() => {
     if (!task) {
@@ -645,6 +710,7 @@ export function ChatPanel({ busy, setBusy, onOpenChats, onOpenSettings }: ChatPa
     base: AgentMessage[],
     userMsg: AgentMessage,
     durableTask?: TaskSnapshot,
+    missionLaunch?: MissionLaunch,
   ): void {
     const activeSettings = settingsRef.current;
     const turnId = crypto.randomUUID();
@@ -692,7 +758,7 @@ export function ChatPanel({ busy, setBusy, onOpenChats, onOpenSettings }: ChatPa
           .filter(Boolean),
       },
       embed: toEmbedConfig(activeSettings),
-      ...(durableTask ? { taskSpec: durableTask.spec } : {}),
+      ...(durableTask ? { taskSpec: durableTask.spec } : missionLaunch ? { taskSpec: missionLaunch.spec, mission: missionLaunch.policy } : {}),
       dailyBudgetUsd: activeSettings.dailyBudgetUsd || 0,
       modelRates: activeSettings.modelRates,
       gatedMemory: activeSettings.gatedMemory,
@@ -704,6 +770,76 @@ export function ChatPanel({ busy, setBusy, onOpenChats, onOpenSettings }: ChatPa
 
   runTurnRef.current = runTurn;
 
+  function currentMissionBudget(): TaskBudget | null {
+    const minutes = positiveNumber(missionBudget.minutes);
+    const tokens = positiveNumber(missionBudget.tokens);
+    const actions = positiveNumber(missionBudget.actions);
+    const cost = positiveNumber(missionBudget.cost);
+    if (minutes === null || tokens === null || actions === null || cost === null) return null;
+    return {
+      maxDurationMs: Math.round(minutes * 60_000),
+      maxTokens: Math.round(tokens),
+      maxActions: Math.round(actions),
+      maxCostUsd: cost,
+    };
+  }
+
+  async function launchMission(text: string, userMsg: AgentMessage): Promise<void> {
+    const budget = currentMissionBudget();
+    if (!budget || selectedMissionCapabilities.length === 0) {
+      setStatus(!budget ? "Mission budgets must all be positive numbers." : "Select at least one mission capability.");
+      return;
+    }
+    const activeSettings = settingsRef.current;
+    const automation = {
+      browserEnabled: activeSettings.browserEnabled === true,
+      browserAllowedDomains: (activeSettings.browserAllowedDomains ?? "").split(/[\n,]/).map((value) => value.trim()).filter(Boolean),
+      browserHeadless: activeSettings.browserHeadless !== false,
+      desktopEnabled: activeSettings.desktopEnabled === true,
+      desktopAllowedProcesses: (activeSettings.desktopAllowedProcesses ?? "").split(/[\n,]/).map((value) => value.trim()).filter(Boolean),
+      desktopAllowedWindows: (activeSettings.desktopAllowedWindows ?? "").split("\n").map((value) => value.trim()).filter(Boolean),
+    };
+    const policyWithoutToken: Omit<MissionLaunchPolicy, "authorizationToken"> = {
+      authority: missionAuthority,
+      requestedCapabilities: selectedMissionCapabilities,
+      maxAutoApprovedRisk: missionAuthority === "supervised" ? "readonly" : "mutating",
+      budget,
+    };
+    let policy: MissionLaunchPolicy = policyWithoutToken;
+    if (missionAuthority === "policy-scoped") {
+      setStatus("Awaiting native mission authorization...");
+      const authorization = await window.moss.mission.authorize({
+        objective: text,
+        workspaceRoot: activeSettings.workspaceRoot ?? undefined,
+        policy: policyWithoutToken,
+        automation,
+      });
+      if (!authorization) {
+        setStatus("Mission launch cancelled.");
+        return;
+      }
+      policy = { ...policyWithoutToken, authorizationToken: authorization.token };
+    }
+    const spec: TaskSpec = {
+      objective: text,
+      acceptanceCriteria: [{
+        id: "requested-outcome",
+        description: "The requested outcome is complete and verified with available evidence.",
+        mandatory: true,
+      }],
+      constraints: [],
+      assumptions: [],
+      workspaceRoot: activeSettings.workspaceRoot ?? undefined,
+      budget,
+    };
+    const sessionId = ensureCurrentSession();
+    setSessionTitle(sessionId, text);
+    setInput("");
+    setAttachments([]);
+    setDocuments([]);
+    runTurn(sessionId, getSessionMessages(sessionId), userMsg, undefined, { spec, policy });
+  }
+
   function send(textArg?: string): void {
     const text = (textArg ?? input).trim();
     if ((!text && attachments.length === 0 && documents.length === 0) || pendingAttachmentReads > 0 || !settings.model) return;
@@ -714,6 +850,12 @@ export function ChatPanel({ busy, setBusy, onOpenChats, onOpenSettings }: ChatPa
     const userMsg: AgentMessage = { role: "user", content: text };
     if (attachments.length > 0) userMsg.images = attachments;
     if (documents.length > 0) userMsg.documents = documents;
+    if (composerMode === "mission" && !busy) {
+      void launchMission(text, userMsg).catch((error) => {
+        setStatus(`Could not launch mission: ${error instanceof Error ? error.message : String(error)}`);
+      });
+      return;
+    }
     setInput("");
     setAttachments([]);
     setDocuments([]);
@@ -913,6 +1055,19 @@ export function ChatPanel({ busy, setBusy, onOpenChats, onOpenSettings }: ChatPa
   ];
 
   const showWelcome = items.length === 0;
+  const taskActionCount = task?.attempts.reduce((total, attempt) => total + attempt.actionCount, 0) ?? 0;
+  const taskTokenCount = task?.attempts.reduce(
+    (total, attempt) => total + (attempt.usage.inputTokens ?? 0) + (attempt.usage.outputTokens ?? 0),
+    0,
+  ) ?? 0;
+  const taskCost = task?.attempts.reduce((total, attempt) => total + attempt.estimatedCostUsd, 0) ?? 0;
+  const taskElapsedMs = task
+    ? Math.max(0, new Date(task.updatedAt).getTime() - new Date(task.createdAt).getTime())
+    : 0;
+  const runningTaskStep = task?.steps.find((step) => step.state === "running");
+  const currentExclusiveStep = task?.steps.find(
+    (step) => step.state === "running" && step.mission?.executionLane === "exclusive",
+  );
 
   return (
     <div className="flex h-screen min-w-0 flex-1 flex-col bg-transparent text-neutral-900 dark:text-neutral-100">
@@ -1256,14 +1411,24 @@ export function ChatPanel({ busy, setBusy, onOpenChats, onOpenSettings }: ChatPa
                     : "text-sky-600 dark:text-sky-400"
             }>{task.state.replaceAll("_", " ")}</span>
             <span className="min-w-0 flex-1 truncate text-neutral-500 dark:text-neutral-400">
-              {task.steps.find((step) => step.state === "running")?.description ?? task.spec.objective}
+              {runningTaskStep?.description ?? task.spec.objective}
             </span>
+            {task.missionPlan ? (
+              <span className="tabular-nums text-neutral-500 dark:text-neutral-400">
+                Plan r{task.missionPlan.revision} · {task.steps.filter((step) => step.state === "completed").length}/{task.steps.length} steps
+              </span>
+            ) : null}
+            {runningTaskStep?.mission ? (
+              <span className="text-neutral-500 dark:text-neutral-400">
+                {runningTaskStep.mission.workerRole} · {runningTaskStep.mission.executionLane}
+              </span>
+            ) : null}
             <span className="tabular-nums text-neutral-500 dark:text-neutral-400">
               {task.attempts.length} {task.attempts.length === 1 ? "attempt" : "attempts"} · {task.evidence.filter((item) => item.passed).length}/{task.spec.acceptanceCriteria.filter((item) => item.mandatory).length} evidence
             </span>
             {task.spec.budget?.maxActions ? (
               <span className="tabular-nums text-neutral-500 dark:text-neutral-400">
-                {task.attempts.reduce((total, attempt) => total + attempt.actionCount, 0)}/{task.spec.budget.maxActions} actions
+                {taskActionCount}/{task.spec.budget.maxActions} actions
               </span>
             ) : null}
             {task.approval ? (
@@ -1282,7 +1447,58 @@ export function ChatPanel({ busy, setBusy, onOpenChats, onOpenSettings }: ChatPa
               </button>
             ) : null}
           </div>
+          {task.spec.budget ? (
+            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-neutral-500 dark:text-neutral-400" aria-label="Remaining mission budget">
+              {task.spec.budget.maxActions ? <span>{Math.max(0, task.spec.budget.maxActions - taskActionCount)} actions left</span> : null}
+              {task.spec.budget.maxTokens ? <span>{formatTokens(Math.max(0, task.spec.budget.maxTokens - taskTokenCount))} tokens left</span> : null}
+              {task.spec.budget.maxCostUsd ? <span>{formatUsd(Math.max(0, task.spec.budget.maxCostUsd - taskCost))} left</span> : null}
+              {task.spec.budget.maxDurationMs ? <span title="Remaining at the latest durable checkpoint">{formatDuration(task.spec.budget.maxDurationMs - taskElapsedMs)} left</span> : null}
+              {currentExclusiveStep ? <span className="font-medium text-amber-700 dark:text-amber-300">Exclusive: {currentExclusiveStep.description}</span> : null}
+            </div>
+          ) : null}
           {task.blocker ? <p className="mt-1 whitespace-pre-wrap text-amber-700 dark:text-amber-300">{task.blocker.summary}</p> : null}
+          {(task.missionPlan || task.evidence.length > 0 || (task.artifacts?.length ?? 0) > 0) ? (
+            <details className="mt-1 border-t border-neutral-200 pt-1 dark:border-neutral-800">
+              <summary className="w-fit cursor-pointer select-none text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100">
+                Mission details
+              </summary>
+              {task.missionPlan ? (
+                <ol className="mt-1 grid gap-1 sm:grid-cols-2">
+                  {task.steps.map((step) => (
+                    <li key={step.id} className="flex min-w-0 gap-2 text-neutral-600 dark:text-neutral-300">
+                      <span className="w-16 shrink-0 text-neutral-400">{step.state}</span>
+                      <span className="min-w-0 truncate">{step.description}</span>
+                      {step.mission ? <span className="ml-auto shrink-0 text-neutral-400">{step.mission.workerRole}</span> : null}
+                    </li>
+                  ))}
+                </ol>
+              ) : null}
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                {task.spec.acceptanceCriteria.map((criterion) => {
+                  const criterionEvidence = task.evidence.filter((item) => item.criterionId === criterion.id);
+                  return (
+                    <div key={criterion.id} className="min-w-0 border-l-2 border-neutral-300 pl-2 dark:border-neutral-700">
+                      <div className="flex gap-2 text-neutral-700 dark:text-neutral-200">
+                        <span className="min-w-0 flex-1 truncate">{criterion.description}</span>
+                        <span className="shrink-0 tabular-nums text-neutral-400">{criterionEvidence.filter((item) => item.passed).length}/{criterionEvidence.length}</span>
+                      </div>
+                      {criterionEvidence.map((item) => <p key={item.id} className={item.passed ? "truncate text-emerald-600 dark:text-emerald-400" : "truncate text-red-600 dark:text-red-400"}>{item.summary}</p>)}
+                    </div>
+                  );
+                })}
+              </div>
+              {task.artifacts && task.artifacts.length > 0 ? (
+                <ul className="mt-2 space-y-1" aria-label="Mission artifacts">
+                  {task.artifacts.map((artifact) => (
+                    <li key={artifact.id} className="flex gap-2 text-neutral-600 dark:text-neutral-300">
+                      <span className="shrink-0 font-mono">{artifact.name}</span>
+                      <span className="min-w-0 truncate text-neutral-400">{artifact.summary}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </details>
+          ) : null}
           {taskHistory.length > 0 ? (
             <details className="mt-1 border-t border-neutral-200 pt-1 dark:border-neutral-800">
               <summary className="w-fit cursor-pointer select-none text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100">
@@ -1420,6 +1636,109 @@ export function ChatPanel({ busy, setBusy, onOpenChats, onOpenSettings }: ChatPa
             ))}
           </div>
         ) : null}
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <div
+            className="inline-flex rounded-md border border-neutral-300/70 bg-neutral-100 p-0.5 dark:border-neutral-700 dark:bg-neutral-900"
+            aria-label="Composer mode"
+          >
+            {(["chat", "mission"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                aria-pressed={composerMode === mode}
+                className={`rounded px-2.5 py-1 text-xs font-medium capitalize ${
+                  composerMode === mode
+                    ? "bg-white text-neutral-900 shadow-sm dark:bg-neutral-700 dark:text-white"
+                    : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
+                }`}
+                onClick={() => setComposerMode(mode)}
+                disabled={busy}
+              >
+                {mode === "chat" ? "Chat" : "Mission"}
+              </button>
+            ))}
+          </div>
+          {composerMode === "mission" ? (
+            <details className="relative">
+              <summary className="cursor-pointer select-none rounded px-2 py-1 text-xs text-neutral-600 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-800">
+                Review mission
+              </summary>
+              <div
+                className="absolute bottom-8 left-0 z-20 w-[min(36rem,calc(100vw-2rem))] rounded-md border border-neutral-300 bg-white p-3 shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
+                aria-label="Mission review"
+              >
+                <div className="mb-3 flex gap-1" aria-label="Mission authority">
+                  <button
+                    type="button"
+                    aria-pressed={missionAuthority === "supervised"}
+                    className={`rounded px-2 py-1 text-xs ${missionAuthority === "supervised" ? "bg-emerald-600 text-white" : "bg-neutral-200 dark:bg-neutral-800"}`}
+                    onClick={() => setMissionAuthority("supervised")}
+                  >
+                    Supervised
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={missionAuthority === "policy-scoped"}
+                    className={`rounded px-2 py-1 text-xs ${missionAuthority === "policy-scoped" ? "bg-amber-600 text-white" : "bg-neutral-200 dark:bg-neutral-800"}`}
+                    onClick={() => setMissionAuthority("policy-scoped")}
+                  >
+                    Policy-scoped
+                  </button>
+                </div>
+                <fieldset className="mb-3">
+                  <legend className="mb-1 text-xs font-semibold text-neutral-700 dark:text-neutral-200">Capabilities</legend>
+                  {missionCapabilitiesLoading ? <span className="text-xs text-neutral-500">Loading capabilities...</span> : (
+                    <div className="max-h-32 columns-2 overflow-y-auto">
+                      {missionCapabilities.map((capability) => (
+                        <label key={capability.id} className="flex break-inside-avoid items-center gap-1.5 py-0.5 text-xs">
+                          <input
+                            type="checkbox"
+                            checked={selectedMissionCapabilities.includes(capability.id)}
+                            onChange={(event) => setSelectedMissionCapabilities((selected) => event.target.checked
+                              ? [...selected, capability.id]
+                              : selected.filter((id) => id !== capability.id))}
+                          />
+                          <span className="truncate font-mono">{capability.id}</span>
+                          <span className="text-neutral-400">{capability.risk}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </fieldset>
+                <fieldset>
+                  <legend className="mb-1 text-xs font-semibold text-neutral-700 dark:text-neutral-200">Budgets</legend>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {([
+                      ["minutes", "Minutes", "240"],
+                      ["tokens", "Tokens", "1000000"],
+                      ["actions", "Actions", "256"],
+                      ["cost", "Cost USD", "100"],
+                    ] as const).map(([key, label, max]) => (
+                      <label key={key} className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                        {label}
+                        <input
+                          aria-label={`Mission ${label}`}
+                          type="number"
+                          min="0.01"
+                          max={max}
+                          step={key === "cost" ? "0.01" : "1"}
+                          value={missionBudget[key]}
+                          onChange={(event) => setMissionBudget((currentBudget) => ({ ...currentBudget, [key]: event.target.value }))}
+                          className="mt-0.5 w-full rounded border border-neutral-300 bg-neutral-100 px-1.5 py-1 text-xs text-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              </div>
+            </details>
+          ) : null}
+          {composerMode === "mission" ? (
+            <span className="text-xs text-neutral-500 dark:text-neutral-400">
+              {missionAuthority === "supervised" ? "Prompts before mutations" : "Native approval for bounded mutations"}
+            </span>
+          ) : null}
+        </div>
         <div className="flex gap-2">
           <textarea
             className="flex-1 resize-none rounded-xl border border-neutral-300/60 dark:border-neutral-700/60 bg-neutral-200 dark:bg-neutral-800 px-3 py-2 transition focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
@@ -1521,9 +1840,9 @@ export function ChatPanel({ busy, setBusy, onOpenChats, onOpenSettings }: ChatPa
             <button
               className="rounded-xl bg-emerald-600 px-4 py-2 font-medium text-white shadow transition hover:bg-emerald-500 disabled:opacity-50"
               onClick={() => send()}
-              disabled={!settings.model || pendingAttachmentReads > 0}
+              disabled={!settings.model || pendingAttachmentReads > 0 || (composerMode === "mission" && (missionCapabilitiesLoading || selectedMissionCapabilities.length === 0))}
             >
-              Send
+              {composerMode === "mission" ? "Launch" : "Send"}
             </button>
           )}
         </div>

@@ -4,18 +4,23 @@
 // agent runner; this service decides whether work may continue or complete.
 
 import { randomUUID } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 
 import type {
+  TaskArtifactReference,
   TaskApproval,
   TaskAttempt,
   TaskBlocker,
   TaskEvidence,
   TaskSnapshot,
+  TaskMissionPlan,
   TaskSpec,
   TaskState,
   TaskStep,
   TokenUsage,
 } from "../../../../common/types";
+import { validateExecutionGrant } from "./execution-grant";
+import { validateMissionPlan, type MissionCapability } from "./mission-plan";
 import { TaskStore, taskStore } from "./task-store";
 
 const ACTIVE_STATES = new Set<TaskState>([
@@ -51,7 +56,60 @@ export class TaskEngine {
     if (!spec.acceptanceCriteria.some((criterion) => criterion.mandatory)) {
       throw new Error("At least one mandatory acceptance criterion is required");
     }
+    validateExecutionGrant(spec);
     return this.store.create(spec, id);
+  }
+
+  async acquireLease(id: string, ownerId: string, ttlMs = 24 * 60 * 60 * 1000): Promise<TaskSnapshot> {
+    if (!ownerId.trim()) throw new Error("A task lease owner is required");
+    if (!Number.isFinite(ttlMs) || ttlMs <= 0) throw new Error("Task lease duration must be positive");
+    const now = this.now();
+    return this.store.update(id, (task) => {
+      if (task.lease && task.lease.ownerId !== ownerId && new Date(task.lease.expiresAt).getTime() > now.getTime()) {
+        throw new Error(`Task '${id}' is already leased by '${task.lease.ownerId}'`);
+      }
+      return {
+        ...task,
+        lease: {
+          ownerId,
+          acquiredAt: now.toISOString(),
+          expiresAt: new Date(now.getTime() + ttlMs).toISOString(),
+        },
+      };
+    });
+  }
+
+  async releaseLease(id: string, ownerId: string): Promise<TaskSnapshot> {
+    return this.store.update(id, (task) => {
+      if (!task.lease) return task;
+      if (task.lease.ownerId !== ownerId) throw new Error(`Task '${id}' is leased by another owner`);
+      const next = { ...task };
+      delete next.lease;
+      return next;
+    });
+  }
+
+  async recordPlanningUsage(id: string, usage: TokenUsage): Promise<TaskSnapshot> {
+    const timestamp = this.now().toISOString();
+    const attempt: TaskAttempt = {
+      id: randomUUID(),
+      turnId: "mission-planner",
+      startedAt: timestamp,
+      completedAt: timestamp,
+      outcome: "succeeded",
+      actionCount: 0,
+      usage: {
+        inputTokens: usage.inputTokens ?? 0,
+        outputTokens: usage.outputTokens ?? 0,
+      },
+      estimatedCostUsd: 0,
+    };
+    return this.store.update(id, (task) => {
+      if (task.state !== "intake" && task.state !== "planning" && task.state !== "executing" && task.state !== "blocked") {
+        throw new Error(`Cannot record planning usage while task is ${task.state}`);
+      }
+      return { ...task, attempts: [...task.attempts, attempt] };
+    });
   }
 
   async setPlan(id: string, steps: TaskStep[]): Promise<TaskSnapshot> {
@@ -62,20 +120,93 @@ export class TaskEngine {
     return this.store.update(id, (task) => ({ ...task, steps: structuredClone(steps) }));
   }
 
+  async setMissionPlan(
+    id: string,
+    plan: TaskMissionPlan,
+    capabilities: readonly MissionCapability[],
+  ): Promise<TaskSnapshot> {
+    const current = await this.requireTask(id);
+    validateMissionPlan(current.spec, plan, capabilities);
+    if (current.missionPlan && plan.supersedesRevision !== current.missionPlan.revision) {
+      throw new Error(`Mission plan revision ${plan.revision} must supersede current revision ${current.missionPlan.revision}`);
+    }
+    if (!current.missionPlan && plan.supersedesRevision !== undefined) {
+      throw new Error("An initial mission plan cannot supersede another revision");
+    }
+    if (current.state === "intake") await this.store.transition(id, "planning");
+    else if (current.state !== "planning") throw new Error(`Cannot set a mission plan while task is ${current.state}`);
+    return this.store.update(id, (task) => ({
+      ...task,
+      steps: structuredClone(plan.steps),
+      missionPlan: structuredClone(plan),
+    }));
+  }
+
+  async replaceMissionPlan(
+    id: string,
+    plan: TaskMissionPlan,
+    capabilities: readonly MissionCapability[],
+  ): Promise<TaskSnapshot> {
+    const current = await this.requireTask(id);
+    if (!current.missionPlan) throw new Error(`Task '${id}' has no mission plan to replace`);
+    if (current.state !== "executing" && current.state !== "blocked") {
+      throw new Error(`Cannot replace a mission plan while task is ${current.state}`);
+    }
+    validateMissionPlan(current.spec, plan, capabilities);
+    if (plan.revision !== current.missionPlan.revision + 1
+      || plan.supersedesRevision !== current.missionPlan.revision) {
+      throw new Error(`Mission plan revision ${plan.revision} must directly supersede ${current.missionPlan.revision}`);
+    }
+
+    const completedSteps = current.steps.filter((step) => step.state === "completed" || step.state === "skipped");
+    for (const completed of completedSteps) {
+      const proposed = plan.steps.find((step) => step.id === completed.id);
+      if (!proposed || !isDeepStrictEqual(planShape(completed), planShape(proposed))) {
+        throw new Error(`Completed mission step '${completed.id}' must remain structurally identical`);
+      }
+    }
+    const completedIds = new Set(completedSteps.map((step) => step.id));
+    const completedAttemptIds = new Set(current.attempts
+      .filter((attempt) => attempt.stepId && completedIds.has(attempt.stepId) && attempt.outcome === "succeeded")
+      .map((attempt) => attempt.id));
+    const materializedSteps = plan.steps.map((step) => {
+      const completed = completedSteps.find((candidate) => candidate.id === step.id);
+      return structuredClone(completed ?? step);
+    });
+
+    return this.store.update(id, (task) => ({
+      ...task,
+      steps: materializedSteps,
+      missionPlan: { ...structuredClone(plan), steps: materializedSteps },
+      evidence: task.evidence.filter((item) => item.attemptId && completedAttemptIds.has(item.attemptId)),
+      artifacts: task.artifacts?.filter((artifact) => completedIds.has(artifact.stepId)),
+    }));
+  }
+
   async start(id: string): Promise<TaskSnapshot> {
     const task = await this.requireTask(id);
     if (task.state === "waiting_for_approval" && task.approval?.status === "pending") {
       throw new Error(`Task '${id}' has a pending approval for call '${task.approval.callId}'`);
     }
     if (task.state === "paused" || task.state === "blocked" || task.state === "waiting_for_approval") {
-      return this.store.transition(id, task.steps.length > 0 ? "executing" : "planning", { clearBlocker: true });
+      return this.transitionForStart(task, task.steps.length > 0 ? "executing" : "planning");
     }
     if (task.state === "planning") {
       if (task.steps.length === 0) throw new Error("A task cannot execute without a plan");
-      return this.store.transition(id, "executing", { clearBlocker: true });
+      return this.transitionForStart(task, "executing");
     }
     if (task.state === "executing") return task;
     throw new Error(`Cannot start a task while it is ${task.state}`);
+  }
+
+  private async transitionForStart(task: TaskSnapshot, state: "planning" | "executing"): Promise<TaskSnapshot> {
+    try {
+      return await this.store.transition(task.id, state, { clearBlocker: true, expectedRevision: task.revision });
+    } catch (error) {
+      const latest = await this.requireTask(task.id);
+      if (latest.state === "executing") return latest;
+      throw error;
+    }
   }
 
   async beginAttempt(id: string, stepId?: string, turnId?: string): Promise<{ task: TaskSnapshot; attempt: TaskAttempt }> {
@@ -97,8 +228,12 @@ export class TaskEngine {
       if (!step.dependsOn.every((dependency) => completed.has(dependency))) {
         throw new Error(`Task step '${stepId}' has incomplete dependencies`);
       }
-      if (task.steps.some((candidate) => candidate.id !== stepId && candidate.state === "running")) {
-        throw new Error("Only one task step may run at a time");
+      const otherRunning = task.steps.filter((candidate) => candidate.id !== stepId && candidate.state === "running");
+      if (otherRunning.length > 0 && (
+        step.mission?.executionLane !== "readonly-parallel"
+        || otherRunning.some((candidate) => candidate.mission?.executionLane !== "readonly-parallel")
+      )) {
+        throw new Error("Only readonly-parallel mission steps may run concurrently");
       }
     }
     const attempt: TaskAttempt = {
@@ -110,15 +245,27 @@ export class TaskEngine {
       usage: {},
       estimatedCostUsd: 0,
     };
-    task = await this.store.update(id, (current) => ({
-      ...current,
-      attempts: [...current.attempts, attempt],
-      steps: stepId
-        ? current.steps.map((step) =>
-            step.id === stepId ? { ...step, state: "running", startedAt: attempt.startedAt } : step,
-          )
-        : current.steps,
-    }));
+    task = await this.store.update(id, (current) => {
+      if (stepId) assertStepAdmission(current, stepId);
+      return {
+        ...current,
+        attempts: [...current.attempts, attempt],
+        steps: stepId
+          ? current.steps.map((step) =>
+              step.id === stepId ? {
+                ...step,
+                state: "running",
+                startedAt: attempt.startedAt,
+                lease: {
+                  ownerId: attempt.id,
+                  acquiredAt: attempt.startedAt,
+                  expiresAt: new Date(this.now().getTime() + 24 * 60 * 60 * 1000).toISOString(),
+                },
+              } : step,
+            )
+          : current.steps,
+      };
+    });
     return { task, attempt: structuredClone(attempt) };
   }
 
@@ -164,12 +311,14 @@ export class TaskEngine {
           : { ...candidate, outcome, completedAt, ...(error ? { error } : {}) }),
         steps: current.steps.map((step) => {
         if (!attempt?.stepId || step.id !== attempt.stepId) return step;
-        return {
+        const finished: TaskStep = {
           ...step,
           state: outcome === "succeeded" ? "completed" : "failed",
           completedAt,
           ...(error ? { error } : {}),
         };
+        delete finished.lease;
+        return finished;
         }),
       };
     });
@@ -192,6 +341,24 @@ export class TaskEngine {
     }));
   }
 
+  async recordArtifact(id: string, artifact: TaskArtifactReference): Promise<TaskSnapshot> {
+    const task = await this.requireTask(id);
+    if (artifact.taskId !== id) throw new Error(`Artifact task '${artifact.taskId}' does not match '${id}'`);
+    if (!task.missionPlan || artifact.planRevision !== task.missionPlan.revision) {
+      throw new Error(`Artifact plan revision '${artifact.planRevision}' is not current`);
+    }
+    const step = task.steps.find((candidate) => candidate.id === artifact.stepId);
+    if (!step) throw new Error(`Unknown artifact step '${artifact.stepId}'`);
+    const attempt = task.attempts.find((candidate) => candidate.id === artifact.attemptId);
+    if (!attempt || attempt.stepId !== artifact.stepId) {
+      throw new Error(`Artifact attempt '${artifact.attemptId}' does not belong to step '${artifact.stepId}'`);
+    }
+    return this.store.update(id, (current) => ({
+      ...current,
+      artifacts: [...(current.artifacts ?? []).filter((item) => item.id !== artifact.id), structuredClone(artifact)],
+    }));
+  }
+
   async complete(id: string): Promise<TaskSnapshot> {
     let task = await this.requireTask(id);
     if (task.state !== "verifying" && task.state !== "reflecting") {
@@ -206,6 +373,8 @@ export class TaskEngine {
   }
 
   async pause(id: string, summary: string): Promise<TaskSnapshot> {
+    const task = await this.requireTask(id);
+    if (task.state === "paused") return task;
     const blocker: TaskBlocker = {
       kind: "external",
       summary,
@@ -289,6 +458,8 @@ export class TaskEngine {
   }
 
   async block(id: string, blocker: TaskBlocker): Promise<TaskSnapshot> {
+    const task = await this.requireTask(id);
+    if (task.state === "blocked") return task;
     return this.store.transition(id, "blocked", { blocker });
   }
 
@@ -305,6 +476,24 @@ export class TaskEngine {
     const recovered: TaskSnapshot[] = [];
     for (const task of tasks) {
       if (!ACTIVE_STATES.has(task.state)) continue;
+      if (task.lease || task.steps.some((step) => step.state === "running" || step.lease)) {
+        await this.store.update(task.id, (current) => {
+          const next = { ...current };
+          delete next.lease;
+          next.steps = next.steps.map((step) => {
+            if (step.state !== "running" && !step.lease) return step;
+            const recovered = {
+              ...step,
+              state: "failed" as const,
+              completedAt: this.now().toISOString(),
+              error: "Step execution was interrupted by application shutdown",
+            };
+            delete recovered.lease;
+            return recovered;
+          });
+          return next;
+        });
+      }
       if (task.state === "waiting_for_approval" && task.approval?.status === "pending") {
         recovered.push(await this.interruptApproval(
           task.id,
@@ -384,3 +573,33 @@ function missingPassingCriteria(task: TaskSnapshot): string[] {
 }
 
 export const taskEngine = new TaskEngine(taskStore);
+
+function planShape(step: TaskStep): TaskStep {
+  const shape = structuredClone(step);
+  shape.state = "pending";
+  delete shape.startedAt;
+  delete shape.completedAt;
+  delete shape.error;
+  return shape;
+}
+
+function assertStepAdmission(task: TaskSnapshot, stepId: string): void {
+  const step = task.steps.find((candidate) => candidate.id === stepId);
+  if (!step) throw new Error(`Unknown task step '${stepId}'`);
+  if (step.state !== "pending" && step.state !== "failed" && step.state !== "running") {
+    throw new Error(`Task step '${stepId}' is not eligible for an attempt`);
+  }
+  const completed = new Set(task.steps
+    .filter((candidate) => candidate.state === "completed" || candidate.state === "skipped")
+    .map((candidate) => candidate.id));
+  if (!step.dependsOn.every((dependency) => completed.has(dependency))) {
+    throw new Error(`Task step '${stepId}' has incomplete dependencies`);
+  }
+  const otherRunning = task.steps.filter((candidate) => candidate.id !== stepId && candidate.state === "running");
+  if (otherRunning.length > 0 && (
+    step.mission?.executionLane !== "readonly-parallel"
+    || otherRunning.some((candidate) => candidate.mission?.executionLane !== "readonly-parallel")
+  )) {
+    throw new Error("Only readonly-parallel mission steps may run concurrently");
+  }
+}

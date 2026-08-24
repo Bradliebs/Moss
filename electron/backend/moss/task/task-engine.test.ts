@@ -6,7 +6,7 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import type { TaskEvidence, TaskSpec, TaskStep } from "../../../../common/types";
+import type { TaskEvidence, TaskMissionPlan, TaskSpec, TaskStep } from "../../../../common/types";
 import { TaskEngine } from "./task-engine";
 import { TaskStore } from "./task-store";
 
@@ -49,6 +49,23 @@ describe("TaskEngine", () => {
     await expect(
       engine.create({ ...SPEC, acceptanceCriteria: [{ id: "optional", description: "Nice", mandatory: false }] }, "bad-2"),
     ).rejects.toThrow("mandatory acceptance criterion");
+  });
+
+  it("validates execution grants before persisting a task", async () => {
+    await expect(engine.create({
+      ...SPEC,
+      budget: { maxActions: 2 },
+      executionGrant: {
+        schemaVersion: 1,
+        authority: "policy-scoped",
+        allowedCapabilities: ["edit_file"],
+        maxAutoApprovedRisk: "mutating",
+        budget: { maxActions: 3 },
+        scopes: {},
+      },
+    }, "bad-grant")).rejects.toThrow("bounded by task limit 2");
+
+    expect(await store.get("bad-grant")).toBeNull();
   });
 
   it("plans, executes, records an attempt, and completes only after verification", async () => {
@@ -129,6 +146,184 @@ describe("TaskEngine", () => {
     await expect(
       engine.setPlan("task-1", [{ ...PLAN[0], dependsOn: ["missing"] }]),
     ).rejects.toThrow("unknown dependency");
+  });
+
+  it("persists a validated versioned mission plan", async () => {
+    await engine.create({ ...SPEC, budget: { maxActions: 2 } }, "task-1");
+    const missionPlan: TaskMissionPlan = {
+      schemaVersion: 1,
+      revision: 1,
+      steps: [{
+        ...PLAN[0],
+        requiredCapabilities: ["edit_file"],
+        mission: {
+          kind: "implement",
+          workerRole: "implementer",
+          executionLane: "exclusive",
+          acceptanceCriterionIds: ["tests"],
+          budget: { maxActions: 2 },
+          expectedArtifacts: ["changed-files"],
+        },
+      }],
+    };
+
+    const planned = await engine.setMissionPlan("task-1", missionPlan, [{ id: "edit_file", risk: "mutating" }]);
+
+    expect(planned.state).toBe("planning");
+    expect(planned.missionPlan).toEqual(missionPlan);
+    expect((await new TaskStore(dir).get("task-1"))?.missionPlan).toEqual(missionPlan);
+  });
+
+  it("records only artifacts tied to the current mission step attempt", async () => {
+    await engine.create({ ...SPEC, budget: { maxActions: 2 } }, "task-1");
+    await engine.setMissionPlan("task-1", {
+      schemaVersion: 1,
+      revision: 1,
+      steps: [{
+        ...PLAN[0],
+        requiredCapabilities: ["edit_file"],
+        mission: {
+          kind: "implement",
+          workerRole: "implementer",
+          executionLane: "exclusive",
+          acceptanceCriterionIds: ["tests"],
+          budget: { maxActions: 2 },
+          expectedArtifacts: ["changed-files"],
+        },
+      }],
+    }, [{ id: "edit_file", risk: "mutating" }]);
+    const { attempt } = await engine.beginAttempt("task-1", "implement");
+    const artifact = {
+      id: "artifact-1",
+      taskId: "task-1",
+      planRevision: 1,
+      stepId: "implement",
+      attemptId: attempt.id,
+      name: "changed-files",
+      summary: "Changed one file",
+      sha256: "a".repeat(64),
+      byteLength: 16,
+      createdAt: now.toISOString(),
+    };
+
+    const updated = await engine.recordArtifact("task-1", artifact);
+    expect(updated.artifacts).toEqual([artifact]);
+    await expect(engine.recordArtifact("task-1", { ...artifact, attemptId: "missing" })).rejects.toThrow("does not belong");
+    await expect(engine.recordArtifact("task-1", { ...artifact, planRevision: 2 })).rejects.toThrow("not current");
+  });
+
+  it("replaces only unresolved mission work and invalidates its evidence and artifacts", async () => {
+    await engine.create(SPEC, "task-1");
+    const initial: TaskMissionPlan = {
+      schemaVersion: 1,
+      revision: 1,
+      steps: [
+        {
+          id: "inspect",
+          description: "Inspect the current state",
+          state: "pending",
+          dependsOn: [],
+          requiredCapabilities: ["read_file"],
+          mission: {
+            kind: "research",
+            workerRole: "researcher",
+            executionLane: "readonly-parallel",
+            acceptanceCriterionIds: ["tests"],
+            budget: {},
+            expectedArtifacts: ["findings"],
+          },
+        },
+        {
+          id: "implement",
+          description: "Implement the original approach",
+          state: "pending",
+          dependsOn: ["inspect"],
+          requiredCapabilities: ["read_file"],
+          mission: {
+            kind: "implement",
+            workerRole: "implementer",
+            executionLane: "readonly-parallel",
+            acceptanceCriterionIds: [],
+            budget: {},
+            expectedArtifacts: ["change"],
+          },
+        },
+      ],
+    };
+    const capabilities = [{ id: "read_file", risk: "readonly" as const }];
+    await engine.setMissionPlan("task-1", initial, capabilities);
+    const completedAttempt = (await engine.beginAttempt("task-1", "inspect")).attempt;
+    await engine.recordEvidence("task-1", {
+      id: "accepted-evidence",
+      criterionId: "tests",
+      kind: "file",
+      passed: true,
+      summary: "Inspection passed",
+      capturedAt: now.toISOString(),
+      attemptId: completedAttempt.id,
+    });
+    await engine.recordArtifact("task-1", {
+      id: "accepted-artifact",
+      taskId: "task-1",
+      planRevision: 1,
+      stepId: "inspect",
+      attemptId: completedAttempt.id,
+      name: "findings",
+      summary: "Accepted findings",
+      sha256: "a".repeat(64),
+      byteLength: 10,
+      createdAt: now.toISOString(),
+    });
+    await engine.finishAttempt("task-1", completedAttempt.id, "succeeded");
+    const failedAttempt = (await engine.beginAttempt("task-1", "implement")).attempt;
+    await engine.recordEvidence("task-1", {
+      id: "stale-evidence",
+      criterionId: "tests",
+      kind: "model-review",
+      passed: false,
+      summary: "Original approach failed",
+      capturedAt: now.toISOString(),
+      attemptId: failedAttempt.id,
+    });
+    await engine.recordArtifact("task-1", {
+      id: "stale-artifact",
+      taskId: "task-1",
+      planRevision: 1,
+      stepId: "implement",
+      attemptId: failedAttempt.id,
+      name: "change",
+      summary: "Rejected change",
+      sha256: "b".repeat(64),
+      byteLength: 10,
+      createdAt: now.toISOString(),
+    });
+    await engine.finishAttempt("task-1", failedAttempt.id, "failed", "Original approach failed");
+
+    const replacement: TaskMissionPlan = {
+      schemaVersion: 1,
+      revision: 2,
+      supersedesRevision: 1,
+      revisionReason: "Original approach failed",
+      steps: [
+        structuredClone(initial.steps[0]),
+        {
+          ...structuredClone(initial.steps[1]),
+          id: "review",
+          description: "Review an alternate approach",
+          mission: { ...structuredClone(initial.steps[1].mission!), kind: "review", workerRole: "reviewer", expectedArtifacts: ["review"] },
+        },
+      ],
+    };
+    const tampered = structuredClone(replacement);
+    tampered.steps[0].description = "Rewrite completed history";
+    await expect(engine.replaceMissionPlan("task-1", tampered, capabilities)).rejects.toThrow("structurally identical");
+
+    const replanned = await engine.replaceMissionPlan("task-1", replacement, capabilities);
+    expect(replanned.missionPlan?.revision).toBe(2);
+    expect(replanned.steps.map((step) => [step.id, step.state])).toEqual([["inspect", "completed"], ["review", "pending"]]);
+    expect(replanned.evidence.map((item) => item.id)).toEqual(["accepted-evidence"]);
+    expect(replanned.artifacts?.map((item) => item.id)).toEqual(["accepted-artifact"]);
+    expect(replanned.attempts.map((attempt) => attempt.id)).toEqual([completedAttempt.id, failedAttempt.id]);
   });
 
   it("rejects an attempt whose step dependencies are incomplete", async () => {

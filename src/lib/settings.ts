@@ -10,16 +10,20 @@ import type { ModelRate } from "./pricing";
 import { createPersistentStore } from "./persistentStore";
 
 export interface ProviderPreset {
+  id: string;
   label: string;
   kind: ProviderKind;
   baseUrl: string;
 }
 
 export const PROVIDER_PRESETS: ProviderPreset[] = [
-  { label: "Ollama", kind: "openai-compatible", baseUrl: "http://localhost:11434/v1" },
-  { label: "OpenAI", kind: "openai-compatible", baseUrl: "https://api.openai.com/v1" },
-  { label: "Anthropic", kind: "anthropic", baseUrl: "https://api.anthropic.com" },
-  { label: "Custom", kind: "openai-compatible", baseUrl: "" },
+  { id: "ollama", label: "Ollama", kind: "openai-compatible", baseUrl: "http://localhost:11434/v1" },
+  { id: "openai", label: "OpenAI", kind: "openai-compatible", baseUrl: "https://api.openai.com/v1" },
+  { id: "anthropic", label: "Anthropic", kind: "anthropic", baseUrl: "https://api.anthropic.com" },
+  { id: "openrouter", label: "OpenRouter", kind: "openai-compatible", baseUrl: "https://openrouter.ai/api/v1" },
+  { id: "mistral", label: "Mistral", kind: "openai-compatible", baseUrl: "https://api.mistral.ai/v1" },
+  { id: "xai", label: "xAI (Grok)", kind: "openai-compatible", baseUrl: "https://api.x.ai/v1" },
+  { id: "custom", label: "Custom", kind: "openai-compatible", baseUrl: "" },
 ];
 
 export interface MossSettings {
@@ -29,6 +33,8 @@ export interface MossSettings {
   baseUrl: string;
   apiKey: string;
   model: string;
+  /** provider-specific connection metadata; API keys are stored separately by Electron safeStorage */
+  providerProfiles?: Record<string, { baseUrl: string; model: string }>;
   /** compact data URL for the user-selected in-app avatar; null uses the built-in portrait */
   avatarDataUrl: string | null;
   enableTools: boolean;
@@ -123,7 +129,11 @@ const DEFAULT_SETTINGS: MossSettings = {
   theme: "dark",
 };
 
-export const settingsStore = createPersistentStore<MossSettings>("moss.settings", DEFAULT_SETTINGS);
+export const settingsStore = createPersistentStore<MossSettings>(
+  "moss.settings",
+  DEFAULT_SETTINGS,
+  (settings) => ({ ...settings, apiKey: "" }),
+);
 
 /** Last-fetched model ids, kept so the header model dropdown is populated on
  *  reload without re-querying the provider. */
@@ -141,7 +151,33 @@ export function useSettings(): MossSettings {
 }
 
 export function updateSettings(patch: Partial<MossSettings>): void {
-  settingsStore.update((prev) => ({ ...prev, ...patch }));
+  settingsStore.update((prev) => {
+    const next = { ...prev, ...patch };
+    const providerId = PROVIDER_PRESETS[prev.presetIndex]?.id;
+    if (!providerId || (patch.baseUrl === undefined && patch.model === undefined)) return next;
+    return {
+      ...next,
+      providerProfiles: {
+        ...prev.providerProfiles,
+        [providerId]: { baseUrl: next.baseUrl, model: next.model },
+      },
+    };
+  });
+}
+
+export async function initializeProviderCredential(): Promise<void> {
+  const settings = settingsStore.get();
+  const providerId = PROVIDER_PRESETS[settings.presetIndex]?.id;
+  if (!providerId || typeof window === "undefined" || !window.moss?.provider) return;
+  if (settings.apiKey) await window.moss.provider.setCredential(providerId, settings.apiKey);
+  updateSettings({ apiKey: await window.moss.provider.getCredential(providerId) });
+}
+
+export async function saveProviderCredential(apiKey: string): Promise<void> {
+  const providerId = PROVIDER_PRESETS[settingsStore.get().presetIndex]?.id;
+  if (!providerId) throw new Error("No provider preset is selected");
+  await window.moss.provider.setCredential(providerId, apiKey);
+  updateSettings({ apiKey: apiKey.trim() });
 }
 
 /** Set or clear the user's pricing override for a model. Passing null (or a rate
@@ -159,10 +195,28 @@ export function setModelRate(model: string, rate: ModelRate | null): void {
 }
 
 /** Apply a preset, resetting the cached model list since models are provider-specific. */
-export function applyPreset(index: number): void {
+export async function applyPreset(index: number): Promise<void> {
   const preset = PROVIDER_PRESETS[index];
   if (!preset) return;
-  updateSettings({ presetIndex: index, kind: preset.kind, baseUrl: preset.baseUrl });
+  const current = settingsStore.get();
+  const currentPreset = PROVIDER_PRESETS[current.presetIndex];
+  const providerProfiles = {
+    ...current.providerProfiles,
+    ...(currentPreset ? { [currentPreset.id]: { baseUrl: current.baseUrl, model: current.model } } : {}),
+  };
+  const profile = providerProfiles[preset.id];
+  const apiKey = typeof window !== "undefined" && window.moss?.provider
+    ? await window.moss.provider.getCredential(preset.id)
+    : "";
+  settingsStore.set({
+    ...current,
+    presetIndex: index,
+    kind: preset.kind,
+    baseUrl: profile?.baseUrl ?? preset.baseUrl,
+    model: profile?.model ?? "",
+    apiKey,
+    providerProfiles,
+  });
   modelsStore.set([]);
 }
 

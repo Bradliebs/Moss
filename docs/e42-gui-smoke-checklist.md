@@ -1,10 +1,41 @@
-<!-- markdownlint-disable-file -->
-# E42 Runtime GUI Smoke Checklist
+---
+title: E42 Runtime GUI Smoke Checklist
+description: Packaged and live-provider smoke checks for the Moss Electron application
+ms.topic: how-to
+---
 
-A manual pass that exercises Moss end to end against a live model. It cannot run
-in CI or an autonomous agent: it needs an interactive window, a real provider,
-and a human watching the screen. Run it before tagging a release or after any
-change to the turn loop, IPC contract, or renderer event handling.
+<!-- markdownlint-disable-file -->
+
+## Scope
+
+The automated gate launches the unpacked Windows executable with isolated user
+data and verifies the Mission intake through the packaged main process, preload,
+and renderer. The live-provider pass still needs an interactive window, a real
+provider, and a human watching tool effects and native authorization prompts.
+
+Run both before tagging a release or after changes to the turn loop, mission
+runtime, IPC contract, preload bridge, or renderer event handling.
+
+## Automated package gate
+
+Build the unpacked app and run its Playwright Electron smoke:
+
+```powershell
+npm run pack
+npm run smoke:packaged
+```
+
+If Windows blocks electron-builder's signing-helper symlinks, create an unsigned
+local smoke package without changing the release configuration:
+
+```powershell
+npm run build
+npx electron-builder --dir --config.win.signAndEditExecutable=false
+npm run smoke:packaged
+```
+
+The smoke passes when `Moss.exe` loads and the Chat/Mission selector, mission
+review surface, and all four budget controls render through the packaged bridge.
 
 ## Prerequisites
 
@@ -60,9 +91,39 @@ change to the turn loop, IPC contract, or renderer event handling.
    - Create two conversations, switch between them via the sidebar, and confirm
      each shows its own history and the selected row is highlighted.
 
+9. **Supervised read-only mission**
+   - Select Mission and open Review mission.
+   - Keep Supervised selected and choose only read-only repository capabilities.
+   - Launch a repository inspection objective. Confirm no native authorization
+     appears, the plan revision and worker role render, and deterministic
+     evidence is attached to the acceptance criterion before completion.
+
+10. **Supervised file mutation**
+    - Keep Supervised selected and add a file mutation capability.
+    - Launch a bounded file change. Confirm the concrete tool card requests
+      approval before the write and denial prevents the mutation.
+    - Approve a fresh attempt. Confirm the admitted artifact and verification
+      evidence appear in Mission details.
+
+11. **Policy-scoped bounded mutation**
+    - Select Policy-scoped, set positive time, token, action, and cost budgets,
+      then launch a bounded file change.
+    - Confirm the native dialog names the objective and authority scope.
+    - Cancel once and confirm no task launches and the draft remains. Launch
+      again, approve, and confirm usage never exceeds the reviewed budgets.
+
+12. **Mission interruption and recovery**
+    - Close or reload the renderer while a mutation approval is pending. Confirm
+      the task pauses, the approval becomes interrupted, and the call is not
+      replayed after resume.
+    - Interrupt a mission while read-only workers are active. Confirm active
+      workers settle, their step leases clear, and no dependent exclusive step
+      starts until a deliberate resume creates fresh attempts.
+
 ## Pass criteria
 
 - No uncaught errors in the main-process console or the renderer devtools.
-- Streaming, tool approval, auto-approve provenance, abort, and titling all behave
-  as described above.
-- Reload preserves session history, titles, and the "auto" provenance tag.
+- Streaming, tool approval, auto-approve provenance, abort, titling, and mission
+  authority behave as described above.
+- Reload preserves session history, titles, task state, and the "auto" provenance
+  tag without replaying an interrupted action.

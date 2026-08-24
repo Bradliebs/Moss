@@ -25,8 +25,15 @@ export const IPC = {
   taskPause: "moss:task:pause",
   taskResume: "moss:task:resume",
   taskCancel: "moss:task:cancel",
+  /** renderer -> main (invoke): native-confirm elevated mission authority */
+  missionAuthorize: "moss:mission:authorize",
+  /** renderer -> main (invoke): list currently eligible mission capabilities */
+  missionCapabilities: "moss:mission:capabilities",
   /** renderer -> main (invoke): list available models for a provider config */
   providerListModels: "moss:provider:listModels",
+  /** renderer -> main (invoke): read/write an OS-encrypted provider API key */
+  providerCredentialGet: "moss:provider:credentialGet",
+  providerCredentialSet: "moss:provider:credentialSet",
   /** renderer -> main (invoke): open a folder picker, returns path or null */
   workspacePick: "moss:workspace:pick",
 

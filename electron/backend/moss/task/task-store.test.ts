@@ -93,6 +93,19 @@ describe("TaskStore", () => {
     expect(recovered?.revision).toBe(1);
   });
 
+  it("prefers a newer journal event over an older valid snapshot", async () => {
+    const created = await store.create(SPEC, "task-1");
+    await store.transition("task-1", "planning");
+    writeFileSync(
+      join(dir, "tasks", "task-1", "snapshot.json"),
+      `${JSON.stringify(created, null, 2)}\n`,
+      "utf8",
+    );
+
+    const recovered = await new TaskStore(dir).get("task-1");
+    expect(recovered).toMatchObject({ state: "planning", revision: 1 });
+  });
+
   it("ignores a partial final journal event during recovery", async () => {
     await store.create(SPEC, "task-1");
     const journal = join(dir, "tasks", "task-1", "events.jsonl");

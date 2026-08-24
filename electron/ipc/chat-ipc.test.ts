@@ -12,19 +12,25 @@ import { IPC } from "../../common/ipc-contract";
 const recorded = vi.hoisted(() => ({
   on: new Map<string, (...args: unknown[]) => unknown>(),
   handle: new Map<string, (...args: unknown[]) => unknown>(),
+  showMessageBox: vi.fn(),
 }));
 
 vi.mock("electron", () => ({
   app: { getPath: () => "/tmp", getAppPath: () => "/app" },
+  safeStorage: {
+    isEncryptionAvailable: () => true,
+    encryptString: (value: string) => Buffer.from(value),
+    decryptString: (value: Buffer) => value.toString("utf8"),
+  },
   ipcMain: {
     on: (channel: string, fn: (...args: unknown[]) => unknown) => recorded.on.set(channel, fn),
     handle: (channel: string, fn: (...args: unknown[]) => unknown) => recorded.handle.set(channel, fn),
   },
-  dialog: { showOpenDialog: vi.fn() },
+  dialog: { showOpenDialog: vi.fn(), showMessageBox: recorded.showMessageBox },
   shell: { openPath: vi.fn(), openExternal: vi.fn() },
 }));
 
-import { registerChatIpc, resolveMaxToolRounds } from "./chat-ipc";
+import { registerChatIpc, resolveMaxToolRounds, resolveMissionSpec } from "./chat-ipc";
 
 describe("resolveMaxToolRounds", () => {
   it("uses eight rounds by default and preserves a configured long-task limit", () => {
@@ -41,7 +47,85 @@ describe("resolveMaxToolRounds", () => {
   });
 });
 
+describe("resolveMissionSpec", () => {
+  const spec = {
+    objective: "Inspect the workspace",
+    acceptanceCriteria: [{ id: "done", description: "Inspection complete", mandatory: true }],
+    constraints: [],
+    assumptions: [],
+  };
+
+  it("derives scopes, capability authority, and bounded budgets in Electron", () => {
+    const resolved = resolveMissionSpec(spec, {
+      authority: "supervised",
+      requestedCapabilities: ["read_file"],
+      maxAutoApprovedRisk: "mutating",
+      budget: { maxActions: 10_000, maxCostUsd: 1_000 },
+    }, ["read_file", "write_file"], { workspaceRoot: "C:\\workspace" });
+
+    expect(resolved).toMatchObject({
+      workspaceRoot: "C:\\workspace",
+      budget: { maxActions: 256, maxCostUsd: 100 },
+      executionGrant: {
+        authority: "supervised",
+        allowedCapabilities: ["read_file"],
+        maxAutoApprovedRisk: "readonly",
+        scopes: { workspaceRoot: "C:\\workspace" },
+      },
+    });
+  });
+
+  it("rejects capabilities that are absent from the live registry", () => {
+    expect(() => resolveMissionSpec(spec, {
+      authority: "supervised",
+      requestedCapabilities: ["missing_tool"],
+      maxAutoApprovedRisk: "readonly",
+    }, ["read_file"], {})).toThrow("Mission capabilities are unavailable: missing_tool");
+  });
+});
+
 describe("registerChatIpc", () => {
+  it("reports live eligible mission capabilities with host-owned risk labels", async () => {
+    recorded.on.clear();
+    recorded.handle.clear();
+    registerChatIpc();
+
+    const capabilities = await recorded.handle.get(IPC.missionCapabilities)!(null, {}) as Array<{ id: string; risk: string }>;
+
+    expect(capabilities).toEqual(expect.arrayContaining([
+      { id: "read_file", risk: "readonly" },
+      { id: "write_file", risk: "mutating" },
+    ]));
+    expect(capabilities.some((capability) => capability.id === "send_email")).toBe(false);
+    expect(capabilities.some((capability) => capability.id === "transcribe_audio")).toBe(false);
+  });
+
+  it("requires native confirmation before issuing elevated mission authority", async () => {
+    recorded.on.clear();
+    recorded.handle.clear();
+    recorded.showMessageBox.mockResolvedValue({ response: 1 });
+    registerChatIpc();
+    const request = {
+      objective: "Implement the feature",
+      workspaceRoot: "C:\\workspace",
+      policy: {
+        authority: "policy-scoped" as const,
+        requestedCapabilities: ["write_file"],
+        maxAutoApprovedRisk: "mutating" as const,
+        budget: { maxActions: 4 },
+      },
+    };
+
+    const authorization = await recorded.handle.get(IPC.missionAuthorize)!(null, request);
+
+    expect(recorded.showMessageBox).toHaveBeenCalledWith(expect.objectContaining({
+      title: "Authorize policy-scoped mission",
+      defaultId: 0,
+      cancelId: 0,
+    }));
+    expect(authorization).toMatchObject({ token: expect.any(String), expiresAt: expect.any(String) });
+  });
+
   it("registers the fire-and-forget channels via ipcMain.on", () => {
     recorded.on.clear();
     recorded.handle.clear();
@@ -57,6 +141,8 @@ describe("registerChatIpc", () => {
     registerChatIpc();
     const invokeChannels = [
       IPC.providerListModels,
+      IPC.providerCredentialGet,
+      IPC.providerCredentialSet,
       IPC.workspacePick,
       IPC.memoryList,
       IPC.memoryAdd,

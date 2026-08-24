@@ -127,15 +127,52 @@ export interface TaskEvidence {
   attemptId?: string;
 }
 
+export type MissionStepKind = "research" | "implement" | "verify" | "review" | "decision";
+export type MissionWorkerRole = "researcher" | "implementer" | "verifier" | "reviewer";
+export type MissionExecutionLane = "readonly-parallel" | "exclusive";
+
+export interface MissionStepContract {
+  kind: MissionStepKind;
+  workerRole: MissionWorkerRole;
+  executionLane: MissionExecutionLane;
+  acceptanceCriterionIds: string[];
+  budget: TaskBudget;
+  expectedArtifacts: string[];
+  supersedesStepIds?: string[];
+}
+
 export interface TaskStep {
   id: string;
   description: string;
   state: TaskStepState;
   dependsOn: string[];
   requiredCapabilities: string[];
+  mission?: MissionStepContract;
+  lease?: TaskLease;
   startedAt?: string;
   completedAt?: string;
   error?: string;
+}
+
+export interface TaskMissionPlan {
+  schemaVersion: 1;
+  revision: number;
+  supersedesRevision?: number;
+  revisionReason?: string;
+  steps: TaskStep[];
+}
+
+export interface TaskArtifactReference {
+  id: string;
+  taskId: string;
+  planRevision: number;
+  stepId: string;
+  attemptId: string;
+  name: string;
+  summary: string;
+  sha256: string;
+  byteLength: number;
+  createdAt: string;
 }
 
 export type TaskBlockerKind =
@@ -171,6 +208,54 @@ export interface TaskAttempt {
   error?: string;
 }
 
+export type TaskAuthorityMode = "supervised" | "policy-scoped";
+
+export interface TaskExecutionGrant {
+  schemaVersion: 1;
+  authority: TaskAuthorityMode;
+  allowedCapabilities: string[];
+  maxAutoApprovedRisk: Exclude<ToolRisk, "destructive">;
+  budget: TaskBudget;
+  scopes: {
+    workspaceRoot?: string;
+    browserDomains?: string[];
+    desktopProcesses?: string[];
+    desktopWindows?: string[];
+  };
+}
+
+export interface MissionLaunchPolicy {
+  authority: TaskAuthorityMode;
+  requestedCapabilities: string[];
+  maxAutoApprovedRisk: Exclude<ToolRisk, "destructive">;
+  budget?: TaskBudget;
+  authorizationToken?: string;
+}
+
+export interface MissionAuthorizationRequest {
+  objective: string;
+  workspaceRoot?: string;
+  policy: Omit<MissionLaunchPolicy, "authorizationToken">;
+  automation?: AutomationConfig;
+}
+
+export interface MissionAuthorization {
+  token: string;
+  expiresAt: string;
+}
+
+export interface MissionCapabilitiesRequest {
+  email?: EmailConfig;
+  stt?: SttConfig;
+  embed?: EmbedConfig;
+  automation?: AutomationConfig;
+}
+
+export interface MissionCapabilityDescriptor {
+  id: string;
+  risk: ToolRisk;
+}
+
 export interface TaskSpec {
   objective: string;
   acceptanceCriteria: TaskAcceptanceCriterion[];
@@ -178,6 +263,7 @@ export interface TaskSpec {
   assumptions: string[];
   workspaceRoot?: string;
   budget?: TaskBudget;
+  executionGrant?: TaskExecutionGrant;
 }
 
 export interface TaskLease {
@@ -211,6 +297,8 @@ export interface TaskSnapshot {
   spec: TaskSpec;
   state: TaskState;
   steps: TaskStep[];
+  missionPlan?: TaskMissionPlan;
+  artifacts?: TaskArtifactReference[];
   evidence: TaskEvidence[];
   attempts: TaskAttempt[];
   blocker?: TaskBlocker;
@@ -409,6 +497,10 @@ export interface ChatStartRequest {
   /** When present, execute this turn as a durable autonomous task. Callers may
    *  omit it for ordinary chat that should stop after one assistant response. */
   taskSpec?: TaskSpec;
+  /** User-selected mission policy. Electron resolves this request against the
+   *  live tool registry, configured scopes, and hard budget ceilings before
+   *  creating the durable task; callers cannot supply the resulting grant. */
+  mission?: MissionLaunchPolicy;
   automation?: AutomationConfig;
   /** soft daily USD spend cap; when > 0 the backend blocks new requests once the
    *  day's estimated spend reaches it. Absent or 0 means no cap. */

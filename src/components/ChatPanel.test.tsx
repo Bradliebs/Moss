@@ -28,6 +28,8 @@ const mockSetSessionMessages = vi.fn();
 const mockClearSession = vi.fn();
 const mockContinueInNewSession = vi.fn();
 const mockSummarize = vi.fn();
+const mockMissionAuthorize = vi.fn();
+const mockMissionCapabilities = vi.fn();
 
 // Holds the session ChatPanel renders; tests override `value.messages` to drive
 // messagesToItems (e.g. multi-round turns) and beforeEach resets it to empty.
@@ -161,6 +163,13 @@ beforeEach(() => {
   mockContinueInNewSession.mockReset();
   mockSummarize.mockReset();
   mockSummarize.mockResolvedValue({ ok: true, summary: "MODEL SUMMARY" });
+  mockMissionAuthorize.mockReset();
+  mockMissionAuthorize.mockResolvedValue({ token: "mission-token", expiresAt: "2026-01-01T00:05:00.000Z" });
+  mockMissionCapabilities.mockReset();
+  mockMissionCapabilities.mockResolvedValue([
+    { id: "read_file", risk: "readonly" },
+    { id: "write_file", risk: "mutating" },
+  ]);
   mockSession.value = { id: "s1", title: "New chat", messages: [], createdAt: 0, updatedAt: 0 };
   mockToolState.usage = { total: 0, autoApproved: 0 };
   mockToolState.audit = [];
@@ -183,6 +192,10 @@ beforeEach(() => {
         resume: vi.fn(async () => taskSnapshot("executing")),
         cancel: vi.fn(async () => taskSnapshot("cancelled")),
         history: vi.fn(async () => []),
+      },
+      mission: {
+        authorize: mockMissionAuthorize,
+        capabilities: mockMissionCapabilities,
       },
       shell: { openExternal: vi.fn() },
       mcp: { status: vi.fn(() => Promise.resolve([])) },
@@ -218,8 +231,74 @@ describe("ChatPanel", () => {
     fireEvent.keyDown(composer, { key: "Enter" });
 
     expect(window.moss.chat.send).toHaveBeenCalledWith(
-      expect.not.objectContaining({ taskSpec: expect.anything() }),
+      expect.not.objectContaining({ taskSpec: expect.anything(), mission: expect.anything() }),
     );
+    expect(mockMissionAuthorize).not.toHaveBeenCalled();
+  });
+
+  it("launches a supervised mission with host-reviewed capabilities and budgets", async () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("button", { name: "Mission" }));
+    await waitFor(() => expect(mockMissionCapabilities).toHaveBeenCalledTimes(1));
+    const composer = screen.getByPlaceholderText("Message…");
+    fireEvent.change(composer, { target: { value: "Inspect and verify this repository" } });
+    fireEvent.click(screen.getByRole("button", { name: "Launch" }));
+
+    expect(mockMissionAuthorize).not.toHaveBeenCalled();
+    expect(window.moss.chat.send).toHaveBeenCalledWith(expect.objectContaining({
+      taskSpec: expect.objectContaining({
+        objective: "Inspect and verify this repository",
+        acceptanceCriteria: [expect.objectContaining({ mandatory: true })],
+        budget: { maxDurationMs: 900000, maxTokens: 50000, maxActions: 24, maxCostUsd: 5 },
+      }),
+      mission: {
+        authority: "supervised",
+        requestedCapabilities: ["read_file"],
+        maxAutoApprovedRisk: "readonly",
+        budget: { maxDurationMs: 900000, maxTokens: 50000, maxActions: 24, maxCostUsd: 5 },
+      },
+    }));
+  });
+
+  it("native-authorizes a policy-scoped mission immediately before sending", async () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("button", { name: "Mission" }));
+    await waitFor(() => expect(mockMissionCapabilities).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByText("Review mission"));
+    fireEvent.click(screen.getByRole("button", { name: "Policy-scoped" }));
+    fireEvent.click(screen.getByLabelText(/write_file/));
+    fireEvent.change(screen.getByPlaceholderText("Message…"), { target: { value: "Apply the bounded change" } });
+    fireEvent.click(screen.getByRole("button", { name: "Launch" }));
+
+    await waitFor(() => expect(mockMissionAuthorize).toHaveBeenCalledWith(expect.objectContaining({
+      objective: "Apply the bounded change",
+      policy: expect.objectContaining({
+        authority: "policy-scoped",
+        requestedCapabilities: ["read_file", "write_file"],
+        maxAutoApprovedRisk: "mutating",
+      }),
+    })));
+    await waitFor(() => expect(window.moss.chat.send).toHaveBeenCalledWith(expect.objectContaining({
+      mission: expect.objectContaining({
+        authority: "policy-scoped",
+        authorizationToken: "mission-token",
+      }),
+    })));
+  });
+
+  it("does not send when native mission authorization is cancelled", async () => {
+    mockMissionAuthorize.mockResolvedValue(null);
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("button", { name: "Mission" }));
+    await waitFor(() => expect(mockMissionCapabilities).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByText("Review mission"));
+    fireEvent.click(screen.getByRole("button", { name: "Policy-scoped" }));
+    fireEvent.change(screen.getByPlaceholderText("Message…"), { target: { value: "Do not lose this draft" } });
+    fireEvent.click(screen.getByRole("button", { name: "Launch" }));
+
+    await screen.findByText("Mission launch cancelled.");
+    expect(window.moss.chat.send).not.toHaveBeenCalled();
+    expect((screen.getByPlaceholderText("Message…") as HTMLTextAreaElement).value).toBe("Do not lose this draft");
   });
 
   it("forwards the configured tool-round limit", () => {
@@ -326,6 +405,66 @@ describe("ChatPanel", () => {
     expect(window.moss.task.history).toHaveBeenCalledWith("task-1");
     expect(screen.getByText("Task created")).toBeDefined();
     expect(screen.getByText("write_file approval denied")).toBeDefined();
+  });
+
+  it("renders mission graph, evidence, artifacts, exclusive work, and remaining budgets", () => {
+    render(<Harness />);
+    const turnId = startTurn();
+    const snapshot = taskSnapshot("executing");
+    snapshot.spec.budget = { maxDurationMs: 900000, maxTokens: 50000, maxActions: 24, maxCostUsd: 5 };
+    snapshot.steps = [{
+      id: "implement",
+      description: "Apply the verified change",
+      state: "running",
+      dependsOn: [],
+      requiredCapabilities: ["write_file"],
+      mission: {
+        kind: "implement",
+        workerRole: "implementer",
+        executionLane: "exclusive",
+        acceptanceCriterionIds: ["requested-outcome"],
+        budget: { maxActions: 10 },
+        expectedArtifacts: ["change-summary"],
+      },
+    }];
+    snapshot.missionPlan = { schemaVersion: 1, revision: 3, steps: snapshot.steps };
+    snapshot.attempts = [{
+      id: "attempt-1",
+      stepId: "implement",
+      startedAt: snapshot.createdAt,
+      actionCount: 4,
+      usage: { inputTokens: 7000, outputTokens: 3000 },
+      estimatedCostUsd: 1.25,
+    }];
+    snapshot.evidence = [{
+      id: "evidence-1",
+      criterionId: "requested-outcome",
+      kind: "command",
+      passed: true,
+      summary: "Focused tests passed",
+      capturedAt: snapshot.updatedAt,
+    }];
+    snapshot.artifacts = [{
+      id: "artifact-1",
+      taskId: snapshot.id,
+      planRevision: 3,
+      stepId: "implement",
+      attemptId: "attempt-1",
+      name: "change-summary",
+      summary: "Verified source update",
+      sha256: "a".repeat(64),
+      byteLength: 42,
+      createdAt: snapshot.updatedAt,
+    }];
+    emit(turnId, { type: "task-state", task: snapshot });
+
+    expect(screen.getByLabelText("Task status").textContent).toContain("Plan r3 · 0/1 steps");
+    expect(screen.getByLabelText("Remaining mission budget").textContent).toContain("20 actions left");
+    expect(screen.getByLabelText("Remaining mission budget").textContent).toContain("40,000 tokens left");
+    expect(screen.getByLabelText("Remaining mission budget").textContent).toContain("Exclusive: Apply the verified change");
+    fireEvent.click(screen.getByText("Mission details"));
+    expect(screen.getByText("Focused tests passed")).toBeDefined();
+    expect(screen.getByLabelText("Mission artifacts").textContent).toContain("Verified source update");
   });
 
   it("stamps a per-turn token subtotal on the final reply of a multi-round turn", () => {

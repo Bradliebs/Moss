@@ -15,6 +15,7 @@ import {
   applyPreset,
   mcpAddFormTypeStore,
   modelsStore,
+  saveProviderCredential,
   setModelRate,
   toEmbedConfig,
   toProviderConfig,
@@ -127,6 +128,16 @@ export function SettingsPanel({ onClose }: { onClose: () => void }): React.React
       setStatus(`${list.length} models`);
     } catch (err) {
       setStatus(`Models error: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  async function persistApiKey(apiKey: string): Promise<void> {
+    setStatus("Saving API key...");
+    try {
+      await saveProviderCredential(apiKey);
+      setStatus(apiKey.trim() ? "API key saved securely" : "API key removed");
+    } catch (error) {
+      setStatus(`API key error: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -333,7 +344,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }): React.React
               <select
                 className="w-full rounded bg-neutral-200 dark:bg-neutral-800 px-2 py-1"
                 value={settings.presetIndex}
-                onChange={(e) => applyPreset(Number(e.target.value))}
+                onChange={(e) => void applyPreset(Number(e.target.value))}
               >
                 {PROVIDER_PRESETS.map((p, i) => (
                   <option key={p.label} value={i}>
@@ -359,6 +370,10 @@ export function SettingsPanel({ onClose }: { onClose: () => void }): React.React
                 placeholder="API key"
                 value={settings.apiKey}
                 onChange={(e) => updateSettings({ apiKey: e.target.value })}
+                onBlur={(e) => void persistApiKey(e.currentTarget.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") e.currentTarget.blur();
+                }}
               />
             </label>
             <label className="block">

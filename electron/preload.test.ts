@@ -67,9 +67,19 @@ describe("preload bridge", () => {
     const config = { kind: "openai-compatible" };
     api.provider.listModels(config);
     expect(invoke).toHaveBeenCalledWith(IPC.providerListModels, config);
+    api.provider.getCredential("openrouter");
+    expect(invoke).toHaveBeenCalledWith(IPC.providerCredentialGet, "openrouter");
+    api.provider.setCredential("openrouter", "secret");
+    expect(invoke).toHaveBeenCalledWith(IPC.providerCredentialSet, "openrouter", "secret");
 
     api.task.history("task-1");
     expect(invoke).toHaveBeenCalledWith(IPC.taskHistory, "task-1");
+
+    const missionRequest = { objective: "Do work", policy: { authority: "policy-scoped" } };
+    api.mission.authorize(missionRequest);
+    expect(invoke).toHaveBeenCalledWith(IPC.missionAuthorize, missionRequest);
+    api.mission.capabilities({});
+    expect(invoke).toHaveBeenCalledWith(IPC.missionCapabilities, {});
 
     api.memory.add("fact", "context");
     expect(invoke).toHaveBeenCalledWith(IPC.memoryAdd, "fact", "context");

@@ -6,7 +6,7 @@
 
 import { createHash } from "node:crypto";
 
-import type { AgentMessage, EmailConfig, EmbedConfig, MossEvent, SttConfig, TokenUsage, ToolApprovalResponse, ToolCall, ToolDefinition, VerifyConfig } from "../../../common/types";
+import type { AgentMessage, EmailConfig, EmbedConfig, MossEvent, SttConfig, TaskExecutionGrant, TokenUsage, ToolApprovalResponse, ToolCall, ToolDefinition, VerifyConfig } from "../../../common/types";
 import type { CheckpointRecorder } from "./checkpoint/checkpoint-store";
 import { compactForOverflow, compactIfNeeded, isContextOverflowError } from "./context/compaction";
 import { attachCompactionSummary, summarizeCompactedContext } from "./context/compaction-summary";
@@ -60,6 +60,13 @@ export interface RunTurnOptions {
   requestApproval: (callId: string) => Promise<ToolApprovalResponse>;
   /** when true, skip the approval gate and run mutating tools automatically */
   autoApprove?: boolean;
+  /** Durable mission authority. When present, this replaces autoApprove for
+   *  mutating calls and requires the capability in the active step as well. */
+  executionGrant?: TaskExecutionGrant;
+  stepCapabilities?: readonly string[];
+    /** Host-owned final admission check immediately before a tool executes.
+     *  Used by durable missions to enforce remaining action budgets. */
+    toolCallGuard?: (call: ToolCall) => { allow: boolean; reason?: string };
   /** speech-to-text config for the transcribe_audio tool */
   stt?: SttConfig;
   email?: EmailConfig;
@@ -74,6 +81,8 @@ export interface RunTurnOptions {
   /** tool-round cap; defaults to MAX_ROUNDS, raised when verify is enabled so
    *  the fix/verify cycle has room to converge. */
   maxRounds?: number;
+  /** Provider output-token ceiling for each model round. */
+  maxOutputTokens?: number;
   /** base backoff for stream-failure retries (ms); overridable for tests. */
   streamRetryBaseMs?: number;
   /** Override for declared cooperative tool deadlines; used by tests and
@@ -228,7 +237,12 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
         let sawUsage = false;
         try {
           const roundTools = round < maxRounds ? tools : [];
-          for await (const ev of provider.streamChat({ model, messages: conversation, tools: roundTools }, signal)) {
+          for await (const ev of provider.streamChat({
+            model,
+            messages: conversation,
+            tools: roundTools,
+            ...(opts.maxOutputTokens ? { maxTokens: opts.maxOutputTokens } : {}),
+          }, signal)) {
             if (signal.aborted) break;
             if (ev.type === "text-delta") {
               pendingText += ev.text;
@@ -348,7 +362,14 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
         onEvent({ type: "tool-call", callId: call.id, name: call.name, arguments: call.arguments });
         const startedAt = Date.now();
         failureSource = "tool";
-        const { result, autoApproved, risk } = await executeCallWithRecovery(call, opts, failedActionSignatures, plan, delegate);
+        const admission = opts.toolCallGuard?.(call);
+        const { result, autoApproved, risk } = admission?.allow === false
+          ? {
+              result: { ok: false, content: admission.reason?.trim() || "Tool call denied by host policy" },
+              autoApproved: false,
+              risk: undefined,
+            }
+          : await executeCallWithRecovery(call, opts, failedActionSignatures, plan, delegate);
         failureSource = "harness-orchestration";
         const durationMs = Date.now() - startedAt;
         const toolMsg: AgentMessage = {
@@ -627,6 +648,8 @@ async function executeCall(call: ToolCall, opts: RunTurnOptions, plan: PlanStore
     command: call.name === "run_command" ? String(args.command ?? "") : undefined,
     args,
     autoApprove: opts.autoApprove === true,
+    ...(opts.executionGrant ? { executionGrant: opts.executionGrant } : {}),
+    ...(opts.stepCapabilities ? { stepCapabilities: opts.stepCapabilities } : {}),
   });
   if (decision.action === "deny") {
     return { result: { ok: false, content: `Denied by policy: ${call.name}` }, autoApproved: false };

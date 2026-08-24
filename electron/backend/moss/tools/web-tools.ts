@@ -6,6 +6,7 @@
 // card shows the model-chosen query/URL before any request is made.
 
 import type { Tool, ToolContext, ToolResult } from "./types";
+import { fetchPublicUrl } from "./outbound-http";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
@@ -209,17 +210,18 @@ export const fetchUrlTool: Tool = {
   async execute(args: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> {
     const raw = String(args.url ?? "").trim();
     if (!raw) return { ok: false, content: "url is required" };
-    let target: URL;
     try {
-      target = new URL(raw);
+      const target = new URL(raw);
+      if (target.protocol !== "http:" && target.protocol !== "https:") {
+        return { ok: false, content: "Only http and https URLs are supported" };
+      }
+      if (target.username || target.password) {
+        return { ok: false, content: "URLs with embedded credentials are not allowed" };
+      }
     } catch {
       return { ok: false, content: `Invalid URL: ${raw}` };
     }
-    if (target.protocol !== "http:" && target.protocol !== "https:") {
-      return { ok: false, content: "Only http and https URLs are supported" };
-    }
-
-    const cacheKey = `fetch:${target.toString()}`;
+    const cacheKey = `fetch:${raw}`;
     const cached = cacheGet(cacheKey);
     if (cached !== null) return { ok: true, content: cached };
 
@@ -228,12 +230,10 @@ export const fetchUrlTool: Tool = {
     ctx.signal.addEventListener("abort", onAbort, { once: true });
     const timer = setTimeout(() => timeout.abort(), FETCH_TIMEOUT_MS);
 
-    let res: Response;
+    let res;
     try {
-      await throttleHost(target.host, ctx.signal);
-      res = await fetch(target.toString(), {
-        headers: { "User-Agent": UA, Accept: "text/html,application/xhtml+xml,text/plain" },
-        signal: timeout.signal,
+      res = await fetchPublicUrl(raw, timeout.signal, {
+        beforeRequest: (url) => throttleHost(url.host, ctx.signal),
       });
     } catch (e) {
       return { ok: false, content: `Fetch failed: ${(e as Error).message}` };
@@ -243,8 +243,8 @@ export const fetchUrlTool: Tool = {
     }
     if (!res.ok) return { ok: false, content: `Fetch failed with HTTP ${res.status}` };
 
-    const contentType = res.headers.get("content-type") ?? "";
-    const text = await res.text();
+    const contentType = res.headers["content-type"] ?? "";
+    const text = res.body;
     let readable: string;
     if (contentType.includes("text/html") || /<html[\s>]/i.test(text)) {
       readable = text

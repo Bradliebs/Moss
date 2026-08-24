@@ -14,11 +14,16 @@ import type {
   HandoffSummaryRequest,
   HandoffSummaryResult,
   MemoryCategory,
+  MissionAuthorizationRequest,
+  MissionCapabilitiesRequest,
+  MissionCapabilityDescriptor,
+  MissionLaunchPolicy,
   MossEvent,
   SkillCreateRequest,
   SkillUpdateRequest,
   SkillRenameRequest,
   TaskSnapshot,
+  TaskBudget,
   TaskSpec,
   ToolApprovalDecision,
   TranscribeRequest,
@@ -53,15 +58,35 @@ import { createRetrospective } from "../backend/moss/learning/retrospective";
 import { LessonStore } from "../backend/moss/learning/lesson-store";
 import { memoryStore } from "../backend/moss/memory/memory-store";
 import { memoryReviewQueue } from "../backend/moss/governed/review-queue";
+import { providerCredentials } from "../backend/moss/provider-credentials";
 import { createProvider } from "../backend/moss/providers";
 import { skillsStore } from "../backend/moss/skills/skills-store";
 import { transcribeAudio } from "../backend/moss/stt";
 import { buildSystemMessage } from "../backend/moss/system-prompt";
+import { classifyTool } from "../backend/moss/permission";
+import { MissionAuthorityBroker, validateMissionAuthorizationRequest } from "../backend/moss/task/mission-authority";
+import { MissionController } from "../backend/moss/task/mission-controller";
+import { MissionPlanner } from "../backend/moss/task/mission-planner";
+import { taskArtifactStore } from "../backend/moss/task/task-artifact-store";
 import { taskEngine } from "../backend/moss/task/task-engine";
+import { WorkspaceMissionVerifier } from "../backend/moss/task/mission-verifier";
+import { RunTurnMissionWorker } from "../backend/moss/task/mission-worker";
 import { buildTaskProgressPacket, renderTaskProgressPacket, selectDependencyReadyStep } from "../backend/moss/task/progress-packet";
 
 const DEFAULT_TOOL_ROUNDS = 8;
 const MAX_TOOL_ROUNDS = 64;
+const DEFAULT_MISSION_BUDGET: Required<TaskBudget> = {
+  maxDurationMs: 15 * 60 * 1000,
+  maxTokens: 50_000,
+  maxActions: 24,
+  maxCostUsd: 5,
+};
+const MAX_MISSION_BUDGET: Required<TaskBudget> = {
+  maxDurationMs: 4 * 60 * 60 * 1000,
+  maxTokens: 1_000_000,
+  maxActions: 256,
+  maxCostUsd: 100,
+};
 
 export function resolveMaxToolRounds(requested: number | undefined, verifyEnabled: boolean): number {
   const configured = Number.isFinite(requested) ? Math.floor(requested as number) : DEFAULT_TOOL_ROUNDS;
@@ -89,6 +114,7 @@ const inflight = new Map<string, Inflight>();
 const runJournal = new RunJournal();
 const lessonStore = new LessonStore();
 const verificationRegistry = new VerificationRegistry();
+const missionAuthority = new MissionAuthorityBroker();
 let bundledCapabilityTools: ReturnType<typeof createBundledCapabilityTools> | undefined;
 let capabilityHistoryCache = new Map<string, { successCount: number; failureCount: number }>();
 
@@ -113,6 +139,33 @@ export function registerChatIpc(): void {
       }
     }
   });
+
+  ipcMain.handle(IPC.missionAuthorize, async (_event, request: MissionAuthorizationRequest) => {
+    validateMissionAuthorizationRequest(request);
+    const budget = request.policy.budget;
+    const detail = [
+      `Objective: ${request.objective.trim().slice(0, 200)}`,
+      `Workspace: ${request.workspaceRoot?.trim() || "No filesystem scope"}`,
+      `Capabilities: ${request.policy.requestedCapabilities.join(", ") || "None"}`,
+      `Automatic risk ceiling: ${request.policy.maxAutoApprovedRisk}`,
+      `Budget: ${budget?.maxActions ?? "default"} actions, ${budget?.maxTokens ?? "default"} tokens, $${budget?.maxCostUsd ?? "default"}, ${budget?.maxDurationMs ?? "default"} ms`,
+    ].join("\n");
+    const decision = await dialog.showMessageBox({
+      type: "warning",
+      title: "Authorize policy-scoped mission",
+      message: "Allow this mission to perform bounded actions without per-call approval?",
+      detail,
+      buttons: ["Cancel", "Authorize mission"],
+      defaultId: 0,
+      cancelId: 0,
+      noLink: true,
+    });
+    return decision.response === 1 ? missionAuthority.issue(request) : null;
+  });
+
+  ipcMain.handle(IPC.missionCapabilities, (_event, request: MissionCapabilitiesRequest) =>
+    routeAvailableTools(request).tools.map((tool) => describeMissionCapability(tool.name)),
+  );
 
   ipcMain.on(IPC.toolApprove, (_event, decision: ToolApprovalDecision) => {
     const entry = inflight.get(decision.turnId);
@@ -145,6 +198,10 @@ export function registerChatIpc(): void {
   ipcMain.handle(IPC.providerListModels, async (_event, config: ChatStartRequest["config"]) => {
     const provider = createProvider(config);
     return provider.listModels();
+  });
+  ipcMain.handle(IPC.providerCredentialGet, (_event, providerId: string) => providerCredentials.get(providerId));
+  ipcMain.handle(IPC.providerCredentialSet, (_event, providerId: string, apiKey: string) => {
+    providerCredentials.set(providerId, apiKey);
   });
 
   ipcMain.handle(IPC.chatSummarize, async (_event, req: HandoffSummaryRequest): Promise<HandoffSummaryResult> => {
@@ -273,10 +330,11 @@ async function startTurn(event: Electron.IpcMainEvent, req: ChatStartRequest): P
       event.sender.send(IPC.chatEvent, { turnId: req.turnId, event: mossEvent });
     }
   };
-  inflight.set(req.turnId, { controller, broker, send, ...(durableTaskId ? { taskId: durableTaskId } : {}) });
+  const inflightEntry = { controller, broker, send, ...(durableTaskId ? { taskId: durableTaskId } : {}) };
+  inflight.set(req.turnId, inflightEntry);
   const handleRendererDestroyed = () => {
     const entry = inflight.get(req.turnId);
-    if (!entry) return;
+    if (entry !== inflightEntry) return;
     entry.controller.abort();
     const callId = entry.broker.pendingCallId() ?? pendingDurableApproval?.callId;
     if (entry.taskId && callId) {
@@ -303,21 +361,8 @@ async function startTurn(event: Electron.IpcMainEvent, req: ChatStartRequest): P
         ? new BudgetEnforcingProvider(baseProvider, req.dailyBudgetUsd, req.modelRates)
         : baseProvider;
     const enableTools = req.enableTools !== false;
-    const automationTools = enableTools ? createAutomationTools(req) : [];
-    bundledCapabilityTools ??= createBundledCapabilityTools();
-    // Merge built-in tools with any connected MCP tools for this turn. MCP
-    // servers connect at runtime, so the merge is recomputed per turn rather
-    // than baked into the static built-in registry.
-    const mcpTools = enableTools ? mcpManager.getTools() : [];
-    const browserTools = automationTools.filter((tool) => tool.name.startsWith("browser_"));
-    const desktopTools = automationTools.filter((tool) => tool.name.startsWith("desktop_"));
     const routed = enableTools
-      ? routeLiveCapabilities([
-          { source: "built-in", tools: [...TOOL_REGISTRY.values(), ...bundledCapabilityTools] },
-          { source: "mcp", tools: mcpTools },
-          { source: "browser", tools: browserTools },
-          { source: "desktop", tools: desktopTools },
-        ], req, process.platform, capabilityHistoryCache)
+      ? routeAvailableTools(req)
       : { tools: [], unmet: [] };
     const toolDefinitions = enableTools
       ? routed.tools.map((tool) => ({ name: tool.name, description: tool.description, parameters: tool.parameters }))
@@ -342,7 +387,101 @@ async function startTurn(event: Electron.IpcMainEvent, req: ChatStartRequest): P
     const maxRounds = resolveMaxToolRounds(req.maxToolRounds, verifyEnabled);
     let attemptId: string | undefined;
     let acceptedCompletion: CompletionContext | undefined;
-    let task = req.taskSpec ? await ensureTurnTask(durableTaskId!, req.taskSpec, send) : undefined;
+    const storedTask = durableTaskId ? await taskStore.get(durableTaskId) : undefined;
+    if (!storedTask && req.taskSpec?.executionGrant && !req.mission) {
+      throw new Error("Mission execution grants must be issued by Electron from a mission launch policy");
+    }
+    if (!storedTask && req.taskSpec && req.mission?.authority === "policy-scoped") {
+      const token = req.mission.authorizationToken;
+      if (!token) throw new Error("Policy-scoped mission requires native authorization");
+      missionAuthority.consume(toMissionAuthorizationRequest(req.taskSpec.objective, req.mission, req), token);
+    }
+    const requestedSpec = storedTask?.spec ?? (req.taskSpec && req.mission
+      ? resolveMissionSpec(req.taskSpec, req.mission, routed.tools.map((tool) => tool.name), req)
+      : req.taskSpec);
+    let task = requestedSpec
+      ? requestedSpec.executionGrant
+        ? await ensureMissionTask(durableTaskId!, requestedSpec, send)
+        : await ensureTurnTask(durableTaskId!, requestedSpec, send)
+      : undefined;
+    if (task?.spec.executionGrant) {
+      const missionMessages: Extract<MossEvent, { type: "turn-complete" | "turn-aborted" | "turn-error" }>["messages"] = [];
+      const usedCapabilities = new Set<string>();
+      const capabilities = routed.tools.map((tool) => ({
+        ...describeMissionCapability(tool.name),
+      }));
+      const planner = new MissionPlanner({
+        provider,
+        model: req.config.model,
+        capabilities,
+        ...(task.spec.budget?.maxTokens
+          ? { maxTokens: Math.max(1, Math.floor(task.spec.budget.maxTokens / 2)) }
+          : {}),
+      });
+      const worker = new RunTurnMissionWorker({
+        provider,
+        model: req.config.model,
+        tools: routed.tools,
+        workspaceRoot,
+        checkpoint,
+        verify: req.verify,
+        maxRounds,
+        contextLimit: req.contextLimit,
+        loadArtifact: async (taskId, artifactId) => (await taskArtifactStore.get(taskId, artifactId))?.content ?? null,
+        onEvent: (workerEvent) => {
+          if (workerEvent.type === "turn-complete" || workerEvent.type === "turn-aborted" || workerEvent.type === "turn-error") {
+            missionMessages.push(...workerEvent.messages);
+            return;
+          }
+          if (workerEvent.type === "tool-result" && workerEvent.ok) usedCapabilities.add(workerEvent.name);
+          send(workerEvent);
+        },
+        requestApproval: async (callId, order) => {
+          const approvalEvent = approvalEvents.get(callId);
+          if (!approvalEvent) throw new Error(`Missing approval event for call '${callId}'`);
+          const persisted = taskEngine.requestApproval(task!.id, {
+            taskId: task!.id,
+            turnId: order.attemptId,
+            callId,
+            toolName: approvalEvent.name,
+            arguments: approvalEvent.arguments,
+            ...(approvalEvent.risk ? { risk: approvalEvent.risk } : {}),
+            status: "pending",
+            requestedAt: new Date().toISOString(),
+          });
+          pendingDurableApproval = { callId, persisted };
+          const waiting = await persisted;
+          send({ type: "task-state", task: waiting });
+          try {
+            return await broker.request(callId);
+          } finally {
+            if (pendingDurableApproval?.callId === callId) pendingDurableApproval = undefined;
+          }
+        },
+      });
+      const missionController = new MissionController({
+        engine: taskEngine,
+        store: taskStore,
+        artifactStore: taskArtifactStore,
+        planner,
+        capabilities,
+        worker,
+        verifier: new WorkspaceMissionVerifier({ workspaceRoot }),
+        onTaskState: (next) => {
+          task = next;
+          send({ type: "task-state", task: next });
+        },
+      });
+      task = await missionController.run(task.id, controller.signal);
+      send({ type: "task-state", task });
+      const summary = task.state === "completed"
+        ? "Mission completed with passing host-owned evidence."
+        : task.blocker?.summary ?? `Mission stopped in state '${task.state}'.`;
+      if (missionMessages.length === 0) missionMessages.push({ role: "assistant", content: summary, turnId: req.turnId });
+      send({ type: "turn-complete", messages: missionMessages });
+      await recordTaskLearning(task, [...usedCapabilities]).catch(() => undefined);
+      return;
+    }
     if (task) {
       const baselineCommands = verifyEnabled ? (req.verify?.commands ?? []).slice(0, 1) : [];
       const baseline = baselineCommands.length > 0 && workspaceRoot
@@ -456,11 +595,35 @@ async function startTurn(event: Electron.IpcMainEvent, req: ChatStartRequest): P
     });
   } finally {
     event.sender.removeListener("destroyed", handleRendererDestroyed);
-    inflight.delete(req.turnId);
+    if (inflight.get(req.turnId) === inflightEntry) inflight.delete(req.turnId);
   }
 }
 
-function createAutomationTools(req: ChatStartRequest) {
+function routeAvailableTools(request: MissionCapabilitiesRequest) {
+  const automationTools = createAutomationTools(request);
+  bundledCapabilityTools ??= createBundledCapabilityTools();
+  const browserTools = automationTools.filter((tool) => tool.name.startsWith("browser_"));
+  const desktopTools = automationTools.filter((tool) => tool.name.startsWith("desktop_"));
+  return routeLiveCapabilities([
+    { source: "built-in", tools: [...TOOL_REGISTRY.values(), ...bundledCapabilityTools] },
+    { source: "mcp", tools: mcpManager.getTools() },
+    { source: "browser", tools: browserTools },
+    { source: "desktop", tools: desktopTools },
+  ], request, process.platform, capabilityHistoryCache);
+}
+
+function describeMissionCapability(name: string): MissionCapabilityDescriptor {
+  return {
+    id: name,
+    risk: name === "send_email"
+      ? "destructive"
+      : classifyTool(name) === "allow"
+        ? "readonly"
+        : "mutating",
+  };
+}
+
+function createAutomationTools(req: Pick<ChatStartRequest, "automation">) {
   const automation = req.automation;
   if (!automation) return [];
   const tools = [];
@@ -507,6 +670,90 @@ async function ensureTurnTask(
   }
   send({ type: "task-state", task });
   return task;
+}
+
+async function ensureMissionTask(
+  taskId: string,
+  spec: TaskSpec,
+  send: (event: MossEvent) => void,
+): Promise<NonNullable<Awaited<ReturnType<typeof taskStore.get>>>> {
+  let task = await taskStore.get(taskId);
+  if (!task) task = await taskEngine.create(spec, taskId);
+  send({ type: "task-state", task });
+  return task;
+}
+
+export function resolveMissionSpec(
+  spec: TaskSpec,
+  policy: MissionLaunchPolicy,
+  availableCapabilities: readonly string[],
+  request: Pick<ChatStartRequest, "workspaceRoot" | "automation">,
+): TaskSpec {
+  const available = new Set(availableCapabilities);
+  const requested = policy.requestedCapabilities.map((capability) => capability.trim());
+  if (requested.some((capability) => !capability)) throw new Error("Mission capabilities must be non-empty");
+  if (new Set(requested).size !== requested.length) throw new Error("Mission capabilities must be unique");
+  const unavailable = requested.filter((capability) => !available.has(capability));
+  if (unavailable.length > 0) throw new Error(`Mission capabilities are unavailable: ${unavailable.join(", ")}`);
+
+  const budget = boundMissionBudget(policy.budget);
+  return {
+    ...structuredClone(spec),
+    ...(request.workspaceRoot ? { workspaceRoot: request.workspaceRoot } : {}),
+    budget,
+    executionGrant: {
+      schemaVersion: 1,
+      authority: policy.authority,
+      allowedCapabilities: requested,
+      maxAutoApprovedRisk: policy.authority === "supervised" ? "readonly" : policy.maxAutoApprovedRisk,
+      budget: structuredClone(budget),
+      scopes: {
+        ...(request.workspaceRoot ? { workspaceRoot: request.workspaceRoot } : {}),
+        ...(request.automation?.browserAllowedDomains?.length
+          ? { browserDomains: [...request.automation.browserAllowedDomains] }
+          : {}),
+        ...(request.automation?.desktopAllowedProcesses?.length
+          ? { desktopProcesses: [...request.automation.desktopAllowedProcesses] }
+          : {}),
+        ...(request.automation?.desktopAllowedWindows?.length
+          ? { desktopWindows: [...request.automation.desktopAllowedWindows] }
+          : {}),
+      },
+    },
+  };
+}
+
+function boundMissionBudget(requested: TaskBudget | undefined): Required<TaskBudget> {
+  return {
+    maxDurationMs: boundBudgetValue(requested?.maxDurationMs, DEFAULT_MISSION_BUDGET.maxDurationMs, MAX_MISSION_BUDGET.maxDurationMs),
+    maxTokens: boundBudgetValue(requested?.maxTokens, DEFAULT_MISSION_BUDGET.maxTokens, MAX_MISSION_BUDGET.maxTokens),
+    maxActions: boundBudgetValue(requested?.maxActions, DEFAULT_MISSION_BUDGET.maxActions, MAX_MISSION_BUDGET.maxActions),
+    maxCostUsd: boundBudgetValue(requested?.maxCostUsd, DEFAULT_MISSION_BUDGET.maxCostUsd, MAX_MISSION_BUDGET.maxCostUsd),
+  };
+}
+
+function boundBudgetValue(value: number | undefined, fallback: number, ceiling: number): number {
+  if (value === undefined) return fallback;
+  if (!Number.isFinite(value) || value <= 0) throw new Error("Mission budgets must be positive finite numbers");
+  return Math.min(value, ceiling);
+}
+
+function toMissionAuthorizationRequest(
+  objective: string,
+  policy: MissionLaunchPolicy,
+  request: Pick<ChatStartRequest, "workspaceRoot" | "automation">,
+): MissionAuthorizationRequest {
+  return {
+    objective,
+    ...(request.workspaceRoot ? { workspaceRoot: request.workspaceRoot } : {}),
+    policy: {
+      authority: policy.authority,
+      requestedCapabilities: [...policy.requestedCapabilities],
+      maxAutoApprovedRisk: policy.maxAutoApprovedRisk,
+      ...(policy.budget ? { budget: structuredClone(policy.budget) } : {}),
+    },
+    ...(request.automation ? { automation: structuredClone(request.automation) } : {}),
+  };
 }
 
 async function finalizeTurnTask(

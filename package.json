@@ -20,6 +20,7 @@
     "dev:renderer": "vite",
     "dev": "npm run build:main && npm run build:renderer && electron .",
     "pack": "npm run build && electron-builder --dir",
+    "smoke:packaged": "node scripts/smoke-packaged.mjs",
     "dist": "npm run build && electron-builder --win nsis"
   },
   "dependencies": {

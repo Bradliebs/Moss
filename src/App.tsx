@@ -6,7 +6,7 @@ import { ChatPanel } from "./components/ChatPanel";
 import { LibraryPanel } from "./components/LibraryPanel";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { Sidebar } from "./components/Sidebar";
-import { settingsStore } from "./lib/settings";
+import { initializeProviderCredential, settingsStore } from "./lib/settings";
 
 type Overlay = "none" | "settings" | "library";
 
@@ -15,6 +15,10 @@ export default function App(): React.JSX.Element {
   const [chatsOpen, setChatsOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const theme = settingsStore.use().theme;
+
+  useEffect(() => {
+    void initializeProviderCredential();
+  }, []);
 
   useEffect(() => {
     const mq = typeof window.matchMedia === "function" ? window.matchMedia("(prefers-color-scheme: dark)") : null;

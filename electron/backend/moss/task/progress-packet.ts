@@ -33,6 +33,26 @@ export function selectDependencyReadyStep(task: TaskSnapshot): TaskStep | undefi
   return ready ? structuredClone(ready) : undefined;
 }
 
+export function selectDependencyReadySteps(task: TaskSnapshot, maxReadonlyConcurrency = 2): TaskStep[] {
+  const running = task.steps.filter((step) => step.state === "running");
+  if (running.length > 0) return running.map((step) => structuredClone(step));
+  const completed = new Set(task.steps
+    .filter((step) => step.state === "completed" || step.state === "skipped")
+    .map((step) => step.id));
+  const ready = task.steps.filter((step) =>
+    (step.state === "pending" || step.state === "failed")
+    && step.dependsOn.every((dependency) => completed.has(dependency)),
+  );
+  const first = ready[0];
+  if (!first) return [];
+  if (first.mission?.executionLane !== "readonly-parallel") return [structuredClone(first)];
+  const limit = Math.max(1, Math.min(4, Math.floor(maxReadonlyConcurrency)));
+  return ready
+    .filter((step) => step.mission?.executionLane === "readonly-parallel")
+    .slice(0, limit)
+    .map((step) => structuredClone(step));
+}
+
 export function buildTaskProgressPacket(task: TaskSnapshot, options: ProgressPacketOptions = {}): TaskProgressPacket {
   const currentStep = selectDependencyReadyStep(task);
   const latestEvidence = latestEvidenceByCriterion(task.evidence);

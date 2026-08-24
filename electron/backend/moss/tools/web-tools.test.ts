@@ -2,6 +2,12 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const outbound = vi.hoisted(() => ({
+  fetchPublicUrl: vi.fn(),
+}));
+
+vi.mock("./outbound-http", () => outbound);
+
 import type { ToolContext } from "./types";
 import { __resetWebToolsCache, fetchUrlTool, webSearchTool } from "./web-tools";
 
@@ -20,10 +26,18 @@ function mockFetch(body: string, init?: { ok?: boolean; status?: number; content
       text: async () => body,
     })),
   );
+  outbound.fetchPublicUrl.mockResolvedValue({
+    ok,
+    status: init?.status ?? (ok ? 200 : 500),
+    headers: { "content-type": init?.contentType ?? "text/html" },
+    body,
+    finalUrl: "https://example.com/",
+  });
 }
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  outbound.fetchPublicUrl.mockReset();
   __resetWebToolsCache();
 });
 

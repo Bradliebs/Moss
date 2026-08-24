@@ -11,7 +11,7 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { AgentMessage, MossEvent, ToolDefinition } from "../../../common/types";
+import type { AgentMessage, MossEvent, TaskExecutionGrant, ToolDefinition } from "../../../common/types";
 import { runTurn } from "./agent-runner";
 import type { CompletionContext, CompletionDecision } from "./agent-runner";
 import { ToolOutputStore } from "./context/tool-output-store";
@@ -76,6 +76,8 @@ async function run(
     approve?: boolean;
     aborted?: boolean;
     autoApprove?: boolean;
+    executionGrant?: TaskExecutionGrant;
+    stepCapabilities?: string[];
     toolTimeoutMs?: number;
     messages?: AgentMessage[];
     turnId?: string;
@@ -88,6 +90,7 @@ async function run(
     now?: () => Date;
     approvalComment?: string;
     toolOutputStore?: ToolOutputStore;
+    toolCallGuard?: (call: { id: string; name: string; arguments: string }) => { allow: boolean; reason?: string };
   },
 ): Promise<Harness> {
   const events: MossEvent[] = [];
@@ -120,6 +123,8 @@ async function run(
       };
     },
     autoApprove: opts?.autoApprove ?? false,
+    ...(opts?.executionGrant ? { executionGrant: opts.executionGrant } : {}),
+    ...(opts?.stepCapabilities ? { stepCapabilities: opts.stepCapabilities } : {}),
     // Zero backoff keeps the failure tests instant; retry behavior is exercised
     // explicitly below.
     streamRetryBaseMs: 0,
@@ -132,6 +137,7 @@ async function run(
     ...(opts?.completionGuard !== undefined ? { completionGuard: opts.completionGuard } : {}),
     ...(opts?.now !== undefined ? { now: opts.now } : {}),
     ...(opts?.toolOutputStore !== undefined ? { toolOutputStore: opts.toolOutputStore } : {}),
+    ...(opts?.toolCallGuard !== undefined ? { toolCallGuard: opts.toolCallGuard } : {}),
   });
 
   return { events, approvals };
@@ -300,6 +306,21 @@ describe("runTurn", () => {
     expect(execute).not.toHaveBeenCalled();
     const res = h.events.find((e) => e.type === "tool-result") as Extract<MossEvent, { type: "tool-result" }>;
     expect(res.content).toContain("Invalid JSON arguments");
+  });
+
+  it("does not execute a tool denied by the host admission guard", async () => {
+    const execute = vi.fn(async () => ({ ok: true, content: "should not run" }));
+    const provider = scriptedProvider([
+      [call("c1", "read_file")],
+      [{ type: "text-delta", text: "stopped" }],
+    ]);
+    const h = await run(provider, [tool("read_file", execute)], {
+      toolCallGuard: () => ({ allow: false, reason: "Step action budget exhausted" }),
+    });
+
+    expect(execute).not.toHaveBeenCalled();
+    const res = h.events.find((event) => event.type === "tool-result") as Extract<MossEvent, { type: "tool-result" }>;
+    expect(res).toMatchObject({ ok: false, content: "Step action budget exhausted" });
   });
 
   it("isolates a throwing tool into a failed result", async () => {
@@ -500,6 +521,29 @@ describe("runTurn", () => {
     const complete = h.events.find((e) => e.type === "turn-complete") as Extract<MossEvent, { type: "turn-complete" }>;
     const toolMsg = complete.messages.find((m) => m.role === "tool");
     expect(toolMsg?.autoApproved).toBe(true);
+  });
+
+  it("uses the active mission grant instead of legacy auto-approve", async () => {
+    const provider = scriptedProvider([[call("c1", "write_file")], [{ type: "text-delta", text: "ok" }]]);
+    const executionGrant: TaskExecutionGrant = {
+      schemaVersion: 1,
+      authority: "policy-scoped",
+      allowedCapabilities: ["write_file"],
+      maxAutoApprovedRisk: "mutating",
+      budget: { maxActions: 2 },
+      scopes: {},
+    };
+    const h = await run(provider, [tool("write_file", { ok: true, content: "WROTE" })], {
+      autoApprove: true,
+      executionGrant,
+      stepCapabilities: [],
+      approve: false,
+    });
+
+    expect(h.approvals).toEqual([]);
+    const result = h.events.find((event) => event.type === "tool-result") as Extract<MossEvent, { type: "tool-result" }>;
+    expect(result).toMatchObject({ ok: false, autoApproved: false });
+    expect(result.content).toContain("Denied by policy");
   });
 
   it("does not mark allow-listed or user-approved tools as auto-approved", async () => {

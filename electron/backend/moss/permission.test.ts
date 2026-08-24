@@ -112,6 +112,91 @@ describe("resolvePermission", () => {
     }
   });
 
+  it("always prompts consequential external actions", () => {
+    expect(resolvePermission({ name: "send_email", autoApprove: true })).toEqual({
+      action: "prompt",
+      autoApproved: false,
+      risk: "destructive",
+    });
+  });
+
+  it("uses policy-scoped grants instead of the legacy auto-approve switch", () => {
+    const executionGrant = {
+      schemaVersion: 1 as const,
+      authority: "policy-scoped" as const,
+      allowedCapabilities: ["write_file"],
+      maxAutoApprovedRisk: "mutating" as const,
+      budget: { maxActions: 3 },
+      scopes: {},
+    };
+
+    expect(resolvePermission({
+      name: "write_file",
+      autoApprove: false,
+      executionGrant,
+      stepCapabilities: ["write_file"],
+    }).action).toBe("run");
+    expect(resolvePermission({
+      name: "write_file",
+      autoApprove: true,
+      executionGrant,
+      stepCapabilities: [],
+    }).action).toBe("deny");
+    expect(resolvePermission({
+      name: "move_file",
+      autoApprove: true,
+      executionGrant,
+      stepCapabilities: ["move_file"],
+    }).action).toBe("deny");
+  });
+
+  it("denies normally auto-allowed tools outside a mission step grant", () => {
+    const executionGrant = {
+      schemaVersion: 1 as const,
+      authority: "policy-scoped" as const,
+      allowedCapabilities: ["read_file"],
+      maxAutoApprovedRisk: "readonly" as const,
+      budget: {},
+      scopes: {},
+    };
+
+    expect(resolvePermission({
+      name: "list_dir",
+      autoApprove: true,
+      executionGrant,
+      stepCapabilities: ["read_file"],
+    })).toEqual({ action: "deny", autoApproved: false });
+    expect(resolvePermission({
+      name: "read_file",
+      autoApprove: true,
+      executionGrant,
+      stepCapabilities: ["read_file"],
+    })).toEqual({ action: "run", autoApproved: false });
+  });
+
+  it("does not auto-approve mutations with a supervised or read-only grant", () => {
+    const baseGrant = {
+      schemaVersion: 1 as const,
+      allowedCapabilities: ["run_command"],
+      budget: { maxActions: 2 },
+      scopes: {},
+    };
+    expect(resolvePermission({
+      name: "run_command",
+      command: "npm test",
+      autoApprove: true,
+      executionGrant: { ...baseGrant, authority: "supervised", maxAutoApprovedRisk: "mutating" },
+      stepCapabilities: ["run_command"],
+    }).action).toBe("prompt");
+    expect(resolvePermission({
+      name: "run_command",
+      command: "npm test",
+      autoApprove: true,
+      executionGrant: { ...baseGrant, authority: "policy-scoped", maxAutoApprovedRisk: "readonly" },
+      stepCapabilities: ["run_command"],
+    }).action).toBe("prompt");
+  });
+
   it("treats other shell commands as mutating", () => {
     expect(resolvePermission({ name: "run_command", command: "npm install", autoApprove: false }).action).toBe("prompt");
     expect(resolvePermission({ name: "run_command", command: "npm install", autoApprove: true })).toEqual({

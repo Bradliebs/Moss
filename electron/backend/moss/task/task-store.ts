@@ -15,7 +15,7 @@ const RENAME_RETRIES = 5;
 const RENAME_RETRY_BASE_MS = 20;
 
 const ALLOWED_TRANSITIONS: Readonly<Record<TaskState, readonly TaskState[]>> = {
-  intake: ["planning", "failed", "cancelled"],
+  intake: ["planning", "blocked", "failed", "cancelled"],
   planning: ["executing", "waiting_for_approval", "paused", "blocked", "failed", "cancelled"],
   executing: ["planning", "verifying", "waiting_for_approval", "paused", "blocked", "failed", "cancelled"],
   verifying: ["planning", "executing", "reflecting", "paused", "blocked", "failed", "cancelled"],
@@ -320,14 +320,18 @@ export class TaskStore {
   }
 
   private async readSnapshot(id: string): Promise<TaskSnapshot | null> {
+    let materialized: TaskSnapshot | null = null;
     try {
       const parsed: unknown = JSON.parse(await readFile(this.snapshotFile(id), "utf8"));
-      if (isTaskSnapshot(parsed) && parsed.id === id) return parsed;
+      if (isTaskSnapshot(parsed) && parsed.id === id) materialized = parsed;
     } catch {
-      // Fall through to the append-only journal, which can recover a snapshot
-      // interrupted during atomic replacement or damaged after a hard shutdown.
+      // The append-only journal can recover a snapshot interrupted during
+      // atomic replacement or damaged after a hard shutdown.
     }
-    return this.readLatestJournalSnapshot(id);
+    const journaled = await this.readLatestJournalSnapshot(id);
+    if (!materialized) return journaled;
+    if (!journaled) return materialized;
+    return journaled.revision > materialized.revision ? journaled : materialized;
   }
 
   private async readLatestJournalSnapshot(id: string): Promise<TaskSnapshot | null> {

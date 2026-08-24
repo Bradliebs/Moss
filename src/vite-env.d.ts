@@ -13,6 +13,10 @@ import type {
   McpServerStatus,
   MemoryCategory,
   MemoryEntry,
+  MissionAuthorization,
+  MissionAuthorizationRequest,
+  MissionCapabilitiesRequest,
+  MissionCapabilityDescriptor,
   ProviderConfig,
   Skill,
   SkillCreateRequest,
@@ -57,8 +61,14 @@ declare global {
         resume: (id: string) => Promise<TaskSnapshot>;
         cancel: (id: string) => Promise<TaskSnapshot>;
       };
+      mission: {
+        authorize: (request: MissionAuthorizationRequest) => Promise<MissionAuthorization | null>;
+        capabilities: (request: MissionCapabilitiesRequest) => Promise<MissionCapabilityDescriptor[]>;
+      };
       provider: {
         listModels: (config: ProviderConfig) => Promise<string[]>;
+        getCredential: (providerId: string) => Promise<string>;
+        setCredential: (providerId: string, apiKey: string) => Promise<void>;
       };
       workspace: {
         pick: () => Promise<string | null>;

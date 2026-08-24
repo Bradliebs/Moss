@@ -43,9 +43,13 @@ vi.mock("../lib/settings", () => ({
     { label: "Ollama" },
     { label: "OpenAI" },
     { label: "Anthropic" },
+    { label: "OpenRouter" },
+    { label: "Mistral" },
+    { label: "xAI (Grok)" },
     { label: "Custom" },
   ],
   applyPreset: vi.fn(),
+  saveProviderCredential: vi.fn(() => Promise.resolve()),
   updateSettings: vi.fn(),
   toProviderConfig: vi.fn(() => ({})),
   toEmbedConfig: vi.fn(() => ({ baseUrl: "http://x", model: "nomic-embed-text" })),
@@ -68,7 +72,11 @@ beforeEach(() => {
         servers: vi.fn(() => Promise.resolve([])),
         reconnect: vi.fn(() => Promise.resolve([])),
       },
-      provider: { listModels: vi.fn(() => Promise.resolve([])) },
+      provider: {
+        listModels: vi.fn(() => Promise.resolve([])),
+        getCredential: vi.fn(() => Promise.resolve("")),
+        setCredential: vi.fn(() => Promise.resolve()),
+      },
       workspace: { pick: vi.fn(() => Promise.resolve(null)) },
       codebase: {
         status: vi.fn(() => Promise.resolve({ indexed: false, files: 0, chunks: 0, model: "" })),
@@ -91,6 +99,9 @@ describe("SettingsPanel", () => {
     expect(screen.getByRole("option", { name: "Ollama" })).toBeDefined();
     expect(screen.getByRole("option", { name: "OpenAI" })).toBeDefined();
     expect(screen.getByRole("option", { name: "Anthropic" })).toBeDefined();
+    expect(screen.getByRole("option", { name: "OpenRouter" })).toBeDefined();
+    expect(screen.getByRole("option", { name: "Mistral" })).toBeDefined();
+    expect(screen.getByRole("option", { name: "xAI (Grok)" })).toBeDefined();
     expect(screen.getByRole("option", { name: "Custom" })).toBeDefined();
   });
 
@@ -108,6 +119,14 @@ describe("SettingsPanel", () => {
       target: { value: "http://localhost:9999/v1" },
     });
     expect(settings.updateSettings).toHaveBeenCalledWith({ baseUrl: "http://localhost:9999/v1" });
+  });
+
+  it("saves the active provider API key when the field loses focus", async () => {
+    render(<SettingsPanel onClose={() => {}} />);
+    const input = screen.getByPlaceholderText("API key");
+    fireEvent.change(input, { target: { value: "provider-secret" } });
+    fireEvent.blur(input, { target: { value: "provider-secret" } });
+    await waitFor(() => expect(settings.saveProviderCredential).toHaveBeenCalledWith("provider-secret"));
   });
 
   it("stores a selected Moss avatar", async () => {

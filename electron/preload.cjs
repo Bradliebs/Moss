@@ -19,7 +19,11 @@ const CH = {
   taskPause: "moss:task:pause",
   taskResume: "moss:task:resume",
   taskCancel: "moss:task:cancel",
+  missionAuthorize: "moss:mission:authorize",
+  missionCapabilities: "moss:mission:capabilities",
   providerListModels: "moss:provider:listModels",
+  providerCredentialGet: "moss:provider:credentialGet",
+  providerCredentialSet: "moss:provider:credentialSet",
   workspacePick: "moss:workspace:pick",
   memoryList: "moss:memory:list",
   memoryAdd: "moss:memory:add",
@@ -76,8 +80,14 @@ contextBridge.exposeInMainWorld("moss", {
     resume: (id) => ipcRenderer.invoke(CH.taskResume, id),
     cancel: (id) => ipcRenderer.invoke(CH.taskCancel, id),
   },
+  mission: {
+    authorize: (request) => ipcRenderer.invoke(CH.missionAuthorize, request),
+    capabilities: (request) => ipcRenderer.invoke(CH.missionCapabilities, request),
+  },
   provider: {
     listModels: (config) => ipcRenderer.invoke(CH.providerListModels, config),
+    getCredential: (providerId) => ipcRenderer.invoke(CH.providerCredentialGet, providerId),
+    setCredential: (providerId, apiKey) => ipcRenderer.invoke(CH.providerCredentialSet, providerId, apiKey),
   },
   workspace: {
     pick: () => ipcRenderer.invoke(CH.workspacePick),

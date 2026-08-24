@@ -59,6 +59,13 @@ describe("createPersistentStore", () => {
     expect(JSON.parse(ls.getItem("k.set") as string)).toBe(5);
   });
 
+  it("can redact fields from persistence without changing the in-memory value", () => {
+    const store = createPersistentStore("k.redact", { apiKey: "", model: "" }, (value) => ({ ...value, apiKey: "" }));
+    store.set({ apiKey: "provider-secret", model: "m" });
+    expect(store.get().apiKey).toBe("provider-secret");
+    expect(JSON.parse(ls.getItem("k.redact") as string)).toEqual({ apiKey: "", model: "m" });
+  });
+
   it("update applies a function to the previous value", () => {
     const store = createPersistentStore("k.upd", 1);
     store.update((p) => p + 9);

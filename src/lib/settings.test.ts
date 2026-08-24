@@ -5,7 +5,7 @@
 // baseline before each test. localStorage is absent in node, so the stores run
 // purely in memory (their access is try/catch-guarded).
 
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   applyPreset,
@@ -43,6 +43,10 @@ beforeEach(() => {
   modelsStore.set([]);
 });
 
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 describe("toProviderConfig", () => {
   it("omits the apiKey when it is empty", () => {
     expect(toProviderConfig({ ...baseline, apiKey: "" }).apiKey).toBeUndefined();
@@ -77,6 +81,16 @@ describe("toEmbedConfig", () => {
 });
 
 describe("applyPreset", () => {
+  it.each([
+    ["OpenRouter", "https://openrouter.ai/api/v1"],
+    ["Mistral", "https://api.mistral.ai/v1"],
+    ["xAI (Grok)", "https://api.x.ai/v1"],
+  ])("applies the %s OpenAI-compatible preset", (label, baseUrl) => {
+    const idx = PROVIDER_PRESETS.findIndex((p) => p.label === label);
+    applyPreset(idx);
+    expect(settingsStore.get()).toMatchObject({ presetIndex: idx, kind: "openai-compatible", baseUrl });
+  });
+
   it("applies the Anthropic preset and clears the cached model list", () => {
     modelsStore.set(["old-model"]);
     const idx = PROVIDER_PRESETS.findIndex((p) => p.label === "Anthropic");
@@ -92,6 +106,30 @@ describe("applyPreset", () => {
     const before = settingsStore.get();
     applyPreset(999);
     expect(settingsStore.get()).toEqual(before);
+  });
+
+  it("restores each provider's saved model and credential", async () => {
+    const getCredential = vi.fn((providerId: string) => Promise.resolve(`${providerId}-key`));
+    vi.stubGlobal("window", { moss: { provider: { getCredential, setCredential: vi.fn() } } });
+    const openAi = PROVIDER_PRESETS.findIndex((preset) => preset.id === "openai");
+    const anthropic = PROVIDER_PRESETS.findIndex((preset) => preset.id === "anthropic");
+
+    await applyPreset(openAi);
+    updateSettings({ model: "gpt-model" });
+    await applyPreset(anthropic);
+    updateSettings({ model: "claude-model" });
+    await applyPreset(openAi);
+
+    expect(settingsStore.get()).toMatchObject({ model: "gpt-model", apiKey: "openai-key" });
+    expect(getCredential).toHaveBeenCalledWith("openai");
+  });
+
+  it("preserves the current model on the first switch after upgrading", async () => {
+    settingsStore.set({ ...baseline, model: "legacy-ollama-model" });
+    const anthropic = PROVIDER_PRESETS.findIndex((preset) => preset.id === "anthropic");
+    await applyPreset(anthropic);
+    await applyPreset(0);
+    expect(settingsStore.get().model).toBe("legacy-ollama-model");
   });
 });
 

@@ -4,6 +4,8 @@
 // filesystem or executes commands requires explicit user approval. The path
 // guard (path-guard.ts) is a separate, always-on sandbox enforced at execution.
 
+import type { TaskExecutionGrant, ToolRisk } from "../../../common/types";
+
 export type Permission = "allow" | "ask" | "deny";
 
 const AUTO_ALLOW = new Set<string>([
@@ -176,16 +178,29 @@ export interface PolicyInput {
   command?: string;
   args?: Readonly<Record<string, unknown>>;
   autoApprove: boolean;
+  executionGrant?: TaskExecutionGrant;
+  stepCapabilities?: readonly string[];
 }
 
 const IRREVERSIBLE_ACTION_PATTERN = /\b(delete|destroy|remove|submit|publish|pay|send|confirm|purchase)\b/i;
+const ALWAYS_PROMPT_TOOLS = new Set(["send_email"]);
 
 /** Resolve whether a tool call runs, prompts, or is denied. Centralizes the
  *  whole policy so the agent runner stays thin and the rules stay testable. */
 export function resolvePermission(input: PolicyInput): PolicyDecision {
+  if (input.executionGrant && (
+    !input.executionGrant.allowedCapabilities.includes(input.name)
+    || !(input.stepCapabilities?.includes(input.name) ?? false)
+  )) {
+    return { action: "deny", autoApproved: false };
+  }
   const base = classifyTool(input.name);
   if (base === "deny") return { action: "deny", autoApproved: false };
   if (base === "allow") return { action: "run", autoApproved: false };
+
+  if (ALWAYS_PROMPT_TOOLS.has(input.name)) {
+    return { action: "prompt", autoApproved: false, risk: "destructive" };
+  }
 
   if (
     (input.name === "browser_click" || input.name === "desktop_invoke")
@@ -202,13 +217,22 @@ export function resolvePermission(input: PolicyInput): PolicyDecision {
     if (risk === "readonly") return { action: "run", autoApproved: false, risk };
     // Destructive commands always prompt, even when auto-approve is on.
     if (risk === "destructive") return { action: "prompt", autoApproved: false, risk };
-    // Mutating commands: auto-approve runs them, otherwise prompt.
-    return input.autoApprove
+    // Mutating commands: a mission grant replaces the legacy chat-wide switch.
+    return mayAutoApprove(input, risk)
       ? { action: "run", autoApproved: true, risk }
       : { action: "prompt", autoApproved: false, risk };
   }
 
-  return input.autoApprove
+  return mayAutoApprove(input, "mutating")
     ? { action: "run", autoApproved: true, risk: "mutating" }
     : { action: "prompt", autoApproved: false, risk: "mutating" };
+}
+
+function mayAutoApprove(input: PolicyInput, risk: Exclude<ToolRisk, "destructive">): boolean {
+  const grant = input.executionGrant;
+  if (!grant) return input.autoApprove;
+  if (grant.schemaVersion !== 1 || grant.authority !== "policy-scoped") return false;
+  if (grant.maxAutoApprovedRisk === "readonly" && risk !== "readonly") return false;
+  return grant.allowedCapabilities.includes(input.name)
+    && (input.stepCapabilities?.includes(input.name) ?? false);
 }

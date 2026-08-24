@@ -12,6 +12,9 @@
 // approval-broker <-> toolApprove bridge, and turn-error propagation.
 
 import { EventEmitter } from "node:events";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -34,7 +37,7 @@ vi.mock("electron", () => ({
     on: (channel: string, fn: (...args: unknown[]) => unknown) => recorded.on.set(channel, fn),
     handle: (channel: string, fn: (...args: unknown[]) => unknown) => recorded.handle.set(channel, fn),
   },
-  dialog: { showOpenDialog: vi.fn() },
+  dialog: { showOpenDialog: vi.fn(), showMessageBox: vi.fn() },
   shell: { openPath: vi.fn() },
 }));
 
@@ -246,6 +249,129 @@ describe("chat IPC turn (e2e)", () => {
       await taskStore.delete(taskId);
     }
   });
+
+  it("routes explicitly granted durable tasks through mission planning", async () => {
+    const taskId = `mission-${crypto.randomUUID()}`;
+    mockProviderRef.current = scriptedProvider([[
+      {
+        type: "tool-call",
+        toolCall: {
+          id: "plan-1",
+          name: "submit_mission_plan",
+          arguments: JSON.stringify({ userDecision: { summary: "Choose the deployment target" } }),
+        },
+      },
+    ]]);
+    const sent: ChatEventPayload[] = [];
+
+    try {
+      recorded.on.get(IPC.chatStart)!(fakeEvent(sent), request({
+        taskId,
+        taskSpec: {
+          objective: "Prepare a deployment",
+          acceptanceCriteria: [{ id: "ready", description: "Deployment is ready", mandatory: true }],
+          constraints: [],
+          assumptions: [],
+        },
+        mission: {
+          authority: "supervised",
+          requestedCapabilities: [],
+          maxAutoApprovedRisk: "readonly",
+        },
+      }));
+
+      await vi.waitFor(() => {
+        expect(sent.some((payload) => payload.event.type === "turn-complete")).toBe(true);
+      });
+      expect(await taskStore.get(taskId)).toMatchObject({
+        state: "blocked",
+        blocker: { kind: "user-decision", summary: "Choose the deployment target" },
+        steps: [],
+      });
+      expect(sent.some((payload) =>
+        payload.event.type === "task-state" && payload.event.task.blocker?.kind === "user-decision"
+      )).toBe(true);
+    } finally {
+      await taskStore.delete(taskId);
+    }
+  });
+
+  it("completes a planned mission only after scoped work and deterministic verification", async () => {
+    const taskId = `mission-complete-${crypto.randomUUID()}`;
+    const workspaceRoot = mkdtempSync(join(tmpdir(), "moss-mission-ipc-"));
+    writeFileSync(join(workspaceRoot, "package.json"), JSON.stringify({
+      scripts: { test: "node -e \"process.exit(0)\"" },
+    }), "utf8");
+    const plan = {
+      schemaVersion: 1,
+      revision: 1,
+      steps: [{
+        id: "verify",
+        description: "Inspect and verify the workspace",
+        state: "pending",
+        dependsOn: [],
+        requiredCapabilities: ["read_file"],
+        mission: {
+          kind: "verify",
+          workerRole: "verifier",
+          executionLane: "readonly-parallel",
+          acceptanceCriterionIds: ["tests"],
+          budget: { maxDurationMs: 15 * 60 * 1000, maxTokens: 50_000, maxActions: 1, maxCostUsd: 5 },
+          expectedArtifacts: ["report"],
+        },
+      }],
+    };
+    mockProviderRef.current = scriptedProvider([
+      [{
+        type: "tool-call",
+        toolCall: { id: "plan-1", name: "submit_mission_plan", arguments: JSON.stringify({ plan }) },
+      }],
+      [{
+        type: "tool-call",
+        toolCall: { id: "read-1", name: "read_file", arguments: JSON.stringify({ path: "package.json" }) },
+      }],
+      [{ type: "text-delta", text: "Workspace inspection completed." }],
+    ]);
+    const sent: ChatEventPayload[] = [];
+
+    try {
+      recorded.on.get(IPC.chatStart)!(fakeEvent(sent), request({
+        enableTools: true,
+        workspaceRoot,
+        taskId,
+        taskSpec: {
+          objective: "Inspect and verify the workspace",
+          acceptanceCriteria: [{ id: "tests", description: "Tests pass", mandatory: true }],
+          constraints: [],
+          assumptions: [],
+          workspaceRoot,
+        },
+        mission: {
+          authority: "supervised",
+          requestedCapabilities: ["read_file"],
+          maxAutoApprovedRisk: "readonly",
+          budget: { maxActions: 1 },
+        },
+      }));
+
+      await vi.waitFor(() => {
+        expect(sent.some((payload) =>
+          payload.event.type === "turn-complete" || payload.event.type === "turn-error"
+        )).toBe(true);
+      }, { timeout: 15_000 });
+      expect(sent.find((payload) => payload.event.type === "turn-error")?.event).toBeUndefined();
+      expect(await taskStore.get(taskId)).toMatchObject({
+        state: "completed",
+        steps: [{ id: "verify", state: "completed" }],
+        artifacts: [{ name: "report", stepId: "verify" }],
+        evidence: [{ criterionId: "tests", passed: true, kind: "command" }],
+      });
+      expect(sent.some((payload) => payload.event.type === "tool-result" && payload.event.name === "read_file")).toBe(true);
+    } finally {
+      await taskStore.delete(taskId);
+      rmSync(workspaceRoot, { recursive: true, force: true });
+    }
+  }, 20_000);
 
   it("interrupts a pending durable approval when the renderer disappears", async () => {
     const taskId = `renderer-loss-${crypto.randomUUID()}`;

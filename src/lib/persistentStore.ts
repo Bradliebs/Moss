@@ -14,7 +14,7 @@ export interface PersistentStore<T> {
   use(): T;
 }
 
-export function createPersistentStore<T>(key: string, fallback: T): PersistentStore<T> {
+export function createPersistentStore<T>(key: string, fallback: T, toPersist: (value: T) => T = (value) => value): PersistentStore<T> {
   let value = load();
   const listeners = new Set<() => void>();
 
@@ -30,7 +30,7 @@ export function createPersistentStore<T>(key: string, fallback: T): PersistentSt
 
   function persist(): void {
     try {
-      localStorage.setItem(key, JSON.stringify(value));
+      localStorage.setItem(key, JSON.stringify(toPersist(value)));
     } catch {
       // storage full or unavailable — keep the in-memory value, drop persistence
     }
