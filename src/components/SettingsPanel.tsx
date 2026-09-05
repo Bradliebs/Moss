@@ -131,6 +131,10 @@ export function SettingsPanel({ onClose }: { onClose: () => void }): React.React
     }
   }
 
+  useEffect(() => {
+    void loadModels();
+  }, []);
+
   async function persistApiKey(apiKey: string): Promise<void> {
     setStatus("Saving API key...");
     try {

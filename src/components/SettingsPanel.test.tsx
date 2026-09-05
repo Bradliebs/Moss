@@ -105,6 +105,15 @@ describe("SettingsPanel", () => {
     expect(screen.getByRole("option", { name: "Custom" })).toBeDefined();
   });
 
+  it("refreshes the provider model list when settings opens", async () => {
+    window.moss.provider.listModels = vi.fn(() => Promise.resolve(["glm-5.3-flash:cloud"]));
+
+    render(<SettingsPanel onClose={() => {}} />);
+
+    await waitFor(() => expect(settings.modelsStore.set).toHaveBeenCalledWith(["glm-5.3-flash:cloud"]));
+    expect(window.moss.provider.listModels).toHaveBeenCalledWith({});
+  });
+
   it("applies a preset when the select changes", async () => {
     render(<SettingsPanel onClose={() => {}} />);
     await waitFor(() => expect(screen.getByText("No MCP servers configured or connected.")).toBeDefined());
