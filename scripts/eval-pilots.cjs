@@ -9,6 +9,10 @@ const {
 } = require("../dist-electron/electron/backend/moss/evals/representative-corpus.js");
 const { createRepresentativeGraderHealthProbes } = require("../dist-electron/electron/backend/moss/evals/grader-health.js");
 const { createTurnEvalExecutor } = require("../dist-electron/electron/backend/moss/evals/turn-eval-executor.js");
+const { DockerEvalSandboxBackend } = require("../dist-electron/electron/backend/moss/evals/sandbox-backend.js");
+const { validateTurnEvalCapabilities } = require("../dist-electron/electron/backend/moss/evals/sandbox-tools.js");
+const { selectExecutionCases, requiresEvalSandbox } = require("../dist-electron/electron/backend/moss/evals/execution-selection.js");
+const { allowedExecutionSplits, validateSplitExecution } = require("../dist-electron/electron/backend/moss/evals/split-policy.js");
 const { OpenAiCompatibleProvider } = require("../dist-electron/electron/backend/moss/providers/openai-compatible.js");
 const { TOOL_REGISTRY } = require("../dist-electron/electron/backend/moss/tools/index.js");
 
@@ -18,6 +22,18 @@ const apiKey = process.env.MOSS_EVAL_API_KEY;
 const repetitions = Number(process.env.MOSS_EVAL_REPETITIONS || "1");
 const corpus = process.env.MOSS_EVAL_CORPUS || "pilot";
 const experiment = process.env.MOSS_EVAL_EXPERIMENT || "approval";
+const executionSelection = process.env.MOSS_EVAL_EXECUTION || "local";
+const executionPolicy = {
+  purpose: process.env.MOSS_EVAL_PURPOSE || "iteration",
+  ...(process.env.MOSS_EVAL_MEASUREMENT ? { measurementName: process.env.MOSS_EVAL_MEASUREMENT } : {}),
+};
+const allowedSplits = allowedExecutionSplits(executionPolicy);
+const sandboxImage = process.env.MOSS_EVAL_SANDBOX_IMAGE;
+const sandboxNetwork = process.env.MOSS_EVAL_SANDBOX_NETWORK || "none";
+if (!["none", "bridge"].includes(sandboxNetwork)) throw new Error("MOSS_EVAL_SANDBOX_NETWORK must be none or bridge");
+if (sandboxNetwork === "bridge" && !sandboxImage) throw new Error("Network opt-in requires MOSS_EVAL_SANDBOX_IMAGE");
+if (sandboxImage) new DockerEvalSandboxBackend({ image: sandboxImage });
+if (![undefined, "0", "1"].includes(process.env.MOSS_EVAL_RETRY_INFRASTRUCTURE)) throw new Error("MOSS_EVAL_RETRY_INFRASTRUCTURE must be 0 or 1");
 const concurrency = Number(process.env.MOSS_EVAL_CONCURRENCY || "1");
 const providerConcurrency = Number(process.env.MOSS_EVAL_PROVIDER_CONCURRENCY || String(concurrency));
 const requestedSuites = (process.env.MOSS_EVAL_SUITES || "").split(",").map((suite) => suite.trim()).filter(Boolean);
@@ -42,23 +58,33 @@ if (!Number.isSafeInteger(concurrency) || concurrency < 1 || !Number.isSafeInteg
 const allCases = corpus === "representative"
   ? createRepresentativeCorpus(process.cwd())
   : createOfflinePilotCases(process.cwd());
-const cases = requestedSuites.length > 0
+const suiteCases = requestedSuites.length > 0
   ? allCases.filter((testCase) => requestedSuites.includes(testCase.suite))
   : allCases;
-if (cases.length === 0) throw new Error("Suite selection produced no evaluation cases");
-const fullRepresentativeCorpus = corpus === "representative" && requestedSuites.length === 0;
+const splitCases = suiteCases.filter((testCase) => allowedSplits.includes(testCase.split || "development"));
+for (const testCase of allCases) validateTurnEvalCapabilities(testCase.allowedCapabilities);
+function validateExecution() {
+  validateSplitExecution(selected.cases, executionPolicy, allCases);
+  if (selected.cases.some((testCase) => config.variants.some((variant) => requiresEvalSandbox(testCase, variant))) && !sandboxImage) {
+    throw new Error("Container cases require MOSS_EVAL_SANDBOX_IMAGE pinned by sha256 digest; use MOSS_EVAL_EXECUTION=local for Docker-free evaluation");
+  }
+}
+const fullRepresentativeCorpus = corpus === "representative";
 
-module.exports = {
+const config = {
+  executionPolicy,
+  validateExecution,
   evaluatorVersion: "moss-harness-v1",
   evaluatorArtifacts: corpus === "representative"
     ? getRepresentativeEvaluatorArtifacts(process.cwd())
     : getOfflinePilotEvaluatorArtifacts(process.cwd()),
-  cases: cases.map((testCase) => ({ ...testCase, repetitions })),
+  healthCases: allCases,
   corpusPolicy: fullRepresentativeCorpus ? REPRESENTATIVE_CORPUS_POLICY : undefined,
   graderHealthProbes: fullRepresentativeCorpus
-    ? createRepresentativeGraderHealthProbes(cases, process.cwd())
+    ? createRepresentativeGraderHealthProbes(allCases, process.cwd())
     : undefined,
   matrix: {
+    retryInfrastructureFailures: process.env.MOSS_EVAL_RETRY_INFRASTRUCTURE === "1",
     maxConcurrency: concurrency,
     providerConcurrency: { [baseUrl]: providerConcurrency },
   },
@@ -69,7 +95,7 @@ module.exports = {
     providerKind: "openai-compatible",
     model,
   }],
-  variants: experiment === "phase5-runtime" ? [
+  variants: (experiment === "phase5-runtime" ? [
     {
       schemaVersion: 1,
       id: "phase5-baseline",
@@ -93,6 +119,7 @@ module.exports = {
       promptProfile: "deterministic-production-v1",
       autoApprove: true,
       injectionMode: "flag",
+      contextLimit: 4000,
       maxRounds: 8,
       runtime: {
         contextStrategy: "compact",
@@ -121,17 +148,36 @@ module.exports = {
       injectionMode: "flag",
       maxRounds: 8,
     },
-  ],
+  ]).map((variant) => ({ ...variant, ...(sandboxImage ? { sandbox: { image: sandboxImage, allowNetwork: sandboxNetwork === "bridge" } } : {}) })),
   createExecutor(target, variant, workspaceRoot, context) {
+    validateExecution();
     return createTurnEvalExecutor({
       provider: new OpenAiCompatibleProvider(baseUrl, apiKey),
       model: target.model,
+      maxOutputTokens: target.generation?.maxOutputTokens,
       toolRegistry: TOOL_REGISTRY,
       workspaceRoot: () => workspaceRoot,
-      requestApproval: async () => true,
+      requestApproval: async () => ({ approved: true }),
       promptNow: () => new Date(2026, 6, 23, 12),
       variant,
       signal: context?.signal,
+      diagnostics: context?.diagnostics,
     });
+  },
+};
+
+const selected = selectExecutionCases(splitCases, config.variants, executionSelection);
+if (selected.cases.length === 0) throw new Error("Execution and suite selections produced no evaluation cases");
+module.exports = {
+  ...config,
+  cases: selected.cases.map((testCase) => ({ ...testCase, repetitions })),
+  executionCoverage: {
+    selection: executionSelection,
+    corpusCaseIds: allCases.map((testCase) => testCase.id),
+    excluded: [
+      ...allCases.filter((testCase) => !suiteCases.includes(testCase)).map((testCase) => ({ caseId: testCase.id, reason: "suite-filter" })),
+      ...suiteCases.filter((testCase) => !splitCases.includes(testCase)).map((testCase) => ({ caseId: testCase.id, reason: "split-filter" })),
+      ...selected.excluded,
+    ],
   },
 };

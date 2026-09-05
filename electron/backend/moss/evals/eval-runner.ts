@@ -1,6 +1,7 @@
 import type {
   EvalAdmission,
   EvalCase,
+  EvalExecutionPolicy,
   EvalCriterionResult,
   EvalExecutionObservation,
   EvalExecutionFailureSource,
@@ -17,6 +18,7 @@ import type { TaskBudget, TaskEvidence } from "../../../../common/types";
 import type { VerificationCheck } from "../../../../common/verification";
 import { VerificationRegistry } from "../verify/verification-registry";
 import { attributeEvalFailure, countFailureAttributions } from "./failure-attribution";
+import { validateSplitExecution } from "./split-policy";
 import {
   runRubricGrader,
   unknownRubricAssessment,
@@ -52,6 +54,8 @@ export interface EvalExecutionResult {
 export type EvalExecutor = (testCase: EvalCase, repetition: number) => Promise<EvalExecutionResult>;
 
 export interface EvalRunnerOptions {
+  executionPolicy?: EvalExecutionPolicy;
+  corpusCases?: readonly EvalCase[];
   now?: () => Date;
   registry?: VerificationRegistry;
   rubricGrader?: EvalRubricGrader;
@@ -66,6 +70,8 @@ export class EvalRunner {
   private readonly now: () => Date;
   private readonly registry: VerificationRegistry;
   private readonly rubricGrader?: EvalRubricGrader;
+  private readonly executionPolicy: EvalExecutionPolicy;
+  private readonly corpusCases?: readonly EvalCase[];
 
   constructor(
     private readonly execute: EvalExecutor,
@@ -74,10 +80,13 @@ export class EvalRunner {
     this.now = options.now ?? (() => new Date());
     this.registry = options.registry ?? new VerificationRegistry();
     this.rubricGrader = options.rubricGrader;
+    this.executionPolicy = structuredClone(options.executionPolicy ?? { purpose: "iteration" });
+    this.corpusCases = options.corpusCases;
     if (this.rubricGrader) validateRubricGrader(this.rubricGrader);
   }
 
   async run(cases: readonly EvalCase[]): Promise<EvalReport> {
+    validateSplitExecution(cases, this.executionPolicy, this.corpusCases);
     const results: EvalRunResult[] = [];
     const caseIds = new Set<string>();
     for (const testCase of cases) {
@@ -142,6 +151,16 @@ export class EvalRunner {
 }
 
 export function validateCase(testCase: EvalCase): void {
+  if (testCase.split !== undefined && !["development", "validation", "holdout"].includes(testCase.split)) {
+    throw new Error("Unknown evaluation dataset split");
+  }
+  if (testCase.estimatedHumanMinutes !== undefined
+    && (!Number.isFinite(testCase.estimatedHumanMinutes) || testCase.estimatedHumanMinutes <= 0)) {
+    throw new Error("Estimated human minutes must be finite and positive");
+  }
+  if (testCase.taskMessiness !== undefined && !["low", "medium", "high"].includes(testCase.taskMessiness)) {
+    throw new Error("Task messiness must be low, medium or high");
+  }
   if (testCase.schemaVersion !== 1) throw new Error(`Unsupported eval schema version '${testCase.schemaVersion}'`);
   if (!/^[a-zA-Z0-9._-]{1,128}$/.test(testCase.id)) throw new Error("Eval case id must be a safe identifier");
   if (testCase.family !== undefined && !/^[a-zA-Z0-9._-]{1,128}$/.test(testCase.family)) {
@@ -182,7 +201,48 @@ export function validateCase(testCase: EvalCase): void {
   if (testCase.repetitions !== undefined && (!Number.isInteger(testCase.repetitions) || testCase.repetitions < 1)) {
     throw new Error(`Eval case '${testCase.id}' repetitions must be a positive integer`);
   }
+  validateScenarioPlan(testCase);
   validateBenchmarkControls(testCase);
+}
+
+function validateScenarioPlan(testCase: EvalCase): void {
+  const scenario = testCase.scenario;
+  if (!scenario) return;
+  if (scenario.schemaVersion !== 1) throw new Error(`Eval case '${testCase.id}' has an unsupported scenario schema`);
+  if (scenario.approvalFallback !== undefined && scenario.approvalFallback !== "delegate" && scenario.approvalFallback !== "deny") {
+    throw new Error(`Eval case '${testCase.id}' has an invalid scenario approval fallback`);
+  }
+  const ids = new Set<string>();
+  const targets = new Set<string>();
+  for (const disturbance of scenario.disturbances) {
+    if (!/^[a-zA-Z0-9._-]{1,128}$/.test(disturbance.id) || ids.has(disturbance.id)) {
+      throw new Error(`Eval case '${testCase.id}' has a duplicate or unsafe scenario disturbance id`);
+    }
+    ids.add(disturbance.id);
+    if (disturbance.type === "context-pressure") {
+      if (!Number.isInteger(disturbance.messageCount) || disturbance.messageCount < 1 || disturbance.messageCount > 64
+        || !Number.isInteger(disturbance.charactersPerMessage) || disturbance.charactersPerMessage < 1
+        || disturbance.charactersPerMessage > 20_000) {
+        throw new Error(`Eval case '${testCase.id}' has invalid context-pressure bounds`);
+      }
+      continue;
+    }
+    if (!Number.isInteger(disturbance.invocation) || disturbance.invocation < 1) {
+      throw new Error(`Eval case '${testCase.id}' scenario invocations must be positive integers`);
+    }
+    if ("capability" in disturbance && !testCase.allowedCapabilities.includes(disturbance.capability)) {
+      throw new Error(`Eval case '${testCase.id}' scenario targets disallowed capability '${disturbance.capability}'`);
+    }
+    if (disturbance.type === "approval-response" && disturbance.comment !== undefined
+      && (!disturbance.comment.trim() || disturbance.comment.length > 500)) {
+      throw new Error(`Eval case '${testCase.id}' approval comments must contain 1-500 characters`);
+    }
+    const target = disturbance.type === "provider-interruption"
+      ? `${disturbance.type}:${disturbance.invocation}`
+      : `${disturbance.type}:${disturbance.capability}:${disturbance.invocation}`;
+    if (targets.has(target)) throw new Error(`Eval case '${testCase.id}' has duplicate scenario target '${target}'`);
+    targets.add(target);
+  }
 }
 
 function validateBenchmarkControls(testCase: EvalCase): void {

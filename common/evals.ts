@@ -14,6 +14,10 @@ export type EvalProfile = "coding" | "personal" | "platform";
 export type EvalDifficulty = "smoke" | "standard" | "hard";
 export type EvalSuitePurpose = "capability" | "regression" | "challenge";
 export type EvalDatasetSplit = "development" | "validation" | "holdout";
+export interface EvalExecutionPolicy {
+  purpose: "iteration" | "promotion" | "release";
+  measurementName?: string;
+}
 export type EvalFamilyRole = "positive" | "negative";
 export type EvalProductDomain =
   | "coding"
@@ -56,6 +60,49 @@ export interface EvalPerturbationMetadata {
   class: EvalPerturbationClass;
   expectedDecision: "same" | "changed";
   canonicalCaseId: string;
+}
+
+export interface EvalApprovalResponseDisturbance {
+  id: string;
+  type: "approval-response";
+  capability: string;
+  invocation: number;
+  approved: boolean;
+  comment?: string;
+}
+
+export interface EvalToolFailureDisturbance {
+  id: string;
+  type: "tool-failure";
+  capability: string;
+  invocation: number;
+  failure: "transient" | "permanent";
+}
+
+export interface EvalProviderInterruptionDisturbance {
+  id: string;
+  type: "provider-interruption";
+  invocation: number;
+  phase: "before-output" | "after-output";
+}
+
+export interface EvalContextPressureDisturbance {
+  id: string;
+  type: "context-pressure";
+  messageCount: number;
+  charactersPerMessage: number;
+}
+
+export type EvalScenarioDisturbance =
+  | EvalApprovalResponseDisturbance
+  | EvalToolFailureDisturbance
+  | EvalProviderInterruptionDisturbance
+  | EvalContextPressureDisturbance;
+
+export interface EvalScenarioPlan {
+  schemaVersion: 1;
+  approvalFallback?: "delegate" | "deny";
+  disturbances: EvalScenarioDisturbance[];
 }
 
 export interface EvalDatasetLineage {
@@ -101,6 +148,7 @@ export interface HarnessVariant {
   verify?: VerifyConfig;
   budget?: TaskBudget;
   runtime?: HarnessRuntimeControls;
+  sandbox?: { image: string; allowNetwork?: boolean };
 }
 
 /** Model identity is separate so every target can run under every variant. */
@@ -110,6 +158,9 @@ export interface EvalModelTarget {
   providerId: string;
   providerKind: ProviderKind;
   model: string;
+  generation?: {
+    maxOutputTokens?: number;
+  };
 }
 
 export interface EvalSecurityPolicy {
@@ -122,6 +173,7 @@ export interface EvalSecurityPolicy {
 export interface EvalBenchmarkControls {
   expectedCapabilities?: string[];
   forbiddenCapabilities?: string[];
+  requireVerificationBeforeCompletion?: boolean;
   security?: EvalSecurityPolicy;
   budget?: TaskBudget;
 }
@@ -145,10 +197,13 @@ export type HarnessTraceEvent =
   | { type: "round-end"; round: number; toolCallCount: number; finish: "tools" | "complete" | "rejected" | "error" }
   | { type: "tool-call"; callId: string; name: string; argumentHash: string }
   | { type: "approval-requested"; callId: string; name: string; risk?: ToolRisk }
+  | { type: "approval-decision"; callId: string; approved: boolean; commentProvided: boolean }
   | { type: "tool-result"; callId: string; name: string; ok: boolean; autoApproved: boolean; risk?: ToolRisk; durationMs?: number }
   | { type: "verification"; ok: boolean; checkCount: number; failedCheckHash?: string }
+  | { type: "budget-boundary"; boundary: "actions" | "tokens" | "cost" | "duration"; limit: number; observed: number }
   | { type: "context-compaction"; reason: "proactive" | "overflow"; droppedCount: number }
   | { type: "recovery"; action: string; attempt: number; classification?: string; outcome?: "attempted" | "succeeded" | "terminal"; sourceCallId?: string }
+  | { type: "scenario-disturbance"; id: string; disturbanceType: EvalScenarioDisturbance["type"]; status: "planned" | "delivered" | "undelivered" }
   | { type: "terminal"; state: HarnessTraceTerminalState };
 
 export type HarnessTraceEnvelopeEvent = HarnessTraceEvent & {
@@ -197,11 +252,29 @@ export interface HarnessProcessScores {
   consistency: number;
 }
 
+export interface HarnessMechanismMetric {
+  passed: number;
+  total: number;
+  rate: number | null;
+  applicable: boolean;
+}
+
+export interface HarnessMechanismScores {
+  outcomeCompletion: HarnessMechanismMetric;
+  protectedStateIntegrity: HarnessMechanismMetric;
+  approvalHandling: HarnessMechanismMetric;
+  recoverySuccess: HarnessMechanismMetric;
+  verificationBeforeCompletion: HarnessMechanismMetric;
+  budgetCompliance: HarnessMechanismMetric;
+  forbiddenExecution: HarnessMechanismMetric;
+}
+
 export interface HarnessRunScore {
   completion: number;
   mandatoryCompletion: boolean;
   securityPassed: boolean;
   securityViolations: string[];
+  mechanisms?: HarnessMechanismScores;
   process: HarnessProcessScores;
   /** Paper-inspired diagnostic only; not a deployment-safety guarantee. */
   diagnosticComposite: number;
@@ -213,6 +286,8 @@ export interface EvalCase {
   id: string;
   profile: EvalProfile;
   difficulty: EvalDifficulty;
+  estimatedHumanMinutes?: number;
+  taskMessiness?: "low" | "medium" | "high";
   suite?: EvalSuitePurpose;
   split?: EvalDatasetSplit;
   family?: string;
@@ -220,6 +295,7 @@ export interface EvalCase {
   familyRole?: EvalFamilyRole;
   domain?: EvalProductDomain;
   perturbation?: EvalPerturbationMetadata;
+  scenario?: EvalScenarioPlan;
   lineage?: EvalDatasetLineage;
   provenance?: EvalCaseProvenance;
   task: TaskSpec;
@@ -329,6 +405,11 @@ export interface HarnessRubricHumanLabels {
   labels: Record<string, Exclude<EvalRubricLabel, "unknown">>;
 }
 
+export interface HarnessDiagnosticReference {
+  schemaVersion: 1;
+  sha256: string;
+}
+
 export interface HarnessMatrixCellResult {
   caseId: string;
   targetId: string;
@@ -337,6 +418,8 @@ export interface HarnessMatrixCellResult {
   result: EvalRunResult;
   trace?: HarnessExecutionTrace;
   diagnosticReview?: HarnessDiagnosticReview;
+  diagnostics?: HarnessDiagnosticReference;
+  infrastructureRetries?: Array<{ runId: string; completedAt: string; diagnostics?: HarnessDiagnosticReference }>;
   promptProvenance?: EvalPromptProvenance;
   harnessScore?: HarnessRunScore;
   protectedInputHashesBefore: Record<string, string>;
@@ -344,13 +427,33 @@ export interface HarnessMatrixCellResult {
   protectedInputsIntact: boolean;
 }
 
+export interface HarnessExecutionCoverage {
+  selection: "local" | "container" | "full";
+  corpusCaseIds: string[];
+  excluded: Array<{ caseId: string; reason: "requires-container" | "local-case" | "suite-filter" | "split-filter" }>;
+}
+
 export interface HarnessMatrixManifest {
+  executionPolicy?: EvalExecutionPolicy;
+  splitCorpusHash?: string;
+  executionCoverage?: HarnessExecutionCoverage;
   evaluatorVersion: string;
   caseIds: string[];
   caseSuites?: Record<string, EvalSuitePurpose>;
+  caseFamilies?: Record<string, string>;
   targetIds: string[];
   variantIds: string[];
   promptProfiles?: string[];
+  targetConfigurations?: readonly EvalModelTarget[];
+  variantConfigurations?: readonly HarnessVariant[];
+  scenarioPlanHash?: string;
+  runtime?: {
+    nodeVersion: string;
+    platform: NodeJS.Platform;
+    architecture: string;
+    sourceRevision?: string;
+  };
+  sandboxImageDigest?: string;
   evaluatorArtifactHash?: string;
   caseSetHash: string;
   targetSetHash: string;
@@ -364,6 +467,7 @@ export interface HarnessAggregateMetrics {
   completionRate: number;
   securityPasses: number;
   securityPassRate: number;
+  mechanisms?: HarnessMechanismScores;
   protectedInputsIntact: number;
   averageRobustness: number;
   averageToolUse: number;
@@ -403,6 +507,7 @@ export interface HarnessReliabilityMetrics {
 }
 
 export interface HarnessMatrixSummary {
+  corpusDiagnostics?: Record<string, HarnessCorpusDiagnostics>;
   overall: HarnessAggregateMetrics;
   reliability?: HarnessReliabilityMetrics;
   byTargetVariant: Record<string, HarnessAggregateMetrics>;
@@ -452,7 +557,9 @@ export interface HarnessReportDiff {
   baselineGeneratedAt: string;
   candidateGeneratedAt: string;
   passed: boolean;
+  /** @deprecated Compatibility diagnostic only; use pairedNonInferiority for release decisions. */
   pairedCompletion: HarnessPairedRateDelta;
+  pairedNonInferiority: HarnessPairedNonInferiority;
   cells: HarnessCellDiff[];
   criteria: HarnessCriterionDiff[];
   regressions: string[];
@@ -506,4 +613,33 @@ export interface HarnessPairedRateDelta {
   improved: number;
   regressed: number;
   unchanged: number;
+}
+
+export interface HarnessPairedNonInferiority extends HarnessPairedRateDelta {
+  confidence: 0.95;
+  lower: number;
+  upper: number;
+  margin: number;
+  nonInferior: boolean;
+  resamples: number;
+  unit: "family-case-rate" | "case-rate";
+}
+
+export interface HarnessCorpusDiagnostics {
+  scope: "full-corpus" | "partial-or-unknown";
+  byHumanDuration: Record<"up-to-5m" | "5-to-30m" | "30-to-120m" | "over-120m" | "unknown", {
+    cases: number;
+    trials: number;
+    successes: number;
+    successRate: number | null;
+  }>;
+  capabilitySaturation: {
+    status: "insufficient-support" | "not-saturated" | "saturation-signal";
+    cases: number;
+    families: number;
+    minimumTrialsPerCase: number;
+    caseAveragedSuccess: number | null;
+    harnessFailures: number;
+    policy: { minimumCases: number; minimumFamilies: number; minimumTrials: number; successThreshold: number };
+  };
 }

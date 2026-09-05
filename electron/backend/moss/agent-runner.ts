@@ -78,6 +78,8 @@ export interface RunTurnOptions {
   checkpoint?: CheckpointRecorder;
   /** verification commands run after a round that mutated files */
   verify?: VerifyConfig;
+  onVerification?: (result: VerifyResult) => void;
+  verificationRunner?: typeof runVerify;
   /** tool-round cap; defaults to MAX_ROUNDS, raised when verify is enabled so
    *  the fix/verify cycle has room to converge. */
   maxRounds?: number;
@@ -432,10 +434,11 @@ export async function runTurn(opts: RunTurnOptions): Promise<void> {
       // tool_result stays valid for both providers. A notice surfaces it live.
       if (mutatedThisRound && verifyCyclesLeft > 0 && lastConvToolMsg && !signal.aborted) {
         verifyCyclesLeft--;
-        const verifyResult = await runVerify(verifyCommands, opts.workspaceRoot, signal, {
+        const verifyResult = await (opts.verificationRunner ?? runVerify)(verifyCommands, opts.workspaceRoot, signal, {
           commandTimeoutMs: opts.toolTimeoutMs,
         });
         latestVerification = verifyResult;
+        opts.onVerification?.(verifyResult);
         const report = formatVerifyReport(verifyResult);
         if (report) {
           lastConvToolMsg.content = `${lastConvToolMsg.content}\n\n${report}`;

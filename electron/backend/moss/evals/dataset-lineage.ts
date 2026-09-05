@@ -99,6 +99,8 @@ function caseContentHash(testCase: EvalCase): string {
     id: testCase.id,
     profile: testCase.profile,
     difficulty: testCase.difficulty,
+    estimatedHumanMinutes: testCase.estimatedHumanMinutes,
+    taskMessiness: testCase.taskMessiness,
     suite: testCase.suite,
     split: testCase.split,
     family: testCase.family,

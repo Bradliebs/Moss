@@ -42,11 +42,11 @@ class ToolCallingProvider implements ChatProvider {
   readonly kind = "deterministic";
   private round = 0;
 
-  constructor(private readonly toolName = "read_file") {}
+  constructor(private readonly toolName = "read_file", private readonly callCount = 1) {}
 
   async *streamChat(): AsyncIterable<ProviderStreamEvent> {
-    if (this.round++ === 0) {
-      yield { type: "tool-call", toolCall: { id: "call-1", name: this.toolName, arguments: "{}" } };
+    if (this.round++ < this.callCount) {
+      yield { type: "tool-call", toolCall: { id: `call-${this.round}`, name: this.toolName, arguments: "{}" } };
       return;
     }
     yield { type: "text-delta", text: "inspection complete" };
@@ -113,6 +113,7 @@ describe("createTurnEvalExecutor", () => {
     const execute = createTurnEvalExecutor({
       provider,
       model: "fixture-model",
+      maxOutputTokens: 2_048,
       toolRegistry: new Map(),
       workspaceRoot: () => "",
       now: () => times.shift()!,
@@ -127,6 +128,7 @@ describe("createTurnEvalExecutor", () => {
     expect(provider.requests[0].messages[0].content).toContain("The current local date is 2026-07-13");
     expect(provider.requests[1].messages[0].content).toContain("The current local date is 2026-07-13");
     expect(provider.requests[0].messages[1].content).toBe(TEST_CASE.task.objective);
+    expect(provider.requests[0].maxTokens).toBe(2_048);
     expect(first.promptProvenance).toEqual({
       profile: "deterministic-production-v1",
       seededMessagesHash: expect.stringMatching(/^[a-f0-9]{64}$/),
@@ -221,6 +223,330 @@ describe("createTurnEvalExecutor", () => {
     expect(report.overall.admissions).toMatchObject({ attempted: 1, approved: 0, verified: 1 });
   });
 
+  it("fails loudly when an untyped approval callback returns the wrong shape", async () => {
+    const tool: Tool = {
+      name: "write_file",
+      description: "Mutate the disposable fixture",
+      parameters: { type: "object", properties: {} },
+      execute: async () => ({ ok: true, content: "fixture changed" }),
+    };
+    const execute = createTurnEvalExecutor({
+      provider: new ToolCallingProvider(tool.name),
+      model: "fixture-model",
+      toolRegistry: new Map([[tool.name, tool]]),
+      workspaceRoot: () => "",
+      requestApproval: (async () => true) as never,
+    });
+
+    const result = await execute({ ...TEST_CASE, allowedCapabilities: [tool.name] }, 0);
+
+    expect(result.observation).toMatchObject({
+      outcome: "failed",
+      failureReason: "Evaluation approval callback must return { approved: boolean }",
+    });
+  });
+
+  it("delivers a declarative approval denial through the production gate", async () => {
+    let executions = 0;
+    const tool: Tool = {
+      name: "write_file",
+      description: "Mutate the disposable fixture",
+      parameters: { type: "object", properties: {} },
+      execute: async () => {
+        executions++;
+        return { ok: true, content: "fixture changed" };
+      },
+    };
+    const execute = createTurnEvalExecutor({
+      provider: new ToolCallingProvider(tool.name),
+      model: "fixture-model",
+      toolRegistry: new Map([[tool.name, tool]]),
+      workspaceRoot: () => "",
+      autoApprove: true,
+    });
+
+    const result = await execute({
+      ...TEST_CASE,
+      allowedCapabilities: [tool.name],
+      scenario: {
+        schemaVersion: 1,
+        disturbances: [{
+          id: "deny-write-1",
+          type: "approval-response",
+          capability: tool.name,
+          invocation: 1,
+          approved: false,
+          comment: "Do not overwrite the protected fixture",
+        }],
+      },
+    }, 0);
+
+    expect(executions).toBe(0);
+    expect(result.observation.admissions).toEqual(expect.arrayContaining(["attempted", "blocked"]));
+    expect(result.trace?.events).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: "scenario-disturbance", id: "deny-write-1", status: "planned" }),
+      expect.objectContaining({ type: "scenario-disturbance", id: "deny-write-1", status: "delivered" }),
+      expect.objectContaining({ type: "approval-decision", approved: false, commentProvided: true }),
+    ]));
+    expect(JSON.stringify(result.trace)).not.toContain("protected fixture");
+  });
+
+  it("delegates unmatched approval invocations unless fallback denial is explicit", async () => {
+    let executions = 0;
+    let delegatedApprovals = 0;
+    const tool: Tool = {
+      name: "write_file",
+      description: "Mutate the disposable fixture",
+      parameters: { type: "object", properties: {} },
+      execute: async () => {
+        executions++;
+        return { ok: true, content: "fixture changed" };
+      },
+    };
+    const execute = createTurnEvalExecutor({
+      provider: new ToolCallingProvider(tool.name, 2),
+      model: "fixture-model",
+      toolRegistry: new Map([[tool.name, tool]]),
+      workspaceRoot: () => "",
+      requestApproval: async () => {
+        delegatedApprovals++;
+        return { approved: false };
+      },
+    });
+
+    await execute({
+      ...TEST_CASE,
+      allowedCapabilities: [tool.name],
+      scenario: {
+        schemaVersion: 1,
+        disturbances: [{
+          id: "approve-write-1",
+          type: "approval-response",
+          capability: tool.name,
+          invocation: 1,
+          approved: true,
+        }],
+      },
+    }, 0);
+
+    expect(executions).toBe(1);
+    expect(delegatedApprovals).toBe(1);
+  });
+
+  it("injects a transient tool failure on the selected invocation and observes recovery", async () => {
+    let executions = 0;
+    const tool: Tool = {
+      name: "read_file",
+      description: "Inspect the disposable fixture",
+      parameters: { type: "object", properties: {} },
+      execute: async () => {
+        executions++;
+        return { ok: true, content: "fixture inspected" };
+      },
+    };
+    const execute = createTurnEvalExecutor({
+      provider: new ToolCallingProvider(tool.name),
+      model: "fixture-model",
+      toolRegistry: new Map([[tool.name, tool]]),
+      workspaceRoot: () => "",
+    });
+
+    const result = await execute({
+      ...TEST_CASE,
+      allowedCapabilities: [tool.name],
+      scenario: {
+        schemaVersion: 1,
+        disturbances: [{
+          id: "transient-read-1",
+          type: "tool-failure",
+          capability: tool.name,
+          invocation: 1,
+          failure: "transient",
+        }],
+      },
+    }, 0);
+
+    expect(executions).toBe(1);
+    expect(result.observation.admissions).toContain("attempted");
+    expect(result.trace?.events).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: "scenario-disturbance", id: "transient-read-1", status: "delivered" }),
+      expect.objectContaining({ type: "recovery", outcome: "attempted" }),
+      expect.objectContaining({ type: "recovery", outcome: "succeeded" }),
+    ]));
+  });
+
+  it("attributes an undelivered disturbance to harness orchestration", async () => {
+    const execute = createTurnEvalExecutor({
+      provider: new DeterministicProvider(),
+      model: "fixture-model",
+      toolRegistry: new Map(),
+      workspaceRoot: () => "",
+    });
+
+    const result = await execute({
+      ...TEST_CASE,
+      allowedCapabilities: ["write_file"],
+      scenario: {
+        schemaVersion: 1,
+        disturbances: [{
+          id: "missing-write",
+          type: "approval-response",
+          capability: "write_file",
+          invocation: 1,
+          approved: false,
+        }],
+      },
+    }, 0);
+
+    expect(result).toMatchObject({
+      failureSource: "harness-orchestration",
+      observation: {
+        outcome: "failed",
+        failureReason: "Planned scenario disturbance 'missing-write' was not delivered",
+      },
+    });
+    expect(result.trace?.events).toContainEqual(expect.objectContaining({
+      type: "scenario-disturbance",
+      id: "missing-write",
+      status: "undelivered",
+    }));
+    expect(result.trace?.terminalState).toBe("error");
+    expect(result.trace?.events.at(-1)).toMatchObject({ type: "terminal", state: "error" });
+  });
+
+  it("injects a permanent tool failure without invoking the underlying tool", async () => {
+    let executions = 0;
+    const tool: Tool = {
+      name: "read_file",
+      description: "Inspect the disposable fixture",
+      parameters: { type: "object", properties: {} },
+      execute: async () => {
+        executions++;
+        return { ok: true, content: "fixture inspected" };
+      },
+    };
+    const execute = createTurnEvalExecutor({
+      provider: new ToolCallingProvider(tool.name),
+      model: "fixture-model",
+      toolRegistry: new Map([[tool.name, tool]]),
+      workspaceRoot: () => "",
+    });
+
+    const result = await execute({
+      ...TEST_CASE,
+      allowedCapabilities: [tool.name],
+      scenario: {
+        schemaVersion: 1,
+        disturbances: [{
+          id: "permanent-read-1",
+          type: "tool-failure",
+          capability: tool.name,
+          invocation: 1,
+          failure: "permanent",
+        }],
+      },
+    }, 0);
+
+    expect(executions).toBe(0);
+    expect(result.trace?.toolCalls[0]).toMatchObject({ name: tool.name, ok: false });
+    expect(result.trace?.events).toContainEqual(expect.objectContaining({
+      type: "scenario-disturbance",
+      id: "permanent-read-1",
+      status: "delivered",
+    }));
+  });
+
+  it("interrupts the provider after output and preserves provider attribution", async () => {
+    const execute = createTurnEvalExecutor({
+      provider: new DeterministicProvider(),
+      model: "fixture-model",
+      toolRegistry: new Map(),
+      workspaceRoot: () => "",
+    });
+
+    const result = await execute({
+      ...TEST_CASE,
+      scenario: {
+        schemaVersion: 1,
+        disturbances: [{
+          id: "interrupt-output-1",
+          type: "provider-interruption",
+          invocation: 1,
+          phase: "after-output",
+        }],
+      },
+    }, 0);
+
+    expect(result.failureSource).toBe("provider-model");
+    expect(result.observation.outcome).toBe("failed");
+    expect(result.trace?.events).toContainEqual(expect.objectContaining({
+      type: "scenario-disturbance",
+      id: "interrupt-output-1",
+      status: "delivered",
+    }));
+  });
+
+  it("retries a provider interruption delivered before output", async () => {
+    const execute = createTurnEvalExecutor({
+      provider: new DeterministicProvider(),
+      model: "fixture-model",
+      toolRegistry: new Map(),
+      workspaceRoot: () => "",
+    });
+
+    const result = await execute({
+      ...TEST_CASE,
+      scenario: {
+        schemaVersion: 1,
+        disturbances: [{
+          id: "interrupt-before-1",
+          type: "provider-interruption",
+          invocation: 1,
+          phase: "before-output",
+        }],
+      },
+    }, 0);
+
+    expect(result.observation.outcome).toBe("completed");
+    expect(result.failureSource).toBeUndefined();
+    expect(result.trace?.events).toContainEqual(expect.objectContaining({
+      type: "scenario-disturbance",
+      id: "interrupt-before-1",
+      status: "delivered",
+    }));
+  });
+
+  it("seeds bounded context pressure without copying it into the trace", async () => {
+    const provider = new DeterministicProvider();
+    const execute = createTurnEvalExecutor({
+      provider,
+      model: "fixture-model",
+      toolRegistry: new Map(),
+      workspaceRoot: () => "",
+    });
+
+    const result = await execute({
+      ...TEST_CASE,
+      scenario: {
+        schemaVersion: 1,
+        disturbances: [{
+          id: "context-setup-1",
+          type: "context-pressure",
+          messageCount: 4,
+          charactersPerMessage: 64,
+        }],
+      },
+    }, 0);
+
+    expect(provider.requests[0].messages).toHaveLength(6);
+    expect(result.trace?.events).toContainEqual(expect.objectContaining({
+      type: "scenario-disturbance",
+      id: "context-setup-1",
+      status: "delivered",
+    }));
+    expect(JSON.stringify(result.trace)).not.toContain("scenario-context");
+  });
+
   it("applies a harness variant and returns a trace from the production loop", async () => {
     const tool: Tool = {
       name: "write_file",
@@ -265,6 +591,7 @@ describe("createTurnEvalExecutor", () => {
         schemaVersion: 1,
         id: "reviewed",
         description: "Diagnostic reviewer",
+        contextLimit: 4_000,
         runtime: {
           contextStrategy: "compact",
           planningPolicy: "incremental",
@@ -308,8 +635,14 @@ describe("createTurnEvalExecutor", () => {
     expect(result.observation.outcome).toBe("budget-exhausted");
     expect(result.observation.failureReason).toBe("token budget of 10 exceeded");
     expect(result.observation.admissions).toContain("budget-exhausted");
-      expect(result.trace?.terminalState).toBe("budget-exhausted");
-      expect(result.trace?.events.at(-1)).toMatchObject({ type: "terminal", state: "budget-exhausted" });
+    expect(result.trace?.events).toContainEqual(expect.objectContaining({
+      type: "budget-boundary",
+      boundary: "tokens",
+      limit: 10,
+      observed: 15,
+    }));
+    expect(result.trace?.terminalState).toBe("budget-exhausted");
+    expect(result.trace?.events.at(-1)).toMatchObject({ type: "terminal", state: "budget-exhausted" });
   });
 
   it("preserves provider failures in the observation", async () => {
